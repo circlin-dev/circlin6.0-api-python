@@ -12,9 +12,9 @@ from pypika import MySQLQuery as Query, Criterion, functions as fn
 def board():
     connection = db_connection()
     cursor = get_dict_cursor(connection)
-    endpoint = API_ROOT + url_for('api.food')
+    endpoint = API_ROOT + url_for('api.board')
 
-    sql =  Query.from_(
+    sql = Query.from_(
         Versions
     ).select(
         fn.Count(Versions.id).as_('total_count')
