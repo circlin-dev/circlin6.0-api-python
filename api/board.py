@@ -9,7 +9,7 @@ from pypika import MySQLQuery as Query, Criterion, functions as fn
 
 
 # region 게시물
-# 전체 조회, 등록
+# 전체 조회
 @api.route('/board', methods=['GET'])
 def get_boards():
     connection = db_connection()
@@ -21,6 +21,13 @@ def get_boards():
     return 'GET_boards', 200
 
 
+# 단건 조회(상세 조회)
+@api.route('/board/<board_id>', methos=['GET'])
+def get_a_board():
+    return 'GET_board', 200
+
+
+# 등록
 @api.route('/board', methods=['POST'])
 def get_boards():
     connection = db_connection()
@@ -31,24 +38,20 @@ def get_boards():
     # return json.dumps(result, ensure_ascii=False), 200
 
 
-
-# 단건 조회(상세 조회)
-@api.rotue('/board/<board_id>', methos=['GET'])
-def get_a_board():
-    return 'GET_board', 200
-
-
 # 팔로워가 쓴 최신 글 조회
+@api.route('/board/follower', methos=['GET'])
+def get_a_board():
+    return 'GET_follower\'s board', 200
 
 
 # 게시글 수정
-@api.rotue('/board/<board_id>', methos=['PATCH'])
+@api.route('/board/<board_id>', methos=['PATCH'])
 def update_a_board():
     return 'PATCH_board', 200
 
 
 # 게시글 삭제
-@api.rotue('/board/<board_id>', methos=['DELETE'])
+@api.route('/board/<board_id>', methos=['DELETE'])
 def update_a_board():
     return 'DELETE_board', 200
 # endregion
@@ -77,7 +80,7 @@ def update_a_board():
 
 # region 카테고리
 # 카테고리 조회
-@api.rotue('/board/category', methos=['GET'])
+@api.route('/board/category', methos=['GET'])
 def get_board_categories():
     return 'GET_categories', 200
 
