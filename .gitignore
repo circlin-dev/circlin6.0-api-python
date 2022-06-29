@@ -127,3 +127,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+./global_configuration/database.py
+./temp
+./execution_log.log
