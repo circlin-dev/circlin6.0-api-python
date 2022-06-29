@@ -1,4 +1,4 @@
-# from api import api
+from api import api
 from flask import Flask, request
 from flask_cors import CORS
 import logging
@@ -17,19 +17,7 @@ app.logger.setLevel(gunicorn_logger.level)
 
 
 # API configuration
-# app.register_blueprint(api, url_prefix='/api')
-
-
-# # Database configuration
-# engine = create_engine(f"mysql+pymysql://{DATABASE['user']}:{DATABASE['password']}@{DATABASE['host']}:{DATABASE['port']}/{DATABASE['scheme']}?charset={DATABASE['charset']}",
-#                        encoding='utf-8',
-#                        max_overflow=0,
-#                        convert_unicode=True)
-# db_session = scoped_session(sessionmaker(autocommit=False,
-#                                          autoflush=False,
-#                                          bind=engine))
-# Base = declarative_base()
-# Base.query = db_session.query_property()
+app.register_blueprint(api, url_prefix='/api')
 
 
 @app.route('/')
