@@ -21,7 +21,7 @@ def board():
     ).get_sql()
 
     cursor.execute(sql)
-    result = {'count: ', cursor.fetchall()}
+    result = {'count': cursor.fetchall()}
     connection.close()
 
     return json.dumps(result, ensure_ascii=False), 200
