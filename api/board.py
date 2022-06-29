@@ -1,4 +1,4 @@
-from global_configuration.table import Board, Versions
+from global_configuration.table import Boards, Versions
 from . import api
 from global_configuration.constants import API_ROOT
 from global_configuration.helper import db_connection, get_dict_cursor, authenticate, return_json, upload_single_image_to_s3
