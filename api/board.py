@@ -81,13 +81,11 @@ def post_a_board():
         cursor.execute(sql)
         connection.commit()
         board_id = int(cursor.lastrowid)
-        # connection.close()
-        #
-        # result = {'result': True, 'boardId': board_id}
         # return json.dumps(result, ensure_ascii=False), 200
     except Exception as e:
         connection.close()
         result = {'result': False, 'error': f'서버 오류로 게시글을 업로드하지 못했어요. 고객센터에 문의해 주세요.({e})'}
+        return json.dumps(result, ensure_ascii=False), 500
 
     num_files = len(request.files.to_dict())
     if num_files < 1:
