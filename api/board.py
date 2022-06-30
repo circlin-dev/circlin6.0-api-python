@@ -1,8 +1,7 @@
-from global_configuration.table import Boards, Files, BoardCategories
+from global_configuration.table import Boards, Files, BoardCategories, BoardFiles
 from . import api
 from global_configuration.constants import API_ROOT
-from global_configuration.helper import db_connection, get_dict_cursor, authenticate, return_json, \
-    upload_single_image_to_s3, upload_single_file_to_s3
+from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3
 from flask import request, url_for
 import json
 import os
@@ -102,8 +101,23 @@ def post_a_board():
         for index, file in enumerate(files):
             upload_result = upload_single_file_to_s3(file, f'board/{str(user_id)}')
 
-        return json.dumps({'user_id': user_id}, ensure_ascii=False), 200
+            if upload_result['result'] is True:
+                sql = Query.into(
+                    BoardFiles
+                ).columns(
+                    BoardFiles.board_id,
+                    BoardFiles.order,
+                    BoardFiles.file_id
+                ).insert(
+                    board_id,
+                    index,
+                    upload_result['original_file_id']
+                ).get_sql()
+                cursor.execute(sql)
 
+        connection.close()
+        result = {'result': True, 'boardId': board_id}
+        return json.dumps(result, ensure_ascii=False), 200
 
 # 팔로워가 쓴 최신 글 조회
 @api.route('/board/follower', methods=['GET'])

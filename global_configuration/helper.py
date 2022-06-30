@@ -16,7 +16,6 @@ import shutil
 import string
 from werkzeug.utils import secure_filename
 
-
 from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, RESIZE_WIDTHS
 from global_configuration.database import DATABASE
 # from global_configuration.table import Sessions, User, File
