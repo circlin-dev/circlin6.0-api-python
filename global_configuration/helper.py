@@ -242,8 +242,8 @@ def video_to_mp4(path):
     new_path = f"{path.split('/')[-1].split('.')[0]}_{width}_{height}.mp4"
     # os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
     ffmpeg.run(ffmpeg.input(path).output(new_path, vf=f'scale={width}x{height}'))
-    # if os.path.exists(path):
-    #     os.remove(path)
+    if os.path.exists(path):
+        os.remove(path)
 
     return new_path
 
