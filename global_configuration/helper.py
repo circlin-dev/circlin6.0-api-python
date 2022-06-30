@@ -220,7 +220,6 @@ def heic_to_jpg(path):
 
 
 def video_to_mp4(path):
-    new_path = f"{path.split('/')[-1].split('.')[0]}.mp4"
     original_file = cv2.VideoCapture(path)
     height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
     width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
@@ -235,10 +234,10 @@ def video_to_mp4(path):
     else:
         pass
 
+    new_path = f"./temp/{path.split('/')[-1].split('.')[0]}.mp4"
     os.system(f"ffmpeg -i {path} -vf scale='{width}x{height}' {new_path}")
-
-    # if os.path.exists(path):
-    #     os.remove(path)
+    if os.path.exists(path):
+        os.remove(path)
 
     return new_path
 
