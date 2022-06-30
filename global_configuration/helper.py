@@ -117,7 +117,7 @@ def upload_single_file_to_s3(file, object_path):
     try:
         os.rename(original_file, hashed_file)
     except Exception as e:
-        error = {'result': f"Error: {request_path}, {original_file}, {original_file_name}, {hashed_file}"}
+        error = {'result': f"Error: ({e}) {request_path}, {original_file}, {original_file_name}, {hashed_file}"}
         return error
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
