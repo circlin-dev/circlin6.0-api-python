@@ -241,7 +241,7 @@ def video_to_mp4(path):
 
     new_path = f"{path.split('/')[-1].split('.')[0]}_{width}_{height}.mp4"
     # os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
-    ffmpeg.run(ffmpeg.input(path).output(new_path, vf=f'scale={width}x{height}'))
+    (ffmpeg.input(path).output(new_path, vf=f'scale={width}x{height}').run())
     if os.path.exists(path):
         os.remove(path)
 
@@ -312,7 +312,7 @@ def generate_resized_file(extension, original_file_path, file_type):
             resized_file_path = os.path.join(temp_path, resized_file_name)
 
             # os.system(f"ffmpeg -i {original_file_path} -vf scale={new_width}x{new_height} {resized_file_path}")
-            ffmpeg.run(ffmpeg.input(original_file_path).output(resized_file_path, vf=f'scale={new_width}x{new_height}'))
+            (ffmpeg.input(original_file_path).output(resized_file_path, vf=f'scale={new_width}x{new_height}').run())
 
             resized_file_list.append(resized_file_path)
 
