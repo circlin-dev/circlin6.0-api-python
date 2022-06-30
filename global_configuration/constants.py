@@ -47,7 +47,8 @@ INVALID_MIMES = {
     'image': ['heic', 'HEIC', 'heif', 'HEIF'],
     'video': ['quicktime', 'mov', 'MOV']
 }
-RESIZE_WIDTHS = [1080, 840, 750, 640, 480, 320, 240, 150]  # 16:9 모니터에 대해서라면: [1080, 900, 720, 630, 540, 450, 360, 270, 180]
+RESIZE_WIDTHS_IMAGE = [1080, 840, 750, 640, 480, 320, 240, 150]  # 16:9 모니터에 대해서라면: [1080, 900, 720, 630, 540, 450, 360, 270, 180]
+RESIZE_WIDTHS_VIDEO = [1080, 750, 640, 480]
 
 # Cursor paging(infinite scroll)
 INITIAL_PAGE_CURSOR = 900000000000000

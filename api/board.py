@@ -111,6 +111,7 @@ def post_a_board():
                     upload_result['original_file_id']
                 ).get_sql()
                 cursor.execute(sql)
+                connection.commit()
 
         connection.close()
         result = {'result': True, 'boardId': board_id}

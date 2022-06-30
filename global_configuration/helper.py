@@ -16,7 +16,8 @@ import shutil
 import string
 from werkzeug.utils import secure_filename
 
-from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, RESIZE_WIDTHS
+from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, \
+    RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO
 from global_configuration.database import DATABASE
 from global_configuration.table import Files
 
@@ -117,9 +118,9 @@ def upload_single_file_to_s3(file, object_path):
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
     hashed_mime_type = check_mimetype(hashed_file)['mime_type']  # Insert to DB
-    hashed_size = get_file_information(hashed_file, mime_type)['size']  # Insert to DB
-    hashed_width = get_file_information(hashed_file, mime_type)['width']  # Insert to DB
-    hashed_height = get_file_information(hashed_file, mime_type)['height']  # Insert to DB
+    hashed_size = get_file_information(hashed_file, hashed_mime_type)['size']  # Insert to DB
+    hashed_width = get_file_information(hashed_file, hashed_mime_type)['width']  # Insert to DB
+    hashed_height = get_file_information(hashed_file, hashed_mime_type)['height']  # Insert to DB
     hashed_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", hashed_object_name)  # Insert to DB
 
     s3_client.upload_file(hashed_file, S3_BUCKET, hashed_object_name, ExtraArgs={'ContentType': hashed_mime_type})
@@ -151,14 +152,14 @@ def upload_single_file_to_s3(file, object_path):
     original_file_id = cursor.lastrowid
 
     # 3. Generate resized image
-    resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, mime_type)
+    resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, hashed_mime_type)
 
     for resized_path in resized_file_list:
         object_name = os.path.join(object_path, resized_path.split('/')[-1])
         resized_mime_type = check_mimetype(resized_path)['mime_type']  # Insert to DB
-        resized_size = get_file_information(resized_path, mime_type)['size']  # Insert to DB
-        resized_width = get_file_information(resized_path, mime_type)['width']  # Insert to DB
-        resized_height = get_file_information(resized_path, mime_type)['height']  # Insert to DB
+        resized_size = get_file_information(resized_path, resized_mime_type)['size']  # Insert to DB
+        resized_width = get_file_information(resized_path, resized_mime_type)['width']  # Insert to DB
+        resized_height = get_file_information(resized_path, resized_mime_type)['height']  # Insert to DB
         resized_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", object_name)  # Insert to DB
 
         s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': resized_mime_type})
@@ -220,9 +221,14 @@ def heic_to_jpg(path):
 
 def video_to_mp4(path):
     new_path = f"{path.split('/')[-1].split('.')[0]}.mp4"
-    os.system(f"ffmpeg -i {path} -vf {new_path}")
-    # if os.path.exists(path):
-    #     os.remove(path)
+    original_file = cv2.VideoCapture(path)
+    height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    os.system(f"ffmpeg -i {path} -vf scale='{width}x{height}' {new_path}")
+
+    if os.path.exists(path):
+        os.remove(path)
 
     return new_path
 
@@ -257,20 +263,11 @@ def generate_resized_file(extension, original_file_path, file_type):
         original_file = cv2.imread(original_file_path, cv2.IMREAD_COLOR)
         height, width, channel = original_file.shape
 
-        for new_width in RESIZE_WIDTHS:
+        for new_width in RESIZE_WIDTHS_IMAGE:
             new_height = int(new_width * height / width)
             resized_file = cv2.resize(original_file,
                                       dsize=(new_width, new_height),
                                       interpolation=cv2.INTER_LINEAR)
-            # if new_width > width:  # 확대
-            #     resized_image = cv2.resize(original_image,
-            #                                dsize=(new_width, new_height),
-            #                                interpolation=cv2.INTER_LINEAR)
-            # else:                  # 축소(<) or 유지(=)
-            #     resized_image = cv2.resize(original_image,
-            #                                dsize=(new_width, new_height),
-            #                                interpolation=cv2.INTER_AREA)
-
             temp_path = './temp'
             original_file_name = original_file_path.split('/')[-1]
             resized_file_name = f"{original_file_name.split('.')[0]}_w{str(new_width)}.{extension}"
@@ -284,8 +281,12 @@ def generate_resized_file(extension, original_file_path, file_type):
         height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
         width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
 
-        for new_width in RESIZE_WIDTHS:
+        for new_width in RESIZE_WIDTHS_VIDEO:
             new_height = int(new_width * height / width)
+            if new_height % 2 != 0:
+                new_height += 1
+            else:
+                pass
 
             temp_path = './temp'
             original_file_name = original_file_path.split('/')[-1]
