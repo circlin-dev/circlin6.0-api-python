@@ -237,8 +237,8 @@ def video_to_mp4(path):
 
     os.system(f"ffmpeg -i {path} -vf scale='{width}x{height}' {new_path}")
 
-    if os.path.exists(path):
-        os.remove(path)
+    # if os.path.exists(path):
+    #     os.remove(path)
 
     return new_path
 
