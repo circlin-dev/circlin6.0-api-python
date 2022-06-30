@@ -117,7 +117,7 @@ def upload_single_file_to_s3(file, object_path):
     os.rename(original_file, hashed_file)
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
-    hashed_mime_type = check_mimetype(hashed_file)['mime_type'].split('/')[1]  # Insert to DB
+    hashed_mime_type = check_mimetype(hashed_file)['mime_type'].split('/')[0]  # Insert to DB
     hashed_size = get_file_information(hashed_file, hashed_mime_type)['size']  # Insert to DB
     hashed_width = get_file_information(hashed_file, hashed_mime_type)['width']  # Insert to DB
     hashed_height = get_file_information(hashed_file, hashed_mime_type)['height']  # Insert to DB
@@ -156,7 +156,7 @@ def upload_single_file_to_s3(file, object_path):
 
     for resized_path in resized_file_list:
         object_name = os.path.join(object_path, resized_path.split('/')[-1])
-        resized_mime_type = check_mimetype(resized_path)['mime_type'].split('/')[1]  # Insert to DB
+        resized_mime_type = check_mimetype(resized_path)['mime_type'].split('/')[0]  # Insert to DB
         resized_size = get_file_information(resized_path, resized_mime_type)['size']  # Insert to DB
         resized_width = get_file_information(resized_path, resized_mime_type)['width']  # Insert to DB
         resized_height = get_file_information(resized_path, resized_mime_type)['height']  # Insert to DB
