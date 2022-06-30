@@ -105,6 +105,8 @@ def upload_single_file_to_s3(file, object_path):
 
     if request_ext in INVALID_MIMES['image']:  # or video
         original_file = heic_to_jpg(request_path)
+    elif request_ext in INVALID_MIMES['video']:
+        original_file = video_to_mp4(request_path)
     else:
         original_file = request_path
 
@@ -210,6 +212,16 @@ def heic_to_jpg(path):
 
     new_path = f"{path.split('/')[-1].split('.')[0]}.jpg"
     new_image.save(new_path, "JPEG")
+    if os.path.exists(path):
+        os.remove(path)
+
+    return new_path
+
+
+def video_to_mp4(path):
+    new_path = f"{path.split('/')[-1].split('.')[0]}.mp4"
+    os.system(f"ffmpeg -i {path} -vf {new_path}")
+
     if os.path.exists(path):
         os.remove(path)
 
