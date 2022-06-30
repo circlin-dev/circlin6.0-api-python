@@ -225,6 +225,16 @@ def video_to_mp4(path):
     height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
     width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
 
+    if width % 2 != 0:
+        width += 1
+    else:
+        pass
+
+    if height % 2 != 0:
+        height += 1
+    else:
+        pass
+
     os.system(f"ffmpeg -i {path} -vf scale='{width}x{height}' {new_path}")
 
     if os.path.exists(path):
