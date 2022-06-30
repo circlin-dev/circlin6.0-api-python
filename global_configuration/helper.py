@@ -149,7 +149,7 @@ def upload_single_file_to_s3(file, object_path):
     original_file_id = cursor.lastrowid
 
     # 3. Generate resized image
-    resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, 'image')
+    resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, mime_type)
 
     for resized_path in resized_file_list:
         object_name = os.path.join(object_path, resized_path.split('/')[-1])
