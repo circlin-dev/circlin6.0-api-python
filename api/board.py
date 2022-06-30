@@ -52,7 +52,7 @@ def post_a_board():
 
     # data = json.loads(request.get_data())
     data = request.form.to_dict()
-    category_id = int(data['feedCategoryId'])
+    category_id = int(data['boardCategoryId'])
     body = data['body']
     is_show = data['isShow']
 
