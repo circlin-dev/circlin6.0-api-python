@@ -114,7 +114,11 @@ def upload_single_file_to_s3(file, object_path):
     original_file_name = original_file.split('/')[-1]  # Insert to DB
     hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
     hashed_file = os.path.join('./temp', hashed_file_name)
-    os.rename(original_file, hashed_file)
+    try:
+        os.rename(original_file, hashed_file)
+    except Exception as e:
+        error = {'result': f"Error: {request_path}, {original_file}, {original_file_name}, {hashed_file}"}
+        return error
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
     hashed_mime_type = check_mimetype(hashed_file)['mime_type']  # Insert to DB

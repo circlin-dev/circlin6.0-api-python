@@ -112,6 +112,9 @@ def post_a_board():
                 ).get_sql()
                 cursor.execute(sql)
                 connection.commit()
+            else:
+                connection.close()
+                result = {'result': False, 'error': upload_result['result']}
 
         connection.close()
         result = {'result': True, 'boardId': board_id}
