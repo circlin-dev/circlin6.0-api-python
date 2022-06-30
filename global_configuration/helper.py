@@ -17,9 +17,10 @@ import string
 from werkzeug.utils import secure_filename
 
 
-from global_configuration.constants import invalid_mimes, S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN
+from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, RESIZE_WIDTHS
 from global_configuration.database import DATABASE
 # from global_configuration.table import Sessions, User, File
+from global_configuration.table import Files
 
 
 def db_connection():
@@ -41,26 +42,26 @@ def get_dict_cursor(connection):
 def authenticate(request, cursor):
     token = request.headers.get('token')
     user_id = {
-        'user_id': int(jwt.decode(token, options={"verify_signature": False})['uid'])  # Without secret key
+        'user_id': int(jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid'])  # Without secret key
     }
     # if request.cookies.get('circlinapi_session') is not None:
-    #     cookie = request.cookies.get('circlinapi_session')
-    #     sql = Query.from_(
-    #         Sessions
-    #     ).select(
-    #         Sessions.user_id
-    #     ).where(
-    #         Sessions.id == cookie
-    #     ).get_sql()
-    #
-    #     cursor.execute(sql)
-    #     # user_id = json.dumps(cursor.fetchone(), indent=4, ensure_ascii=False)
-    #     user_id = cursor.fetchone()
-    # else:
-    #     token = request.headers.get('token')
-    #     user_id = {
-    #         'user_id': int(jwt.decode(token, options={"verify_signature": False}))   # Without secret key
-    #     }
+    #     #     cookie = request.cookies.get('circlinapi_session')
+    #     #     sql = Query.from_(
+    #     #         Sessions
+    #     #     ).select(
+    #     #         Sessions.user_id
+    #     #     ).where(
+    #     #         Sessions.id == cookie
+    #     #     ).get_sql()
+    #     #
+    #     #     cursor.execute(sql)
+    #     #     # user_id = json.dumps(cursor.fetchone(), indent=4, ensure_ascii=False)
+    #     #     user_id = cursor.fetchone()
+    #     # else:
+    #     #     token = request.headers.get('token')
+    #     #     user_id = {
+    #     #         'user_id': int(jwt.decode(token, options={"verify_signature": False}))   # Without secret key
+    #     #     }
 
     return user_id
 
@@ -80,24 +81,7 @@ def return_json(result: dict):
     return json.dumps(result, ensure_ascii=False)
 
 
-def upload_image(file_path, s3_path):
-    response = requests.post(
-        "http://127.0.0.1:8000/api/file",
-        # "https://test.circlin.co.kr/api/file",
-        files={
-            "file": open(file_path, 'rb'),
-            "path": s3_path
-        },
-        # params={"path": s3_path}
-    )
-
-    # file_type = response[0]
-    # file_number = response[1]
-    # result = response.text
-    return response
-
-
-def upload_single_image_to_s3(file, object_path):
+def upload_single_file_to_s3(file, object_path):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     random_string = ''.join(random.choices(string.ascii_uppercase + string.digits + string.ascii_lowercase, k=15))
@@ -108,7 +92,7 @@ def upload_single_image_to_s3(file, object_path):
     if type(file) != bytes:
         request_file = file.filename
     else:
-        request_file = file['uri'].split('/')[-1]
+        request_file = file['uri'].split('/')[-1]  # file path form from react-native client.
     secure_file = secure_filename(request_file)
     if not os.path.exists(secure_file):
         file.save(secure_file)
@@ -118,8 +102,10 @@ def upload_single_image_to_s3(file, object_path):
         shutil.move(secure_file, request_path)
 
     # 2. Check image mime type & change if invalid.
+    mime_type = check_mimetype(request_path)['mime_type'].split('/')[0]
     request_ext = check_mimetype(request_path)['mime_type'].split('/')[1]
-    if request_ext in invalid_mimes:
+
+    if request_ext in INVALID_MIMES['image']:  # or video
         original_file = heic_to_jpg(request_path)
     else:
         original_file = request_path
@@ -131,24 +117,24 @@ def upload_single_image_to_s3(file, object_path):
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
     hashed_mime_type = check_mimetype(hashed_file)['mime_type']  # Insert to DB
-    hashed_size = get_image_information(hashed_file)['size']  # Insert to DB
-    hashed_width = get_image_information(hashed_file)['width']  # Insert to DB
-    hashed_height = get_image_information(hashed_file)['height']  # Insert to DB
+    hashed_size = get_file_information(hashed_file, 'image')['size']  # Insert to DB
+    hashed_width = get_file_information(hashed_file, 'image')['width']  # Insert to DB
+    hashed_height = get_file_information(hashed_file, 'image')['height']  # Insert to DB
     hashed_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", hashed_object_name)  # Insert to DB
 
     s3_client.upload_file(hashed_file, S3_BUCKET, hashed_object_name, ExtraArgs={'ContentType': hashed_mime_type})
 
     sql = Query.into(
-        File
+        Files
     ).columns(
-        File.created_at,
-        File.updated_at,
-        File.pathname,
-        File.original_name,
-        File.mime_type,
-        File.size,
-        File.width,
-        File.height
+        Files.created_at,
+        Files.updated_at,
+        Files.pathname,
+        Files.original_name,
+        Files.mime_type,
+        Files.size,
+        Files.width,
+        Files.height
     ).insert(
         fn.Now(),
         fn.Now(),
@@ -165,31 +151,30 @@ def upload_single_image_to_s3(file, object_path):
     original_file_id = cursor.lastrowid
 
     # 3. Generate resized image
-    resized_image_list = generate_resized_image(hashed_file_name.split('.')[1], hashed_file)
+    resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, 'image')
 
-    for resized_path in resized_image_list:
+    for resized_path in resized_file_list:
         object_name = os.path.join(object_path, resized_path.split('/')[-1])
         resized_mime_type = check_mimetype(resized_path)['mime_type']  # Insert to DB
-        resized_size = get_image_information(resized_path)['size']  # Insert to DB
-        resized_width = get_image_information(resized_path)['width']  # Insert to DB
-        resized_height = get_image_information(resized_path)['height']  # Insert to DB
-        resized_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/",
-                                          object_name)  # Insert to DB
+        resized_size = get_file_information(resized_path, mime_type)['size']  # Insert to DB
+        resized_width = get_file_information(resized_path, mime_type)['width']  # Insert to DB
+        resized_height = get_file_information(resized_path, mime_type)['height']  # Insert to DB
+        resized_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", object_name)  # Insert to DB
 
         s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': resized_mime_type})
 
         sql = Query.into(
-            File
+            Files
         ).columns(
-            File.created_at,
-            File.updated_at,
-            File.pathname,
-            File.original_name,
-            File.mime_type,
-            File.size,
-            File.width,
-            File.height,
-            File.original_file_id
+            Files.created_at,
+            Files.updated_at,
+            Files.pathname,
+            Files.original_name,
+            Files.mime_type,
+            Files.size,
+            Files.width,
+            Files.height,
+            Files.original_file_id
         ).insert(
             fn.Now(),
             fn.Now(),
@@ -239,9 +224,14 @@ def check_mimetype(path):
     return result
 
 
-def get_image_information(path):
-    image = cv2.imread(path, cv2.IMREAD_COLOR)
-    height, width, channel = image.shape
+def get_file_information(path, file_type):
+    if file_type == 'image':
+        image = cv2.imread(path, cv2.IMREAD_COLOR)
+        height, width, channel = image.shape
+    else:
+        video = cv2.VideoCapture(path)
+        height = int(video.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width = int(video.get(cv2.CAP_PROP_FRAME_WIDTH))
 
     result = {
         'size': int(os.path.getsize(path)),
@@ -252,33 +242,51 @@ def get_image_information(path):
     return result
 
 
-def generate_resized_image(extension, original_image_path):
-    original_image = cv2.imread(original_image_path, cv2.IMREAD_COLOR)
-    height, width, channel = original_image.shape
-    new_widths = [1080, 750, 640, 480, 320, 240, 150]
-    resized_image_list = []
-    for new_width in new_widths:
-        new_height = int(new_width * height / width)
-        resized_image = cv2.resize(original_image,
-                                   dsize=(new_width, new_height),
-                                   interpolation=cv2.INTER_LINEAR)
-        # if new_width > width:  # 확대
-        #     resized_image = cv2.resize(original_image,
-        #                                dsize=(new_width, new_height),
-        #                                interpolation=cv2.INTER_LINEAR)
-        # else:                  # 축소(<) or 유지(=)
-        #     resized_image = cv2.resize(original_image,
-        #                                dsize=(new_width, new_height),
-        #                                interpolation=cv2.INTER_AREA)
+def generate_resized_file(extension, original_file_path, file_type):
+    resized_file_list = []
+    if file_type == 'image':
+        original_file = cv2.imread(original_file_path, cv2.IMREAD_COLOR)
+        height, width, channel = original_file.shape
 
-        image_path = './temp'
-        original_image_name = original_image_path.split('/')[-1]
-        resized_image_name = f"{original_image_name.split('.')[0]}_w{str(new_width)}.{extension}"
-        resized_image_path = os.path.join(image_path, resized_image_name)
+        for new_width in RESIZE_WIDTHS:
+            new_height = int(new_width * height / width)
+            resized_file = cv2.resize(original_file,
+                                      dsize=(new_width, new_height),
+                                      interpolation=cv2.INTER_LINEAR)
+            # if new_width > width:  # 확대
+            #     resized_image = cv2.resize(original_image,
+            #                                dsize=(new_width, new_height),
+            #                                interpolation=cv2.INTER_LINEAR)
+            # else:                  # 축소(<) or 유지(=)
+            #     resized_image = cv2.resize(original_image,
+            #                                dsize=(new_width, new_height),
+            #                                interpolation=cv2.INTER_AREA)
 
-        cv2.imwrite(resized_image_path, resized_image)
-        resized_image_list.append(resized_image_path)
-    return resized_image_list
+            temp_path = './temp'
+            original_file_name = original_file_path.split('/')[-1]
+            resized_file_name = f"{original_file_name.split('.')[0]}_w{str(new_width)}.{extension}"
+            resized_file_path = os.path.join(temp_path, resized_file_name)
+
+            cv2.imwrite(resized_file_path, resized_file)
+            resized_file_list.append(resized_file_path)
+        # return resized_image_list
+    else:
+        original_file = cv2.VideoCapture(original_file_path)
+        height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+        for new_width in RESIZE_WIDTHS:
+            new_height = int(new_width * height / width)
+
+            temp_path = './temp'
+            original_file_name = original_file_path.split('/')[-1]
+            resized_file_name = f"{original_file_name.split('.')[0]}_w{str(new_width)}.{extension}"
+            resized_file_path = os.path.join(temp_path, resized_file_name)
+            os.system(f"ffmpeg -i {original_file_path} -vf 'scale={new_width}x{new_height}' {resized_file_path}")
+
+            resized_file_list.append(resized_file_path)
+
+    return resized_file_list
 
 
 def point_request(token, point: int, reason: string, type: string, food_rating_id: int):
