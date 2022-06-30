@@ -115,9 +115,9 @@ def upload_single_file_to_s3(file, object_path):
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
     hashed_mime_type = check_mimetype(hashed_file)['mime_type']  # Insert to DB
-    hashed_size = get_file_information(hashed_file, 'image')['size']  # Insert to DB
-    hashed_width = get_file_information(hashed_file, 'image')['width']  # Insert to DB
-    hashed_height = get_file_information(hashed_file, 'image')['height']  # Insert to DB
+    hashed_size = get_file_information(hashed_file, mime_type)['size']  # Insert to DB
+    hashed_width = get_file_information(hashed_file, mime_type)['width']  # Insert to DB
+    hashed_height = get_file_information(hashed_file, mime_type)['height']  # Insert to DB
     hashed_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", hashed_object_name)  # Insert to DB
 
     s3_client.upload_file(hashed_file, S3_BUCKET, hashed_object_name, ExtraArgs={'ContentType': hashed_mime_type})
