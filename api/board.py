@@ -48,7 +48,6 @@ def post_a_board():
         connection.close()
         result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
-    connection.close()
     user_id = authentication['user_id']
 
     # data = json.loads(request.get_data())
