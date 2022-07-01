@@ -19,7 +19,7 @@ import string
 from werkzeug.utils import secure_filename
 
 from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, \
-    RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT, APP_TEMP
+    RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT, APP_TEMP, FFMPEG_PATH2
 from global_configuration.database import DATABASE
 from global_configuration.table import Files
 
@@ -244,7 +244,7 @@ def video_to_mp4(path):
 
     new_path = f"{APP_TEMP}/{path.split('/')[-1].split('.')[0]}.mp4"
     # os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
-    subprocess.call(["ffmpeg", "-i", path, f"scale={width}x{height}", new_path])
+    subprocess.call([FFMPEG_PATH2, "-i", path, f"scale={width}x{height}", new_path])
     # if os.path.exists(path):
     #     os.remove(path)
 

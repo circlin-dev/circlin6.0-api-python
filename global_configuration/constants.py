@@ -3,6 +3,10 @@ APP_ROOT = "/home/ubuntu/circlin6.0-api-python"
 APP_TEMP = f"{APP_ROOT}/temp"
 API_ROOT = "api-python-circlin6.circlin.co.kr"
 API_CIRCLIN = "https://api.circlin.co.kr/v1_1"
+
+FFMPEG_PATH1 = "/home/ubuntu/anaconda3/envs/circlin60_py38/bin/ffmpeg"  #whereis ffmpeg
+FFMPEG_PATH2 = "/usr/bin/ffmpeg"
+FFMPEG_PATH3 = "/usr/share/ffmpeg"
 # endregion
 
 
