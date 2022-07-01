@@ -238,7 +238,7 @@ def video_to_mp4(path):
     else:
         pass
 
-    new_path = f"{path.split('/')[-1].split('.')[0]}.mp4"
+    new_path = f"/home/ubunutu/circlin6.0-api-python/{path.split('/')[-1].split('.')[0]}.mp4"
     os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
 
     # if os.path.exists(path):
