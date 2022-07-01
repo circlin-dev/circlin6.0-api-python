@@ -119,8 +119,8 @@ def upload_single_file_to_s3(file, object_path):
     # hashed_file = os.path.join('./temp', hashed_file_name)
     # hashed_file = os.path.join(APP_TEMP, hashed_file_name)
     hashed_file = os.path.join(os.getcwd(), 'temp', hashed_file_name)
-    os.rename(original_file, hashed_file)
-    # shutil.move(original_file, hashed_file)
+    # os.rename(original_file, hashed_file)
+    shutil.move(original_file, hashed_file)
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
     hashed_mime_type = check_mimetype(hashed_file)['mime_type']  # Insert to DB
