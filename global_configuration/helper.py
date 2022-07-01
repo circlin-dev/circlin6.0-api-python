@@ -243,10 +243,10 @@ def video_to_mp4(path):
         pass
 
     new_path = f"{APP_TEMP}/{path.split('/')[-1].split('.')[0]}.mp4"
-    # os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
-    subprocess.Popen(["ffmpeg", "-i", path, f"scale={width}x{height}", new_path])
-    # if os.path.exists(path):
-    #     os.remove(path)
+    os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
+    # subprocess.Popen(["ffmpeg", "-i", path, f"scale={width}x{height}", new_path])
+    if os.path.exists(path):
+        os.remove(path)
 
     return new_path
 
