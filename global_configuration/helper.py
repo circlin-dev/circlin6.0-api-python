@@ -239,12 +239,12 @@ def video_to_mp4(path):
         pass
 
     new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
-    mp.VideoFileClip(path).resize((width, height)).write_videofile(new_path,
-                                                                   codec='libx264',
-                                                                   audio_codec='aac',  # Super important for sound
-                                                                   remove_temp=True)
-    # os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
-    # subprocess.Popen(["ffmpeg", "-i", path, f"scale={width}x{height}", new_path])
+    # mp.VideoFileClip(path).resize((width, height)).write_videofile(new_path,
+    #                                                                codec='libx264',
+    #                                                                audio_codec='aac',  # Super important for sound
+    #                                                                remove_temp=True)
+    os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
+
     if os.path.exists(path):
         os.remove(path)
 
@@ -314,11 +314,11 @@ def generate_resized_file(extension, original_file_path, file_type):
             resized_file_name = f"{original_file_name.split('.')[0]}_w{str(new_width)}.{extension}"
             resized_file_path = os.path.join(temp_path, resized_file_name)
 
-            # os.system(f"ffmpeg -i {original_file_path} -vf scale={new_width}x{new_height} {resized_file_path}")
-            mp.VideoFileClip(original_file_path).resize((new_width, new_height)).write_videofile(resized_file_path,
-                                                                                                 codec='libx264',
-                                                                                                 audio_codec='aac', # Super important for sound
-                                                                                                 remove_temp=True)
+            os.system(f"ffmpeg -i {original_file_path} -vf scale={new_width}x{new_height} {resized_file_path}")
+            # mp.VideoFileClip(original_file_path).resize((new_width, new_height)).write_videofile(resized_file_path,
+            #                                                                                      codec='libx264',
+            #                                                                                      audio_codec='aac', # Super important for sound
+            #                                                                                      remove_temp=True)
 
             resized_file_list.append(resized_file_path)
 
