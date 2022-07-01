@@ -115,7 +115,7 @@ def upload_single_file_to_s3(file, object_path):
     hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
     hashed_file = os.path.join('./temp', hashed_file_name)
     try:
-        os.rename(original_file, hashed_file)
+        shutil.move(original_file, hashed_file)
     except Exception as e:
         error = {'result': f"Error: ({e}) {request_path}, {original_file}, {original_file_name}, {hashed_file}"}
         return error
@@ -238,7 +238,7 @@ def video_to_mp4(path):
     else:
         pass
 
-    new_path = f"{path.split('/')[-1].split('.')[0]}_{width}_{height}.mp4"
+    new_path = f"{path.split('/')[-1].split('.')[0]}.mp4"
     os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
 
     if os.path.exists(path):
