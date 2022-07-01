@@ -98,7 +98,7 @@ def upload_single_file_to_s3(file, object_path):
     if not os.path.exists(secure_file):
         file.save(secure_file)
 
-    request_path = os.path.join(os.path.join(os.getcwd(), 'temp'), request_file)
+    request_path = os.path.join(os.getcwd(), 'temp', request_file)
     # request_path = os.path.join(APP_TEMP, request_file)
     if os.path.exists(secure_file):
         shutil.move(secure_file, request_path)
@@ -244,7 +244,7 @@ def video_to_mp4(path):
     else:
         pass
 
-    new_path = os.path.join(os.getcwd(), f"{path.split('/')[-1].split('.')[0]}.mp4")
+    new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
     os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
     # subprocess.Popen(["ffmpeg", "-i", path, f"scale={width}x{height}", new_path])
     if os.path.exists(path):
