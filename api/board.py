@@ -103,20 +103,20 @@ def post_a_board():
                 result = {'result': False, 'error': upload_result['result']}
                 return json.dumps(result, ensure_ascii=False), 500
 
-            # if upload_result['result'] is True:
-            #     sql = Query.into(
-            #         BoardFiles
-            #     ).columns(
-            #         BoardFiles.board_id,
-            #         BoardFiles.order,
-            #         BoardFiles.file_id
-            #     ).insert(
-            #         board_id,
-            #         index,
-            #         upload_result['original_file_id']
-            #     ).get_sql()
-            #     cursor.execute(sql)
-            #     connection.commit()
+            if upload_result['result'] is True:
+                sql = Query.into(
+                    BoardFiles
+                ).columns(
+                    BoardFiles.board_id,
+                    BoardFiles.order,
+                    BoardFiles.file_id
+                ).insert(
+                    board_id,
+                    index,
+                    upload_result['original_file_id']
+                ).get_sql()
+                cursor.execute(sql)
+                connection.commit()
 
         connection.close()
         result = {'result': True, 'boardId': board_id}
