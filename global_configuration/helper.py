@@ -1,5 +1,7 @@
 import hashlib
 import base64
+import subprocess
+
 import requests
 import boto3
 import cv2
@@ -242,7 +244,7 @@ def video_to_mp4(path):
 
     new_path = f"{APP_TEMP}/{path.split('/')[-1].split('.')[0]}.mp4"
     os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
-
+    subprocess.call(["ffmpeg", "-i", path, f"scale={width}x{height}", {new_path}])
     # if os.path.exists(path):
     #     os.remove(path)
 
