@@ -239,11 +239,11 @@ def video_to_mp4(path):
         pass
 
     new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
-    # mp.VideoFileClip(path).resize((width, height)).write_videofile(new_path,
-    #                                                                codec='libx264',
-    #                                                                audio_codec='aac',  # Super important for sound
-    #                                                                remove_temp=True)
-    os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
+    mp.VideoFileClip(path).resize((width, height)).write_videofile(new_path,
+                                                                   codec='libx264',
+                                                                   audio_codec='aac',  # Super important for sound
+                                                                   remove_temp=True)
+    # os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
 
     if os.path.exists(path):
         os.remove(path)
