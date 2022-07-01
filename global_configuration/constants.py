@@ -1,5 +1,6 @@
 # region local path config
 APP_ROOT = "/home/ubuntu/circlin6.0-api-python"
+APP_TEMP = f"{APP_ROOT}/temp"
 API_ROOT = "api-python-circlin6.circlin.co.kr"
 API_CIRCLIN = "https://api.circlin.co.kr/v1_1"
 # endregion

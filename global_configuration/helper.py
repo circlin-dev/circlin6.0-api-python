@@ -17,7 +17,7 @@ import string
 from werkzeug.utils import secure_filename
 
 from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, \
-    RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT
+    RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT, APP_TEMP
 from global_configuration.database import DATABASE
 from global_configuration.table import Files
 
@@ -96,7 +96,8 @@ def upload_single_file_to_s3(file, object_path):
     if not os.path.exists(secure_file):
         file.save(secure_file)
 
-    request_path = os.path.join('./temp', request_file)
+    # request_path = os.path.join('./temp', request_file)
+    request_path = os.path.join(APP_TEMP, request_file)
     if os.path.exists(secure_file):
         shutil.move(secure_file, request_path)
 
@@ -113,7 +114,8 @@ def upload_single_file_to_s3(file, object_path):
 
     original_file_name = original_file.split('/')[-1]  # Insert to DB
     hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
-    hashed_file = os.path.join('./temp', hashed_file_name)
+    # hashed_file = os.path.join('./temp', hashed_file_name)
+    hashed_file = os.path.join(APP_TEMP, hashed_file_name)
     try:
         shutil.move(original_file, hashed_file)
     except Exception as e:
@@ -238,7 +240,7 @@ def video_to_mp4(path):
     else:
         pass
 
-    new_path = f"/home/ubunutu/circlin6.0-api-python/temp/{path.split('/')[-1].split('.')[0]}.mp4"
+    new_path = f"{APP_TEMP}/{path.split('/')[-1].split('.')[0]}.mp4"
     os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
 
     # if os.path.exists(path):
