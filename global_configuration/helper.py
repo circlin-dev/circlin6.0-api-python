@@ -240,8 +240,7 @@ def video_to_mp4(path):
     else:
         pass
 
-    # new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
-    new_path = os.path.join(os.getcwd(), 'temp', f"testnewvideo.mp4")
+    new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
     mp.VideoFileClip(path).resize((width, height)).write_videofile(new_path,
                                                                    codec='libx265',
                                                                    audio_codec='aac',  # Super important for sound
