@@ -293,34 +293,35 @@ def generate_resized_file(extension, original_file_path, file_type):
             resized_file_list.append(resized_file_path)
         # return resized_image_list
     else:
-        original_file = cv2.VideoCapture(original_file_path)
-        height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
-
-        for new_width in RESIZE_WIDTHS_VIDEO:
-            if new_width % 2 != 0:
-                new_width += 1
-            else:
-                pass
-
-            new_height = int(new_width * height / width)
-            if new_height % 2 != 0:
-                new_height += 1
-            else:
-                pass
-
-            temp_path = './temp'
-            original_file_name = original_file_path.split('/')[-1]
-            resized_file_name = f"{original_file_name.split('.')[0]}_w{str(new_width)}.{extension}"
-            resized_file_path = os.path.join(temp_path, resized_file_name)
-
-            os.system(f"ffmpeg -i {original_file_path} -vf scale={new_width}x{new_height} {resized_file_path}")
-            # mp.VideoFileClip(original_file_path).resize((new_width, new_height)).write_videofile(resized_file_path,
-            #                                                                                      codec='libx264',
-            #                                                                                      audio_codec='aac', # Super important for sound
-            #                                                                                      remove_temp=True)
-
-            resized_file_list.append(resized_file_path)
+        pass
+        # original_file = cv2.VideoCapture(original_file_path)
+        # height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        # width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
+        #
+        # for new_width in RESIZE_WIDTHS_VIDEO:
+        #     if new_width % 2 != 0:
+        #         new_width += 1
+        #     else:
+        #         pass
+        #
+        #     new_height = int(new_width * height / width)
+        #     if new_height % 2 != 0:
+        #         new_height += 1
+        #     else:
+        #         pass
+        #
+        #     temp_path = './temp'
+        #     original_file_name = original_file_path.split('/')[-1]
+        #     resized_file_name = f"{original_file_name.split('.')[0]}_w{str(new_width)}.{extension}"
+        #     resized_file_path = os.path.join(temp_path, resized_file_name)
+        #
+        #     os.system(f"ffmpeg -i {original_file_path} -vf scale={new_width}x{new_height} {resized_file_path}")
+        #     # mp.VideoFileClip(original_file_path).resize((new_width, new_height)).write_videofile(resized_file_path,
+        #     #                                                                                      codec='libx264',
+        #     #                                                                                      audio_codec='aac', # Super important for sound
+        #     #                                                                                      remove_temp=True)
+        #
+        #     resized_file_list.append(resized_file_path)
 
     return resized_file_list
 
