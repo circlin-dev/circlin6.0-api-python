@@ -98,8 +98,8 @@ def upload_single_file_to_s3(file, object_path):
     if not os.path.exists(secure_file):
         file.save(secure_file)
 
-    # request_path = os.path.join('./temp', request_file)
-    request_path = os.path.join(APP_TEMP, request_file)
+    request_path = os.path.join(os.path.join(os.getcwd(), 'temp'), request_file)
+    # request_path = os.path.join(APP_TEMP, request_file)
     if os.path.exists(secure_file):
         shutil.move(secure_file, request_path)
 
@@ -117,12 +117,14 @@ def upload_single_file_to_s3(file, object_path):
     original_file_name = original_file.split('/')[-1]  # Insert to DB
     hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
     # hashed_file = os.path.join('./temp', hashed_file_name)
-    hashed_file = os.path.join(APP_TEMP, hashed_file_name)
-    try:
-        shutil.move(original_file, hashed_file)
-    except Exception as e:
-        error = {'result': f"Error: ({e}) {request_path}, {original_file}, {original_file_name}, {hashed_file} || current dir: {os.getcwd()}"}
-        return error
+    # hashed_file = os.path.join(APP_TEMP, hashed_file_name)
+    hashed_file = os.path.join(os.path.join(os.getcwd(), 'temp'), hashed_file_name)
+    os.rename(original_file, hashed_file)
+    # try:
+    #     shutil.move(original_file, hashed_file)
+    # except Exception as e:
+    #     error = {'result': f"Error: ({e}) {request_path}, {original_file}, {original_file_name}, {hashed_file} || current dir: {os.getcwd()}"}
+    #     return error
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
     hashed_mime_type = check_mimetype(hashed_file)['mime_type']  # Insert to DB
@@ -242,7 +244,7 @@ def video_to_mp4(path):
     else:
         pass
 
-    new_path = f"{APP_TEMP}/{path.split('/')[-1].split('.')[0]}.mp4"
+    new_path = os.path.join(os.getcwd(), f"{path.split('/')[-1].split('.')[0]}.mp4")
     os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
     # subprocess.Popen(["ffmpeg", "-i", path, f"scale={width}x{height}", new_path])
     if os.path.exists(path):
