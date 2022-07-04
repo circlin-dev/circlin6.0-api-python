@@ -179,9 +179,11 @@ def get_a_board(board_id: int):
     cursor.execute(sql)
     board = cursor.fetchone()
 
-    board['user'] = json.loads(board['user'])
-    board['images'] = json.loads(board['images'])
+    if board is not None:
+        board['user'] = json.loads(board['user'])
+        board['images'] = json.loads(board['images'])
 
+    connection.close()
     result = {
         'result': True,
         'data': board
