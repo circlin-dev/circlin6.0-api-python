@@ -42,9 +42,13 @@ def get_dict_cursor(connection):
 
 def authenticate(request, cursor):
     token = request.headers.get('token')
-    user_id = {
-        'user_id': int(jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid'])  # Without secret key
-    }
+    uid = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
+
+    if uid == '' or uid is None:
+        user_id = {'user_id': None}
+    else:
+        user_id = {'user_id': int(uid)}
+
     # if request.cookies.get('circlinapi_session') is not None:
     #     #     cookie = request.cookies.get('circlinapi_session')
     #     #     sql = Query.from_(
