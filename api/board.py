@@ -19,7 +19,7 @@ def get_boards():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -112,7 +112,7 @@ def get_a_board(board_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -199,7 +199,7 @@ def post_a_board():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -286,7 +286,7 @@ def get_followers_board():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -333,7 +333,13 @@ def update_a_board(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.update_a_board', board_id=board_id)
-    connection.close()
+    authentication = authenticate(request, cursor)
+
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
     return 'PATCH_board', 200
 
 
@@ -343,10 +349,42 @@ def delete_a_board(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.delete_a_board', board_id=board_id)
+    authentication = authenticate(request, cursor)
 
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
 
-    connection.close()
-    return 'DELETE_board', 200
+    sql = Query.from_(
+        Boards
+    ).select(
+        Boards.id,
+        Boards.user_id,
+        Boards.deleted_at
+    ).where(
+        Boards.id == board_id
+    ).get_sql()
+
+    cursor.execute(sql)
+    data = cursor.fetchone()
+
+    if data is None:
+        connection.close()
+        result = {'result': False, 'error': '존재하지 않는 게시물이거나, 이미 삭제된 게시물입니다.'}
+        return json.dumps(result, ensure_ascii=False), 400
+    elif data['user_id'] == user_id:
+        connection.close()
+        result = {'result': False, 'error': '해당 유저는 이 게시글에 대한 삭제 권한이 없습니다.'}
+        return json.dumps(result, ensure_ascii=False), 403
+    elif data['deleted_at'] is not None:
+        connection.close()
+        result = {'result': False, 'error': '이미 삭제된 게시물입니다.'}
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        connection.close()
+        return 'DELETE_board', 200
 # endregion
 
 
@@ -373,7 +411,7 @@ def post_like(board_id: int):
     authentication = authenticate(request, cursor)
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -381,6 +419,7 @@ def post_like(board_id: int):
         Boards
     ).select(
         Boards.id,
+        Boards.user_id,
         Boards.is_show,
         Boards.deleted_at
     ).where(
@@ -405,7 +444,7 @@ def post_like(board_id: int):
             'error': '올바른 시도가 아닙니다(삭제된 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['is_show'] == 0:
+    elif is_exists['is_show'] == 0 and is_exists['user_id'] != user_id:
         connection.close()
         result = {
             'result': False,
@@ -441,7 +480,7 @@ def delete_like(board_id: int):
     authentication = authenticate(request, cursor)
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -449,6 +488,7 @@ def delete_like(board_id: int):
         Boards
     ).select(
         Boards.id,
+        Boards.user_id,
         Boards.is_show,
         Boards.deleted_at
     ).where(
@@ -473,7 +513,7 @@ def delete_like(board_id: int):
             'error': '올바른 시도가 아닙니다(삭제된 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['is_show'] == 0:
+    elif is_exists['is_show'] == 0 and is_exists['user_id'] != user_id:
         connection.close()
         result = {
             'result': False,
@@ -481,45 +521,43 @@ def delete_like(board_id: int):
         }
         return json.dumps(result, ensure_ascii=False), 400
     else:
-        pass
-
-    sql = Query.from_(
-        BoardLikes
-    ).select(
-        BoardLikes.id
-    ).where(
-        Criterion.all([
-            BoardLikes.user_id == user_id,
-            BoardLikes.board_id == board_id
-        ])
-    ).get_sql()
-    cursor.execute(sql)
-    data = cursor.fetchone()
-
-    if data is None:
-        connection.close()
-        result = {
-            'result': False,
-            'error': '올바른 시도가 아닙니다(좋아요하지 않았거나, 이미 좋아요 취소된 게시물).'
-        }
-        return json.dumps(result, ensure_ascii=False), 400
-    else:
         sql = Query.from_(
             BoardLikes
-        ).delete(
+        ).select(
+            BoardLikes.id
         ).where(
             Criterion.all([
-                BoardLikes.board_id == int(board_id),
-                BoardLikes.user_id == user_id
+                BoardLikes.user_id == user_id,
+                BoardLikes.board_id == board_id
             ])
         ).get_sql()
-
         cursor.execute(sql)
-        connection.commit()
-        connection.close()
+        data = cursor.fetchone()
 
-        result = {'result': True}
-        return json.dumps(result, ensure_ascii=False), 200
+        if data is None:
+            connection.close()
+            result = {
+                'result': False,
+                'error': '올바른 시도가 아닙니다(좋아요하지 않은 게시물이거나, 이미 좋아요 취소된 게시물).'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        else:
+            sql = Query.from_(
+                BoardLikes
+            ).delete(
+            ).where(
+                Criterion.all([
+                    BoardLikes.board_id == int(board_id),
+                    BoardLikes.user_id == user_id
+                ])
+            ).get_sql()
+
+            cursor.execute(sql)
+            connection.commit()
+            connection.close()
+
+            result = {'result': True}
+            return json.dumps(result, ensure_ascii=False), 200
 
 # endregion
 
@@ -545,7 +583,7 @@ def get_board_categories():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
 
     sql = Query.from_(
