@@ -21,19 +21,173 @@ def get_boards():
         connection.close()
         result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
-
-    connection.close()
     user_id = authentication['user_id']
 
     # 페이징
+    sql = f"""
+        SELECT
+            b.id,
+            b.body,
+            IFNULL(JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'order', bf.order,
+                    'mimeType', f.mime_type,
+                    'pathname', f.pathname,
+                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                        'pathname', ff.pathname,
+                        'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+--                     'resized', IFNULL(JSON_ARRAY(JSON_OBJECT('mimeType', ff.mime_type,
+--                                             'pathname', ff.pathname,
+--                                             'width', ff.width)), JSON_ARRAY())
+                )
+            ), JSON_ARRAY()) AS images,
+            JSON_OBJECT(
+                'id', u.id,
+                'nickname', u.nickname,
+                'profile', u.profile_image,
+                'followed', CASE
+                                WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                ELSE 0
+                            END,
+                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+            ) AS user,
+            DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
+            COUNT(bl.id) AS likeCount,
+            COUNT(bcm.id) AS commentsCount,
+            CASE
+                WHEN {user_id} in (bl.user_id) THEN 1
+                ELSE 0
+            END AS liked,
+            b.board_category_id as boardCategoryId,
+            CONCAT(LPAD(b.id, 15, '0')) as `cursor`
+        FROM
+            boards b
+        LEFT JOIN
+                board_files bf
+            ON
+                b.id = bf.board_id
+        INNER JOIN
+                files f
+            ON
+                bf.file_id = f.id
+        LEFT JOIN
+                board_comments bcm
+            ON
+                b.id = bcm.board_id
+        LEFT JOIN
+                board_likes bl
+            ON
+                b.id = bl.board_id
+        INNER JOIN
+                users u
+            ON
+                u.id = b.user_id
+        WHERE b.deleted_at IS NULL
+        AND b.is_show = 1
+        AND b.id < '90000000000000'
+        GROUP BY b.id
+    """
 
-    return json.dumps({'user_id': user_id}, ensure_ascii=False), 200
+    cursor.execute(sql)
+    boards = cursor.fetchall()
+    connection.close()
+
+    for board in boards:
+        board['user'] = json.loads(board['user'])
+        board['images'] = json.loads(board['images'])
+
+    result = {
+        'result': True,
+        'data': boards
+    }
+    return json.dumps(result, ensure_ascii=False), 200
 
 
 # 단건 조회(상세 조회)
 @api.route('/board/<board_id>', methods=['GET'])
 def get_a_board(board_id: int):
-    return 'GET_board', 200
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.post_a_board')
+    authentication = authenticate(request, cursor)
+
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    sql = f"""
+        SELECT
+            b.id,
+            b.body,
+            IFNULL(JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'order', bf.order,
+                    'mimeType', f.mime_type,
+                    'pathname', f.pathname,
+                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                        'pathname', ff.pathname,
+                        'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                )
+            ), JSON_ARRAY()) AS images,
+            JSON_OBJECT(
+                'id', u.id,
+                'nickname', u.nickname,
+                'profile', u.profile_image,
+                'followed', CASE
+                                WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                ELSE 0
+                            END,
+                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+            ) AS user,
+            DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
+            COUNT(bl.id) AS likeCount,
+            COUNT(bcm.id) AS commentsCount,
+            CASE
+                WHEN {user_id} in (bl.user_id) THEN 1
+                ELSE 0
+            END AS liked,
+            b.board_category_id as boardCategoryId
+        FROM
+            boards b
+        LEFT JOIN
+                board_files bf
+            ON
+                b.id = bf.board_id
+        INNER JOIN
+                files f
+            ON
+                bf.file_id = f.id
+        LEFT JOIN
+                board_comments bcm
+            ON
+                b.id = bcm.board_id
+        LEFT JOIN
+                board_likes bl
+            ON
+                b.id = bl.board_id
+        INNER JOIN
+                users u
+            ON
+                u.id = b.user_id
+        WHERE b.deleted_at IS NULL
+        AND b.is_show = 1
+        AND b.id = {board_id}
+        GROUP BY b.id
+    """
+
+    cursor.execute(sql)
+    board = cursor.fetchall()
+
+    board['user'] = json.loads(board['user'])
+    board['images'] = json.loads(board['images'])
+
+    result = {
+        'result': True,
+        'data': board
+    }
+    return json.dumps(result, ensure_ascii=False), 200
 
 
 # 등록
@@ -122,11 +276,56 @@ def post_a_board():
         result = {'result': True, 'boardId': board_id}
         return json.dumps(result, ensure_ascii=False), 200
 
+
 # 팔로워가 쓴 최신 글 조회
 @api.route('/board/follower', methods=['GET'])
 def get_followers_board():
-    # 페이징
-    return 'GET_follower\'s board', 200
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.get_followers_board')
+    authentication = authenticate(request, cursor)
+
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    sql = f"""
+        WITH follower_recent_board AS (
+            SELECT
+                f.target_id,
+                JSON_OBJECT('id', b.id, 'body', b.body) AS board_data,
+                RANK() OVER (PARTITION BY f.target_id ORDER BY b.id DESC) AS ranking
+            FROM
+                boards b
+            INNER JOIN
+                    follows f ON b.user_id = f.target_id
+            WHERE
+                f.user_id = {user_id}
+            AND
+                ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) < 7
+            AND b.is_show = 1
+        )
+        SELECT
+            frb.target_id,
+            frb.board_data
+        FROM
+            follower_recent_board frb
+        WHERE frb.ranking < 2
+    """
+
+    cursor.execute(sql)
+    follower_recent_board = cursor.fetchall()
+    for data in follower_recent_board:
+        data['board_data'] = json.loads(data['board_data'])
+    connection.close()
+
+    result = {
+        'result': True,
+        'data': follower_recent_board
+    }
+    return json.dumps(result, ensure_ascii=False), 200
 
 
 # 게시글 수정
