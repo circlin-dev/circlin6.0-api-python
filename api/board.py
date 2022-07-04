@@ -182,6 +182,8 @@ def get_a_board(board_id: int):
     if board is not None:
         board['user'] = json.loads(board['user'])
         board['images'] = json.loads(board['images'])
+    else:
+        board = {}
 
     connection.close()
     result = {
