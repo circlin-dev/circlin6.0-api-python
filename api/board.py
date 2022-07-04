@@ -1,4 +1,4 @@
-from global_configuration.table import Boards, Files, BoardCategories, BoardFiles
+from global_configuration.table import Boards, Files, BoardCategories, BoardFiles, BoardLikes
 from . import api
 from global_configuration.constants import API_ROOT
 from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3
@@ -23,7 +23,6 @@ def get_boards():
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
-    # 페이징
     sql = f"""
         SELECT
             b.id,
@@ -344,6 +343,8 @@ def delete_a_board(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.delete_a_board', board_id=board_id)
+
+
     connection.close()
     return 'DELETE_board', 200
 # endregion
@@ -360,6 +361,166 @@ def get_board_likes(board_id: int):
 
     # 페이징
     return 'GET_board_likes', 200
+
+
+# 좋아요
+@api.route('/board/<board_id>/like', methods=['POST'])
+def post_like(board_id: int):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.post_like',  board_id=board_id)
+
+    authentication = authenticate(request, cursor)
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    sql = Query.from_(
+        Boards
+    ).select(
+        Boards.id,
+        Boards.is_show,
+        Boards.deleted_at
+    ).where(
+        Criterion.all([
+            Boards.id == board_id
+        ])
+    ).get_sql()
+    cursor.execute(sql)
+    is_exists = cursor.fetchone()
+
+    if is_exists is None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(존재하지 않는 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif is_exists['deleted_at'] is not None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(삭제된 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif is_exists['is_show'] == 0:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(숨겨진 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        sql = Query.into(
+            BoardLikes
+        ).columns(
+            BoardLikes.board_id,
+            BoardLikes.user_id
+        ).insert(
+            board_id,
+            user_id,
+        ).get_sql()
+
+        cursor.execute(sql)
+        connection.commit()
+        connection.close()
+
+        result = {'result': True}
+        return json.dumps(result, ensure_ascii=False), 200
+
+
+# 좋아요 해제
+@api.route('/board/<board_id>/like', methods=['DELETE'])
+def delete_like(board_id: int):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.delete_like', board_id=board_id)
+
+    authentication = authenticate(request, cursor)
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    sql = Query.from_(
+        Boards
+    ).select(
+        Boards.id,
+        Boards.is_show,
+        Boards.deleted_at
+    ).where(
+        Criterion.all([
+            Boards.id == board_id
+        ])
+    ).get_sql()
+    cursor.execute(sql)
+    is_exists = cursor.fetchone()
+
+    if is_exists is None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(존재하지 않는 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif is_exists['deleted_at'] is not None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(삭제된 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif is_exists['is_show'] == 0:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(숨겨진 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        pass
+
+    sql = Query.from_(
+        BoardLikes
+    ).select(
+        BoardLikes.id
+    ).where(
+        Criterion.all([
+            BoardLikes.user_id == user_id,
+            BoardLikes.board_id == board_id
+        ])
+    ).get_sql()
+    cursor.execute(sql)
+    data = cursor.fetchone()
+
+    if data is None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(좋아요하지 않았거나, 이미 좋아요 취소된 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        sql = Query.from_(
+            BoardLikes
+        ).delete(
+        ).where(
+            Criterion.all([
+                BoardLikes.board_id == int(board_id),
+                BoardLikes.user_id == user_id
+            ])
+        ).get_sql()
+
+        cursor.execute(sql)
+        connection.commit()
+        connection.close()
+
+        result = {'result': True}
+        return json.dumps(result, ensure_ascii=False), 200
+
 # endregion
 
 
