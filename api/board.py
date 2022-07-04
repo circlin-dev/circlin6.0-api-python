@@ -177,7 +177,7 @@ def get_a_board(board_id: int):
     """
 
     cursor.execute(sql)
-    board = cursor.fetchall()
+    board = cursor.fetchone()
 
     board['user'] = json.loads(board['user'])
     board['images'] = json.loads(board['images'])
