@@ -248,7 +248,7 @@ def get_a_board(board_id: int):
     else:
         result = {
             'result': False,
-            'error': "존재하지 않거나, 공개되지 않은 게시물입니다."
+            'error': "존재하지 않거나, 삭제되었거나, 공개되지 않은 게시물입니다."
         }
         return json.dumps(result, ensure_ascii=False), 400
 
