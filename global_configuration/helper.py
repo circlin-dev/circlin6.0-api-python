@@ -24,6 +24,7 @@ from global_configuration.database import DATABASE
 from global_configuration.table import Files
 
 
+# region database
 def db_connection():
     connection = pymysql.connect(
         user=DATABASE['user'],
@@ -38,8 +39,10 @@ def db_connection():
 def get_dict_cursor(connection):
     cursor = connection.cursor(pymysql.cursors.DictCursor)
     return cursor
+# endregion
 
 
+# region authentication
 def authenticate(request, cursor):
     token = request.headers.get('token')
     uid = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
@@ -69,8 +72,10 @@ def authenticate(request, cursor):
     #     #     }
 
     return user_id
+# endregion
 
 
+# region etc
 def convert_timestamp_to_string(query_result: dict, keys: list):
     for data in query_result:
         for key in keys:
@@ -86,6 +91,36 @@ def return_json(result: dict):
     return json.dumps(result, ensure_ascii=False)
 
 
+def get_query_strings_from_request(request, param, init_value):
+    if request.args.get(param) is None or request.args.get(param) == '':
+        if param == 'word':
+            result = init_value
+        elif param == 'limit':
+            result = init_value
+        elif param == 'cursor':
+            result = init_value
+        elif param == 'page':
+            page = init_value
+        else:
+            result = ''
+    else:
+        if param == 'word':
+            result = request.args.get(param)
+        elif param == 'limit':
+            result = int(request.args.get(param))
+        elif param == 'cursor':
+            result = int(request.args.get(param))
+        elif param == 'page':
+            page = int(request.args.get(param))
+        else:
+            result = ''
+
+    return result
+
+# endregion
+
+
+# region file processing
 def upload_single_file_to_s3(file, object_path):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
@@ -328,6 +363,7 @@ def generate_resized_file(extension, original_file_path, file_type):
         #     resized_file_list.append(resized_file_path)
 
     return resized_file_list
+# endregion
 
 
 def point_request(token, point: int, reason: string, type: string, food_rating_id: int):
@@ -350,26 +386,3 @@ def point_request(token, point: int, reason: string, type: string, food_rating_i
     # }
 
    # return json.dumps(response, ensure_ascii=False)
-
-
-def get_query_strings_from_request(request, param, init_value):
-    if request.args.get(param) is None or request.args.get(param) == '':
-        if param == 'word':
-            result = init_value
-        elif param == 'limit':
-            result = init_value
-        elif param == 'cursor':
-            result = init_value
-        else:
-            result = ''
-    else:
-        if param == 'word':
-            result = request.args.get(param)
-        elif param == 'limit':
-            result = int(request.args.get(param))
-        elif param == 'cursor':
-            result = int(request.args.get(param))
-        else:
-            result = ''
-
-    return result

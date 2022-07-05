@@ -1,7 +1,9 @@
 from global_configuration.table import Boards, Files, BoardCategories, BoardFiles, BoardLikes
 from . import api
-from global_configuration.constants import API_ROOT
-from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3
+from global_configuration.constants import API_ROOT, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR, \
+    INITIAL_PAGE_LIMIT
+from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3, \
+    get_query_strings_from_request
 from flask import request, url_for
 import json
 import os
@@ -35,9 +37,6 @@ def get_boards():
                     'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
                         'pathname', ff.pathname,
                         'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
---                     'resized', IFNULL(JSON_ARRAY(JSON_OBJECT('mimeType', ff.mime_type,
---                                             'pathname', ff.pathname,
---                                             'width', ff.width)), JSON_ARRAY())
                 )
             ), JSON_ARRAY()) AS images,
             JSON_OBJECT(
@@ -83,7 +82,8 @@ def get_boards():
                 u.id = b.user_id
         WHERE b.deleted_at IS NULL
         AND b.is_show = 1
-        AND b.id < '90000000000000'
+        AND b.id < {INITIAL_DESCENDING_PAGE_CURSOR}
+        LIMIT {PAGE_LIMIT}
         GROUP BY b.id
     """
 
@@ -399,10 +399,73 @@ def get_board_likes(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.get_board_likes', board_id=board_id)
+
+    authentication = authenticate(request, cursor)
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
+    limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+
+    sql = f"""
+        SELECT 
+            u.id,
+            u.nickname,
+            u.greeting,
+            u.profile_image,
+            CONCAT(LPAD(bl.id, 15, '0')) as `cursor`
+        FROM
+            board_likes bl
+        INNER JOIN
+                users u ON u.id = bl.user_id
+        WHERE
+            board_id = {board_id}
+        AND
+            bl.id > {page_cursor}
+        LIMIT {limit}
+    """
+    cursor.execute(sql)
+    liked_users = cursor.fetchall()
+
+    if len(liked_users) == 0: # 좋아요 누른 사람이 없을 경우 return
+        connection.close()
+        result = []
+        response = {
+            'data': result,
+            'next': None,
+            'total_count': len(result)
+        }
+        return json.dumps(response, ensure_ascii=False), 200
+
+    sql = Query.from_(
+        BoardLikes
+    ).select(
+        fn.Count(BoardLikes.id).distinct().as_('total_count')
+    ).where(
+        Criterion.all([
+            BoardLikes.board_id == board_id
+        ])
+    ).get_sql()
+    cursor.execute(sql)
+    total_count = cursor.fetchone()['total_count']
     connection.close()
 
+    last_cursor = liked_users[-1]['cursor']  # 배열 원소의 cursor string
+    # for data in liked_users:
+    #     data['nutrition'] = json.loads(data['nutrition'], strict=False)
+    #     data['images'] = json.loads(data['images'], strict=False)
+    #     del data['cursor']
+    response = {
+        'data': liked_users,
+        'next': last_cursor,
+        'total_count': total_count
+    }
+
     # 페이징
-    return 'GET_board_likes', 200
+    return json.dumps(response), 200
 
 
 # 좋아요
