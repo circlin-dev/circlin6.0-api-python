@@ -234,20 +234,24 @@ def get_a_board(board_id: int):
 
     cursor.execute(sql)
     board = cursor.fetchone()
+    connection.close()
 
     if board is not None:
         board['user'] = json.loads(board['user'])
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
         board['images'] = json.loads(board['images'])
+        result = {
+            'result': True,
+            'data': board
+        }
+        return json.dumps(result, ensure_ascii=False), 200
     else:
-        board = {}
+        result = {
+            'result': False,
+            'error': "존재하지 않거나, 공개되지 않은 게시물입니다."
+        }
+        return json.dumps(result, ensure_ascii=False), 400
 
-    connection.close()
-    result = {
-        'result': True,
-        'data': board
-    }
-    return json.dumps(result, ensure_ascii=False), 200
 
 
 # 등록
@@ -523,10 +527,7 @@ def get_board_likes(board_id: int):
     connection.close()
 
     last_cursor = liked_users[-1]['cursor']  # 배열 원소의 cursor string
-    # for data in liked_users:
-    #     data['nutrition'] = json.loads(data['nutrition'], strict=False)
-    #     data['images'] = json.loads(data['images'], strict=False)
-    #     del data['cursor']
+
     response = {
         'data': liked_users,
         'next': last_cursor,
@@ -694,7 +695,6 @@ def delete_like(board_id: int):
 
             result = {'result': True}
             return json.dumps(result, ensure_ascii=False), 200
-
 # endregion
 
 
