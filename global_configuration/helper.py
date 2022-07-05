@@ -68,7 +68,7 @@ def authenticate(request, cursor):
     #     # else:
     #     #     token = request.headers.get('token')
     #     #     user_id = {
-    #     #         'user_id': int(jwt.decode(token, options={"verify_signature": False}))   # Without secret key
+    #     #         'user_id': int(jwt.decode(token, options={"verify_signature": False}))   # out secret key
     #     #     }
 
     return user_id
@@ -100,7 +100,7 @@ def get_query_strings_from_request(request, param, init_value):
         elif param == 'cursor':
             result = init_value
         elif param == 'page':
-            page = init_value
+            result = init_value
         else:
             result = ''
     else:
