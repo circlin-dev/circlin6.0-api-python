@@ -914,7 +914,7 @@ def update_comment(board_id: int, comment_id: int):
     user_id = authentication['user_id']
 
     params = json.loads(request.get_data())
-    if params['comment'] is None:
+    if params['comment'] is None or params['comment'].strip() == '':
         connection.close()
         result = {
             'result': False,
