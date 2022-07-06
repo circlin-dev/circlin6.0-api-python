@@ -270,8 +270,8 @@ def post_a_board():
     # data = json.loads(request.get_data())
     data = request.form.to_dict()
 
-    if data['boardCategoryId'] is None:
-        result = {'result': False, 'error': '게시글의 카테고리를 골라주세요.'}
+    if data['boardCategoryId'] is None or data['boardCategoryId'].strip() == '':
+        result = {'result': False, 'error': '게시글의 카테고리가 입력되지 않았습니다.'}
         return json.dumps(result, ensure_ascii=False), 400
     if data['body'] is None or data['body'].strip() == '':
         result = {'result': False, 'error': '게시글 내용을 입력해 주세요.'}
