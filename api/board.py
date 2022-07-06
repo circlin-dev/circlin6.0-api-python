@@ -360,7 +360,7 @@ def get_followers_board():
             SELECT
                 f.target_id,
                 JSON_OBJECT('id', b.id, 'body', b.body) AS board_data,
-                RANK() OVER (PARTITION BY f.target_id ORDER BY b.id DESC) AS ranking
+                RANK() OVER (PARTITION BY f.target_id ORDER BY b.created_at DESC) AS ranking
             FROM
                 boards b
             INNER JOIN
@@ -437,7 +437,7 @@ def delete_a_board(board_id: int):
 
     if data is None:
         connection.close()
-        result = {'result': False, 'error': '존재하지 않는 게시물이거나, 이미 삭제된 게시물입니다.'}
+        result = {'result': False, 'error': '존재하지 않는 게시물입니다.'}
         return json.dumps(result, ensure_ascii=False), 400
     elif data['user_id'] != user_id:
         connection.close()
