@@ -840,7 +840,10 @@ def post_comment(board_id: int):
     sql = Query.from_(
         Boards
     ).select(
-        Boards.id
+        Boards.id,
+        Boards.user_id,
+        Boards.deleted_at,
+        Boards.is_show
     ).where(
         Boards.id == board_id
     ).get_sql()
@@ -853,6 +856,20 @@ def post_comment(board_id: int):
         result = {
             'result': False,
             'error': '해당 게시물은 존재하지 않습니다.'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif is_exists['is_show'] == 0 and is_exists['user_id'] != user_id:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(숨겨진 게시물).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif is_exists['deleted_at'] is not None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '올바른 시도가 아닙니다(삭제된 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
     else:
