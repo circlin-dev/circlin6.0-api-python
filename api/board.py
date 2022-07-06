@@ -269,16 +269,17 @@ def post_a_board():
 
     # data = json.loads(request.get_data())
     data = request.form.to_dict()
+
+    if data['boardCategoryId'] is None:
+        result = {'result': False, 'error': '게시글의 카테고리를 골라주세요.'}
+        return json.dumps(result, ensure_ascii=False), 400
+    if data['body'] is None or data['body'].strip() == '':
+        result = {'result': False, 'error': '게시글 내용을 입력해 주세요.'}
+        return json.dumps(result, ensure_ascii=False), 400
+
     category_id = int(data['boardCategoryId'])
     body = data['body']
     is_show = data['isShow']
-
-    if category_id is None:
-        result = {'result': False, 'error': '게시글의 카테고리를 골라주세요.'}
-        return json.dumps(result, ensure_ascii=False), 400
-    if body is None or body.strip() == '':
-        result = {'result': False, 'error': '게시글 내용을 입력해 주세요.'}
-        return json.dumps(result, ensure_ascii=False), 400
 
     sql = Query.into(
         Boards
