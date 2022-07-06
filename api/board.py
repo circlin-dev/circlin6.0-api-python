@@ -1,4 +1,4 @@
-from global_configuration.table import Boards, Files, BoardCategories, BoardFiles, BoardLikes
+from global_configuration.table import Boards, Files, BoardCategories, BoardFiles, BoardLikes, BoardComments
 from . import api
 from global_configuration.constants import API_ROOT, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR, \
     INITIAL_PAGE_LIMIT, INITIAL_PAGE
@@ -251,7 +251,6 @@ def get_a_board(board_id: int):
             'error': "존재하지 않거나, 삭제되었거나, 공개되지 않은 게시물입니다."
         }
         return json.dumps(result, ensure_ascii=False), 400
-
 
 
 # 등록
@@ -698,13 +697,321 @@ def delete_like(board_id: int):
 # endregion
 
 
-# region 댓글 남기기
+# region 댓글
 # 댓글 조회
+@api.route('/board/<board_id>/comment', methods=['GET'])
+def get_commet(board_id: int):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.post_comment', board_id=board_id)
+    authentication = authenticate(request, cursor)
+
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    sql = f"""
+        WITH comment_list AS (
+            SELECT
+                bc.id,
+                bc.created_at,
+                bc.`group`,
+                bc.depth,
+                bc.comment,
+                CASE
+                    WHEN bc.deleted_at IS NULL THEN 0
+                    ELSE 1
+                END AS is_delete,
+                bc.user_id,
+                CASE
+                    WHEN bc.user_id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                    ELSE 0
+                END AS is_blocked,
+                u.nickname,
+                u.profile_image,
+                u.gender
+            FROM
+                board_comments bc
+            INNER JOIN
+                    users u
+                ON
+                    u.id = bc.user_id
+            WHERE
+                bc.board_id = {board_id}
+            ORDER BY bc.`group` DESC, bc.depth, bc.created_at)
+        SELECT COUNT(*) AS total_count FROM comment_list;"""
+
+    cursor.execute(sql)
+    total = cursor.fetchone()['total_count']
+
+    if total == 0:
+        connection.close()
+        result = {
+            'result': True,
+            'data': {
+                'total': total,
+                'comments': []
+            }
+        }
+        return json.dumps(result, ensure_ascii=False), 200
+    else:
+        sql = f"""
+            SELECT
+                bc.id,
+                DATE_FORMAT(bc.created_at, '%Y/%m/%d %H:%i:%s') as created_at,
+                bc.`group`,
+                bc.depth,
+                bc.comment,
+                CASE
+                    WHEN bc.deleted_at IS NULL THEN 0
+                    ELSE 1
+                END AS is_delete,
+                bc.user_id,
+                CASE
+                    WHEN bc.user_id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                    ELSE 0
+                END AS is_blocked,
+                u.nickname,
+                u.profile_image,
+                u.gender
+            FROM
+                board_comments bc
+            INNER JOIN
+                    users u
+                ON
+                    u.id = bc.user_id
+            WHERE
+                bc.board_id = {board_id}
+            ORDER BY bc.`group` DESC, bc.depth, bc.created_at"""
+
+        cursor.execute(sql)
+        comments = cursor.fetchall()
+        connection.close()
+        result = {
+            'result': True,
+            'data': {
+                'total': total,
+                'comments': comments
+            }
+        }
+        return json.dumps(result, ensure_ascii=False), 200
+
 
 # 댓글 작성
+@api.route('/board/<board_id>/comment', methods=['POST'])
+def post_comment(board_id: int):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.post_comment', board_id=board_id)
+    authentication = authenticate(request, cursor)
+
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    params = json.loads(request.get_data())
+    if params['comment'] is None or params['comment'].strip() == '':
+        connection.close()
+        result = {
+            'result': False,
+            'error': '내용이 없어 댓글을 저장할 수 없습니다.'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif params['group'] is None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(group).'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        pass
+
+    comment_body = params['comment']
+    comment_group = params['group']
+
+    sql = Query.from_(
+        BoardComments
+    ).select(
+        fn.Max(BoardComments.group).as_('max_group')
+    ).where(
+        BoardComments.board_id == board_id
+    ).get_sql()
+    cursor.execute(sql)
+    max_group = cursor.fetchone()['max_group']  # 현재 게시된 댓글 그룹 number 중 최대값
+
+    if max_group is None:
+        group = 0
+        depth = 0
+    else:
+        group = comment_group if comment_group >= 0 else max_group + 1  # 새 댓글일 경우 else, 대댓글일 경우 target group의 값으로 들어감.
+        depth = 0 if group >= max_group + 1 else 1  # comment_group 의 최초값이 -1 이라는 가정
+
+    sql = Query.into(
+        BoardComments
+    ).columns(
+        BoardComments.board_id,
+        BoardComments.user_id,
+        BoardComments.group,
+        BoardComments.depth,
+        BoardComments.comment
+    ).insert(
+        board_id,
+        user_id,
+        group,
+        depth,
+        comment_body
+    ).get_sql()
+
+    cursor.execute(sql)
+    connection.commit()
+
+    connection.close()
+    result = {'result': True}
+
+    return json.dumps(result, ensure_ascii=False), 200
+
+
+# 댓글 수정
+@api.route('/board/<board_id>/comment/<comment_id>', methods=['PATCH'])
+def update_comment(board_id: int, comment_id: int):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.update_comment', board_id=board_id, comment_id=comment_id)
+    authentication = authenticate(request, cursor)
+
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    params = json.loads(request.get_data())
+    if params['comment'] is None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '변경하고자 하는 내용이 서버로 전송되지 않았습니다.'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+
+    sql = Query.from_(
+        BoardComments
+    ).select(
+        BoardComments.id,
+        BoardComments.user_id,
+        BoardComments.deleted_at
+    ).where(
+        BoardComments.id == comment_id
+    ).get_sql()
+    cursor.execute(sql)
+    current_comment = cursor.fetchone()
+
+    if current_comment is None:
+        connection.close()
+        result = {
+            "result": False,
+            "error": "존재하지 않는 댓글이므로 수정할 수 없습니다."
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif current_comment['user_id'] != user_id:
+        connection.close()
+        result = {
+            "result": False,
+            "error": "해당 댓글의 작성자가 아니므로 댓글을 수정할 수 없습니다."
+        }
+        return json.dumps(result, ensure_ascii=False), 401
+    elif current_comment['deleted_at'] is not None:
+        connection.close()
+        result = {
+            "result": False,
+            "error": "삭제된 댓글은 수정할 수 없습니다."
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        modified_comment = params['comment']
+        sql = Query.update(
+            BoardComments
+        ).set(
+            BoardComments.comment, modified_comment
+        ).where(
+            BoardComments.id == comment_id
+        ).get_sql()
+
+        cursor.execute(sql)
+        connection.commit()
+        connection.close()
+
+        result = {'result': True}
+        return json.dumps(result, ensure_ascii=False), 200
+
 
 # 댓글 삭제
+@api.route('/board/<board_id>/comment/<comment_id>', methods=['DELETE'])
+def delete_comment(board_id: int, comment_id: int):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.delete_comment', board_id=board_id, comment_id=comment_id)
+    authentication = authenticate(request, cursor)
 
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    sql = Query.from_(
+        BoardComments
+    ).select(
+        BoardComments.id,
+        BoardComments.user_id,
+        BoardComments.deleted_at
+    ).where(
+        BoardComments.id == comment_id
+    ).get_sql()
+    cursor.execute(sql)
+    comment = cursor.fetchone()
+
+    if comment is None:
+        connection.close()
+        result = {
+            "result": False,
+            "error": "존재하지 않는 댓글이므로 삭제할 수 없습니다."
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    elif comment['user_id'] != user_id:
+        connection.close()
+        result = {
+            "result": False,
+            "error": "해당 댓글의 작성자가 아니므로 댓글을 삭제할 수 없습니다."
+        }
+        return json.dumps(result, ensure_ascii=False), 401
+    elif comment['deleted_at'] is not None:
+        connection.close()
+        result = {
+            "result": False,
+            "error": "이미 삭제된 댓글입니다."
+        }
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        sql = Query.update(
+            BoardComments
+        ).set(
+            BoardComments.deleted_at, fn.Now()
+        ).where(
+            BoardComments.id == comment_id
+        ).get_sql()
+
+        cursor.execute(sql)
+        connection.commit()
+        connection.close()
+
+        result = {'result': True}
+        return json.dumps(result, ensure_ascii=False), 200
 # endregion
 
 
