@@ -589,22 +589,44 @@ def post_like(board_id: int):
         }
         return json.dumps(result, ensure_ascii=False), 400
     else:
-        sql = Query.into(
+        sql = Query.from_(
             BoardLikes
-        ).columns(
-            BoardLikes.board_id,
-            BoardLikes.user_id
-        ).insert(
-            board_id,
-            user_id,
+        ).select(
+            BoardLikes.id
+        ).where(
+            Criterion.all([
+                BoardLikes.user_id == user_id,
+                BoardLikes.board_id == board_id
+            ])
         ).get_sql()
 
         cursor.execute(sql)
-        connection.commit()
-        connection.close()
+        like_record = cursor.fetchone()
 
-        result = {'result': True}
-        return json.dumps(result, ensure_ascii=False), 200
+        if like_record is not None:
+            connection.close()
+            result = {
+                'result': False,
+                'error': '이미 좋아요를 한 게시물입니다.'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        else:
+            sql = Query.into(
+                BoardLikes
+            ).columns(
+                BoardLikes.board_id,
+                BoardLikes.user_id
+            ).insert(
+                board_id,
+                user_id,
+            ).get_sql()
+
+            cursor.execute(sql)
+            connection.commit()
+            connection.close()
+
+            result = {'result': True}
+            return json.dumps(result, ensure_ascii=False), 200
 
 
 # 좋아요 해제
