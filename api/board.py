@@ -836,67 +836,88 @@ def post_comment(board_id: int):
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
-    params = json.loads(request.get_data())
-    if params['comment'] is None or params['comment'].strip() == '':
-        connection.close()
-        result = {
-            'result': False,
-            'error': '내용이 없어 댓글을 저장할 수 없습니다.'
-        }
-        return json.dumps(result, ensure_ascii=False), 400
-    elif params['group'] is None:
-        connection.close()
-        result = {
-            'result': False,
-            'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(group).'
-        }
-        return json.dumps(result, ensure_ascii=False), 400
-    else:
-        pass
-
-    comment_body = params['comment']
-    comment_group = params['group']
 
     sql = Query.from_(
-        BoardComments
+        Boards
     ).select(
-        fn.Max(BoardComments.group).as_('max_group')
+        Boards.id
     ).where(
-        BoardComments.board_id == board_id
+        Boards.id == board_id
     ).get_sql()
-    cursor.execute(sql)
-    max_group = cursor.fetchone()['max_group']  # 현재 게시된 댓글 그룹 number 중 최대값
 
-    if max_group is None:
-        group = 0
-        depth = 0
+    cursor.execute(sql)
+    is_exists = cursor.fetchone()
+
+    if is_exists is None:
+        connection.close()
+        result = {
+            'result': False,
+            'error': '해당 게시물은 존재하지 않습니다.'
+        }
+        return json.dumps(result, ensure_ascii=False), 400
     else:
-        group = comment_group if comment_group >= 0 else max_group + 1  # 새 댓글일 경우 else, 대댓글일 경우 target group의 값으로 들어감.
-        depth = 0 if group >= max_group + 1 else 1  # comment_group 의 최초값이 -1 이라는 가정
+        params = json.loads(request.get_data())
 
-    sql = Query.into(
-        BoardComments
-    ).columns(
-        BoardComments.board_id,
-        BoardComments.user_id,
-        BoardComments.group,
-        BoardComments.depth,
-        BoardComments.comment
-    ).insert(
-        board_id,
-        user_id,
-        group,
-        depth,
-        comment_body
-    ).get_sql()
+        if params['comment'] is None or params['comment'].strip() == '':
+            connection.close()
+            result = {
+                'result': False,
+                'error': '내용이 없어 댓글을 저장할 수 없습니다.'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        elif params['group'] is None:
+            connection.close()
+            result = {
+                'result': False,
+                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(group).'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        else:
+            pass
 
-    cursor.execute(sql)
-    connection.commit()
+        comment_body = params['comment']
+        comment_group = params['group']
 
-    connection.close()
-    result = {'result': True}
+        sql = Query.from_(
+            BoardComments
+        ).select(
+            fn.Max(BoardComments.group).as_('max_group')
+        ).where(
+            BoardComments.board_id == board_id
+        ).get_sql()
+        cursor.execute(sql)
+        max_group = cursor.fetchone()['max_group']  # 현재 게시된 댓글 그룹 number 중 최대값
 
-    return json.dumps(result, ensure_ascii=False), 200
+        if max_group is None:
+            group = 0
+            depth = 0
+        else:
+            group = comment_group if comment_group >= 0 else max_group + 1  # 새 댓글일 경우 else, 대댓글일 경우 target group의 값으로 들어감.
+            depth = 0 if group >= max_group + 1 else 1  # comment_group 의 최초값이 -1 이라는 가정
+
+        sql = Query.into(
+            BoardComments
+        ).columns(
+            BoardComments.board_id,
+            BoardComments.user_id,
+            BoardComments.group,
+            BoardComments.depth,
+            BoardComments.comment
+        ).insert(
+            board_id,
+            user_id,
+            group,
+            depth,
+            comment_body
+        ).get_sql()
+
+        cursor.execute(sql)
+        connection.commit()
+
+        connection.close()
+        result = {'result': True}
+
+        return json.dumps(result, ensure_ascii=False), 200
 
 
 # 댓글 수정
