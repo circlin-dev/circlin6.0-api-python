@@ -12,6 +12,11 @@ BoardComments = Table('board_comments')
 Files = Table('files')
 # endregion
 
+
+# region N
+Notifications = Table('notifications')
+# endregion
+
 # region V
 Versions = Table('versions')
 # endregion

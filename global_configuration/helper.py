@@ -21,7 +21,7 @@ from werkzeug.utils import secure_filename
 from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, \
     RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT, APP_TEMP, FFMPEG_PATH2, FFMPEG_PATH1, FFMPEG_PATH3
 from global_configuration.database import DATABASE
-from global_configuration.table import Files
+from global_configuration.table import Files, Notifications
 
 
 # region database
@@ -365,6 +365,48 @@ def generate_resized_file(extension, original_file_path, file_type):
     return resized_file_list
 # endregion
 
+
+# region 알림(notification)
+def create_notification(target_user_id: any, notification_type: str, user_id: int,  target_table: str, target_table_id: int, target_comment_id: any, variables: any):
+    # notification_type: board_like, board_comment, board_reply
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+
+    sql = Query.into(
+        Notifications
+    ).columns(
+        Notifications.created_at,
+        Notifications.updated_at,
+        Notifications.target_id,
+        Notifications.type,
+        Notifications.user_id,
+        f"{target_table}_id",
+        f"{target_table}_comment_id",
+        Notifications.variables
+    ).insert(
+        fn.Now(),
+        fn.Now(),
+        target_user_id,
+        notification_type,
+        user_id,
+        target_table_id,
+        target_comment_id,
+        variables
+    ).get_sql()
+
+    cursor.execute(sql)
+    connection.commit()
+    connection.close()
+
+    return True
+
+
+# endregion
+
+
+# region 푸시(push)
+
+# endregion
 
 def point_request(token, point: int, reason: string, type: string, food_rating_id: int):
     response = requests.post(

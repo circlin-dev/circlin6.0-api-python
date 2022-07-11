@@ -3,7 +3,7 @@ from . import api
 from global_configuration.constants import API_ROOT, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR, \
     INITIAL_PAGE_LIMIT, INITIAL_PAGE
 from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3, \
-    get_query_strings_from_request
+    get_query_strings_from_request, create_notification
 from flask import request, url_for
 import json
 import os
@@ -565,23 +565,23 @@ def post_like(board_id: int):
         ])
     ).get_sql()
     cursor.execute(sql)
-    is_exists = cursor.fetchone()
+    board = cursor.fetchone()
 
-    if is_exists is None:
+    if board is None:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(존재하지 않는 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['deleted_at'] is not None:
+    elif board['deleted_at'] is not None:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(삭제된 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['is_show'] == 0 and is_exists['user_id'] != user_id:
+    elif board['is_show'] == 0 and board['user_id'] != user_id:
         connection.close()
         result = {
             'result': False,
@@ -623,6 +623,9 @@ def post_like(board_id: int):
 
             cursor.execute(sql)
             connection.commit()
+
+            # 알림, 푸시
+            create_notification(int(board['user_id']), 'board_like', user_id, 'board', board_id, None, None)
             connection.close()
 
             result = {'result': True}
@@ -836,7 +839,6 @@ def post_comment(board_id: int):
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
-
     sql = Query.from_(
         Boards
     ).select(
@@ -849,23 +851,23 @@ def post_comment(board_id: int):
     ).get_sql()
 
     cursor.execute(sql)
-    is_exists = cursor.fetchone()
+    board = cursor.fetchone()
 
-    if is_exists is None:
+    if board is None:
         connection.close()
         result = {
             'result': False,
             'error': '해당 게시물은 존재하지 않습니다.'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['is_show'] == 0 and is_exists['user_id'] != user_id:
+    elif board['is_show'] == 0 and board['user_id'] != user_id:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(숨겨진 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['deleted_at'] is not None:
+    elif board['deleted_at'] is not None:
         connection.close()
         result = {
             'result': False,
@@ -895,6 +897,7 @@ def post_comment(board_id: int):
         comment_body = params['comment']
         comment_group = params['group']
 
+        # 게시글의 댓글 group값 중 가장 큰 값 가져오기
         sql = Query.from_(
             BoardComments
         ).select(
@@ -906,12 +909,14 @@ def post_comment(board_id: int):
         max_group = cursor.fetchone()['max_group']  # 현재 게시된 댓글 그룹 number 중 최대값
 
         if max_group is None:
+            # 첫 댓글이 달릴 시에는 group, depth 모두 0으로 시작
             group = 0
             depth = 0
         else:
             group = comment_group if comment_group >= 0 else max_group + 1  # 새 댓글일 경우 else, 대댓글일 경우 target group의 값으로 들어감.
             depth = 0 if group >= max_group + 1 else 1  # comment_group 의 최초값이 -1 이라는 가정
 
+        # 게시글의 댓글 저장
         sql = Query.into(
             BoardComments
         ).columns(
@@ -930,8 +935,47 @@ def post_comment(board_id: int):
 
         cursor.execute(sql)
         connection.commit()
+        board_comment_id = cursor.lastrowid  # 저장한 후 id값 기억해 두기
+
+        # 방금 올린 답글의 원 댓글 작성자 확인
+        sql = Query.from_(
+            BoardComments
+        ).select(
+            BoardComments.id,
+            BoardComments.user_id
+        ).where(
+            Criterion.all([
+                BoardComments.board_id == board_id,
+                BoardComments.group == group,
+                BoardComments.depth == 0,
+            ])
+        ).get_sql()
+        cursor.execute(sql)
+        target_comment_user = cursor.fetchone()
+        target_comment_user_id = target_comment_user['user_id']
 
         connection.close()
+
+        # 알림, 푸시
+        if depth > 0 and target_comment_user_id != user_id:
+            # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 다른 경우 => 댓글 작성자에게 알림
+            # 게시글 작성자와 답글 작성자가 다르다면 => 게시글 작성자에게도 알림.
+            # 단 본인의 댓글에 본인이 답글을 남기는 경우 알림 불필요
+            create_notification(int(target_comment_user_id), 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
+            if board['user_id'] != user_id:
+                create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+        elif depth > 0 and target_comment_user_id == user_id:
+            # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
+
+            create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+        elif depth <= 0 and board['user_id'] != user_id:
+            # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
+            # 단 본인의 게시글에 본인이 댓글을 남기는 경우 알림 불필요
+            create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+        else:
+            # 자신의 게시글에 새 댓글을 남기는 경우 => 아무것도 하지 않음.
+            pass
+
         result = {'result': True}
 
         return json.dumps(result, ensure_ascii=False), 200
