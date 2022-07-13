@@ -1,7 +1,7 @@
-from global_configuration.table import Boards, Files, BoardCategories, BoardFiles, BoardLikes, BoardComments
+from global_configuration.table import Boards, Files, BoardCategories, BoardFiles, BoardLikes, BoardComments, Users
 from . import api
 from global_configuration.constants import API_ROOT, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR, \
-    INITIAL_PAGE_LIMIT, INITIAL_PAGE
+    INITIAL_PAGE_LIMIT, INITIAL_PAGE, BOARD_PUSH_TITLE
 from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3, \
     get_query_strings_from_request, create_notification, send_fcm_push
 from flask import request, url_for
@@ -625,10 +625,26 @@ def post_like(board_id: int):
             connection.commit()
 
             # 알림, 푸시
-            create_notification(int(board['user_id']), 'board_like', user_id, 'board', board_id, None, None)
-            send_fcm_push(user_id, [int(board['user_id'])], int(board_id), None, 'board_like', board_id)
-            connection.close()
+            # 좋아요 누른 유저의 닉네임
+            sql = Query.from_(
+                Users
+            ).select(
+                Users.nickname
+            ).where(
+                Users.id == user_id
+            ).get_sql()
+            cursor.execute(sql)
+            user_nickname = cursor.fetchone()['nickname']
 
+            create_notification(int(board['user_id']), 'board_like', user_id, 'board', board_id, None, None)
+
+            push_target = list()
+            push_target.append(int(board['user_id']))
+            push_type = f"board_like.{str(board_id)}"
+            push_body = f'{user_nickname}님이 내 게시글을 좋아합니다.'
+            send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
+
+            connection.close()
             result = {'result': True}
             return json.dumps(result, ensure_ascii=False), 200
 
@@ -953,30 +969,60 @@ def post_comment(board_id: int):
         ).get_sql()
         cursor.execute(sql)
         target_comment_user = cursor.fetchone()
-        target_comment_user_id = target_comment_user['user_id']
-
-        connection.close()
+        target_comment_id = target_comment_user['id']
+        target_comment_user_id = int(target_comment_user['user_id'])
 
         # 알림, 푸시
+        sql = Query.from_(
+            Users
+        ).select(
+            Users.nickname
+        ).where(
+            Users.id == user_id
+        ).get_sql()
+        cursor.execute(sql)
+        user_nickname = cursor.fetchone()['nickname']
+
         if depth > 0 and target_comment_user_id != user_id:
             # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 다른 경우 => 댓글 작성자에게 알림
             # 게시글 작성자와 답글 작성자가 다르다면 => 게시글 작성자에게도 알림.
             # 단 본인의 댓글에 본인이 답글을 남기는 경우 알림 불필요
-            create_notification(int(target_comment_user_id), 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
+            create_notification(target_comment_user_id, 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
+            push_type = f"board_reply.{str(board_id)}"
+            push_target = list()
+            push_target.append(target_comment_user_id)
+            push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+            send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
+
             if board['user_id'] != user_id:
                 create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+                push_type = f"board_comment.{str(board_comment_id)}"
+                push_target = list()
+                push_target.append(int(board['user_id']))
+                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
         elif depth > 0 and target_comment_user_id == user_id:
             # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
-
             create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+            push_type = f"board_comment.{str(board_id)}"
+            push_target = list()
+            push_target.append(int(board['user_id']))
+            push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+            send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
         elif depth <= 0 and board['user_id'] != user_id:
             # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
             # 단 본인의 게시글에 본인이 댓글을 남기는 경우 알림 불필요
             create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+            push_type = f"board_comment.{str(board_id)}"
+            push_target = list()
+            push_target.append(int(board['user_id']))
+            push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+            send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
         else:
             # 자신의 게시글에 새 댓글을 남기는 경우 => 아무것도 하지 않음.
             pass
 
+        connection.close()
         result = {'result': True}
 
         return json.dumps(result, ensure_ascii=False), 200
