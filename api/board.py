@@ -3,7 +3,7 @@ from . import api
 from global_configuration.constants import API_ROOT, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR, \
     INITIAL_PAGE_LIMIT, INITIAL_PAGE
 from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3, \
-    get_query_strings_from_request, create_notification
+    get_query_strings_from_request, create_notification, send_fcm_push
 from flask import request, url_for
 import json
 import os
@@ -626,6 +626,7 @@ def post_like(board_id: int):
 
             # 알림, 푸시
             create_notification(int(board['user_id']), 'board_like', user_id, 'board', board_id, None, None)
+            send_fcm_push(user_id, [int(board['user_id'])], int(board_id), None, 'board_like')
             connection.close()
 
             result = {'result': True}

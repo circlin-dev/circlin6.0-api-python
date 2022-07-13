@@ -32,8 +32,11 @@ PUBLIC_API_SUPPLEMENT_DECODING_KEY = 'G8Fa+r69TLfqBJ/zHb8Lxsvl9/1cgOhvvjjwb1ty2L
 
 
 # region third-party
-##Slack
+# Slack
 SLACK_NOTIFICATION_WEBHOOK = "https://hooks.slack.com/services/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?"
+
+# Firebase push authorization key
+FIREBASE_AUTHORIZATION_KEY = 'key=AAAALKBQqQQ:APA91bHBUnrkt4QVKuO6FR0ZikkWMQ2zvr_2k7JCkIo4DVBUOB3HUZTK5pH-Rug8ygfgtjzb2lES3SaqQ9Iq8YhmU-HwdbADN5dvDdbq0IjrOPKzqNZ2tTFDWgMQ9ckPVQiBj63q9pGq'
 # endregion
 
 # Admin

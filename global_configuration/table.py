@@ -12,10 +12,20 @@ BoardComments = Table('board_comments')
 Files = Table('files')
 # endregion
 
+# region P
+PushHistories = Table('push_histories')
+# endregion
+
 
 # region N
 Notifications = Table('notifications')
 # endregion
+
+
+# region U
+Users = Table('users')
+# endregion
+
 
 # region V
 Versions = Table('versions')

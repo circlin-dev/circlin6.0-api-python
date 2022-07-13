@@ -12,16 +12,17 @@ import os
 from PIL import Image
 import pyheif
 import pymysql
-from pypika import MySQLQuery as Query, functions as fn
+from pypika import MySQLQuery as Query, functions as fn, Criterion
 import random
 import shutil
 import string
 from werkzeug.utils import secure_filename
 
 from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, \
-    RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT, APP_TEMP, FFMPEG_PATH2, FFMPEG_PATH1, FFMPEG_PATH3
+    RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT, APP_TEMP, FFMPEG_PATH2, FFMPEG_PATH1, FFMPEG_PATH3, \
+    FIREBASE_AUTHORIZATION_KEY
 from global_configuration.database import DATABASE
-from global_configuration.table import Files, Notifications
+from global_configuration.table import Files, Notifications, Users, PushHistories
 
 
 # region database
@@ -428,3 +429,128 @@ def point_request(token, point: int, reason: string, type: string, food_rating_i
     # }
 
    # return json.dumps(response, ensure_ascii=False)
+
+
+# region push
+def send_fcm_push(user_id, target_ids, board_id, comment_id, type_prefix):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+
+    url = 'https://fcm.googleapis.com/fcm/send'
+    headers = {
+        'Authorization': FIREBASE_AUTHORIZATION_KEY,
+        'Content-Type': 'application/json'
+    }
+
+    # 1. target_ids 에서 유저 정보 획득
+    sql = Query.from_(
+        Users
+    ).select(
+        Users.nickname
+    ).where(
+        Users.id == user_id
+    ).get_sql()
+    cursor.execute(sql)
+    user = cursor.fetchone()
+    user_nickname = user['nickname']
+
+    push_type = f"{type_prefix}.{str(board_id)}"
+    title = "써클인 게시판 알림"
+
+    # 2. type에 따라 Common code에서 message template 가져오기
+    if type_prefix == 'board_like':
+        body = f'{user_nickname}님이 내 게시글을 좋아합니다.'
+    elif type_prefix == 'board_comment':
+        body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.'
+    else:
+        body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.'
+
+    # 3. target별 푸시 전송
+    for index, target in enumerate(target_ids):
+        if target != user_id:
+            # 3-1. target 정보 조회
+            sql = Query.from_(
+                Users
+            ).select(
+                Users.nickname,
+                Users.device_token,
+                Users.device_type,
+            ).where(
+                Criterion.all([
+                    Users.id == int(target),
+                    Users.agree_push == 1,
+                    Users.device_token.notnull(),
+                    Users.device_token != ''
+                ])
+            ).get_sql()
+
+            cursor.execute(sql)
+            target_user = cursor.fetchone()
+            target_user_device_token = target_user['device_token']
+            # device_token = 'ekLzPt2Qw0KOqvcB5U-s71:APA91bGuIMPMb373oPEkkNlAZW3NT5pYerdqyz2Zs5zhZG4OanQj2BJC4UdSlwbqMyeN1wbx11r1odCVO7FRABxBCVR0F4jXb8aw2P0x2eFzQA_64BJdOLE_VY1A9dNG9OM8aE1_w_ZO'
+            target_user_device_type = target_user['device_type']
+
+            # 3-2. 푸시 메시지 발송 요청(Firebase API)
+            data = {
+                # "to": device_token,
+                "registration_ids": [target_user_device_token],
+                "notification": {
+                    "tag": push_type,
+                    "body": body,
+                    "subtitle" if target_user_device_type == "ios" else "title": title,
+                    "channel_id": "Circlin"
+                },
+                "priority": "high",
+                "data": {
+                    "link": {
+                        "route": "Sub",
+                        "screen": "Board",
+                        "params": {
+                            "id": board_id,
+                            "comment_id": comment_id
+                        }
+                    }
+                },
+            }
+
+            response = requests.post(
+                url=url,
+                headers=headers,
+                json=data
+            ).json()
+
+            # 4. 발송 결과 DB에 저장
+            data.pop('registration_ids')
+            sql = Query.into(
+                PushHistories
+            ).columns(
+                PushHistories.created_at,
+                PushHistories.updated_at,
+                PushHistories.target_id,
+                PushHistories.device_token,
+                PushHistories.title,
+                PushHistories.message,
+                PushHistories.type,
+                PushHistories.result,
+                PushHistories.json,
+                PushHistories.result_json
+            ).insert(
+                fn.Now(),
+                fn.Now(),
+                int(target),
+                target_user_device_token,
+                title,
+                body,
+                push_type,
+                True if response['results'][0]['message_id'] else False,
+                json.dumps(data, ensure_ascii=False),
+                json.dumps(response['results'][0], ensure_ascii=False)
+            ).get_sql()
+            cursor.execute(sql)
+        else:
+            pass
+        connection.commit()
+
+    connection.close()
+    return True
+# endregion
