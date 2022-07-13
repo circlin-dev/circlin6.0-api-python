@@ -432,7 +432,7 @@ def point_request(token, point: int, reason: string, type: string, food_rating_i
 
 
 # region push
-def send_fcm_push(user_id, target_ids, board_id, comment_id, type_prefix):
+def send_fcm_push(user_id, target_ids, board_id, comment_id, type_prefix, type_suffix):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
 
@@ -454,7 +454,7 @@ def send_fcm_push(user_id, target_ids, board_id, comment_id, type_prefix):
     user = cursor.fetchone()
     user_nickname = user['nickname']
 
-    push_type = f"{type_prefix}.{str(board_id)}"
+    push_type = f"{type_prefix}.{str(type_suffix)}"
     title = "써클인 게시판 알림"
 
     # 2. type에 따라 Common code에서 message template 가져오기

@@ -626,7 +626,7 @@ def post_like(board_id: int):
 
             # 알림, 푸시
             create_notification(int(board['user_id']), 'board_like', user_id, 'board', board_id, None, None)
-            send_fcm_push(user_id, [int(board['user_id'])], int(board_id), None, 'board_like')
+            send_fcm_push(user_id, [int(board['user_id'])], int(board_id), None, 'board_like', board_id)
             connection.close()
 
             result = {'result': True}
