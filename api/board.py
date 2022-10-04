@@ -565,23 +565,23 @@ def post_like(board_id: int):
         ])
     ).get_sql()
     cursor.execute(sql)
-    board = cursor.fetchone()
+    target_board = cursor.fetchone()
 
-    if board is None:
+    if target_board is None:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(존재하지 않는 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif board['deleted_at'] is not None:
+    elif target_board['deleted_at'] is not None:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(삭제된 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif board['is_show'] == 0 and board['user_id'] != user_id:
+    elif target_board['is_show'] == 0 and target_board['user_id'] != user_id:
         connection.close()
         result = {
             'result': False,
@@ -636,13 +636,14 @@ def post_like(board_id: int):
             cursor.execute(sql)
             user_nickname = cursor.fetchone()['nickname']
 
-            create_notification(int(board['user_id']), 'board_like', user_id, 'board', board_id, None, None)
+            if target_board['user_id'] != user_id:
+                create_notification(int(target_board['user_id']), 'board_like', user_id, 'board', board_id, None, None)
 
-            push_target = list()
-            push_target.append(int(board['user_id']))
-            push_type = f"board_like.{str(board_id)}"
-            push_body = f'{user_nickname}님이 내 게시글을 좋아합니다.'
-            send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
+                push_target = list()
+                push_target.append(int(target_board['user_id']))
+                push_type = f"board_like.{str(board_id)}"
+                push_body = f'{user_nickname}님이 내 게시글을 좋아합니다.'
+                send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
 
             connection.close()
             result = {'result': True}
@@ -676,23 +677,23 @@ def delete_like(board_id: int):
         ])
     ).get_sql()
     cursor.execute(sql)
-    is_exists = cursor.fetchone()
+    target_board = cursor.fetchone()
 
-    if is_exists is None:
+    if target_board is None:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(존재하지 않는 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['deleted_at'] is not None:
+    elif target_board['deleted_at'] is not None:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(삭제된 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif is_exists['is_show'] == 0 and is_exists['user_id'] != user_id:
+    elif target_board['is_show'] == 0 and target_board['user_id'] != user_id:
         connection.close()
         result = {
             'result': False,
@@ -868,23 +869,23 @@ def post_comment(board_id: int):
     ).get_sql()
 
     cursor.execute(sql)
-    board = cursor.fetchone()
+    target_board = cursor.fetchone()
 
-    if board is None:
+    if target_board is None:
         connection.close()
         result = {
             'result': False,
             'error': '해당 게시물은 존재하지 않습니다.'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif board['is_show'] == 0 and board['user_id'] != user_id:
+    elif target_board['is_show'] == 0 and target_board['user_id'] != user_id:
         connection.close()
         result = {
             'result': False,
             'error': '올바른 시도가 아닙니다(숨겨진 게시물).'
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif board['deleted_at'] is not None:
+    elif target_board['deleted_at'] is not None:
         connection.close()
         result = {
             'result': False,
@@ -994,28 +995,28 @@ def post_comment(board_id: int):
             push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
             send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
 
-            if board['user_id'] != user_id:
-                create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+            if target_board['user_id'] != user_id:
+                create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
                 push_type = f"board_comment.{str(board_comment_id)}"
                 push_target = list()
-                push_target.append(int(board['user_id']))
+                push_target.append(int(target_board['user_id']))
                 push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
                 send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
         elif depth > 0 and target_comment_user_id == user_id:
             # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
-            create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+            create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
             push_type = f"board_comment.{str(board_id)}"
             push_target = list()
-            push_target.append(int(board['user_id']))
+            push_target.append(int(target_board['user_id']))
             push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
             send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
-        elif depth <= 0 and board['user_id'] != user_id:
+        elif depth <= 0 and target_board['user_id'] != user_id:
             # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
             # 단 본인의 게시글에 본인이 댓글을 남기는 경우 알림 불필요
-            create_notification(int(board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+            create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
             push_type = f"board_comment.{str(board_id)}"
             push_target = list()
-            push_target.append(int(board['user_id']))
+            push_target.append(int(target_board['user_id']))
             push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
             send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
         else:
@@ -1061,23 +1062,23 @@ def update_comment(board_id: int, comment_id: int):
         BoardComments.id == comment_id
     ).get_sql()
     cursor.execute(sql)
-    current_comment = cursor.fetchone()
+    target_comment = cursor.fetchone()
 
-    if current_comment is None:
+    if target_comment is None:
         connection.close()
         result = {
             "result": False,
             "error": "존재하지 않는 댓글이므로 수정할 수 없습니다."
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif current_comment['user_id'] != user_id:
+    elif target_comment['user_id'] != user_id:
         connection.close()
         result = {
             "result": False,
             "error": "해당 댓글의 작성자가 아니므로 댓글을 수정할 수 없습니다."
         }
         return json.dumps(result, ensure_ascii=False), 401
-    elif current_comment['deleted_at'] is not None:
+    elif target_comment['deleted_at'] is not None:
         connection.close()
         result = {
             "result": False,
@@ -1126,23 +1127,23 @@ def delete_comment(board_id: int, comment_id: int):
         BoardComments.id == comment_id
     ).get_sql()
     cursor.execute(sql)
-    comment = cursor.fetchone()
+    target_comment = cursor.fetchone()
 
-    if comment is None:
+    if target_comment is None:
         connection.close()
         result = {
             "result": False,
             "error": "존재하지 않는 댓글이므로 삭제할 수 없습니다."
         }
         return json.dumps(result, ensure_ascii=False), 400
-    elif comment['user_id'] != user_id:
+    elif target_comment['user_id'] != user_id:
         connection.close()
         result = {
             "result": False,
             "error": "해당 댓글의 작성자가 아니므로 댓글을 삭제할 수 없습니다."
         }
         return json.dumps(result, ensure_ascii=False), 401
-    elif comment['deleted_at'] is not None:
+    elif target_comment['deleted_at'] is not None:
         connection.close()
         result = {
             "result": False,

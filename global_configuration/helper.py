@@ -453,7 +453,7 @@ def send_fcm_push(target_ids: list, push_type: str, user_id: int, board_id: int,
 
             # 3-2. 푸시 메시지 발송 요청(Firebase API)
             if target_user_push_agreement is True and target_user_device_token is not None and target_user_device_token.strip() != '':
-                processed_push_body = re.sub('\\\\"', '"', push_body)
+                processed_push_body = re.sub('\\\\"', '"', push_body)  # for Firebase push text form.
                 data = {
                     "registration_ids": [target_user_device_token],
                     "notification": {
