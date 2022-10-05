@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="SshConfigs">
+    <configs>
+      <sshConfig host="3.39.217.125" id="54b1b84a-559d-4e10-a7e8-4a1f54c7d1a9" keyPath="$PROJECT_DIR$/../../keyFile/circlin-aws/circlinAWSKey.pem" port="22" customName="circlin60_py38" nameFormat="CUSTOM" username="ubuntu" useOpenSSHConfig="true">
+        <option name="customName" value="circlin60_py38" />
+      </sshConfig>
+    </configs>
+  </component>
+</project>
