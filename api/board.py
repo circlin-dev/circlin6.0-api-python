@@ -7,8 +7,11 @@ from global_configuration.helper import db_connection, get_dict_cursor, authenti
 from flask import request, url_for
 import json
 import os
+import random
 from pypika import MySQLQuery as Query, Criterion, functions as fn
-
+# from flask_caching import Cache
+# from app import cache, app
+from global_configuration.cache import cache
 
 # region 게시물
 # 전체 조회
@@ -405,7 +408,52 @@ def update_a_board(board_id: int):
         result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
-    return 'PATCH_board', 200
+
+    # data = json.loads(request.get_data())
+    data = request.form.to_dict()
+
+    sql = Query.from_(
+        Boards
+    ).select(
+        Boards.user_id,
+        Boards.deleted_at
+    ).where(Boards.id == board_id).get_sql()
+    cursor.execute(sql)
+    target_board = cursor.fetchone()
+    target_board_user_id = target_board['user_id']
+    target_board_deleted_time = target_board['deleted_at']
+
+    if target_board_user_id != user_id:
+        connection.close()
+        result = {'result': False, 'error': '해당 유저는 이 게시글에 대한 수정 권한이 없습니다.'}
+        return json.dumps(result, ensure_ascii=False), 403
+    elif target_board_deleted_time:
+        connection.close()
+        result = {'result': False, 'error': '이미 삭제된 게시글은 수정할 수 없습니다.'}
+        return json.dumps(result, ensure_ascii=False), 400
+    else:
+        new_body = data['body']
+        new_is_show = int(data['isShow'])
+        new_board_category_id = int(data['boardCategoryId'])
+
+        sql = Query.update(
+            Boards
+        ).set(
+            Boards.body, new_body
+        ).set(
+            Boards.is_show, new_is_show
+        ).set(
+            Boards.board_category_id, new_board_category_id
+        ).where(
+            Boards.id == board_id
+        ).get_sql()
+
+        cursor.execute(sql)
+        connection.commit()
+        connection.close()
+
+        result = {'result': True}
+        return json.dumps(result, ensure_ascii=False), 200
 
 
 # 게시글 삭제
@@ -744,10 +792,10 @@ def delete_like(board_id: int):
 # region 댓글
 # 댓글 조회
 @api.route('/board/<board_id>/comment', methods=['GET'])
-def get_commet(board_id: int):
+def get_comment(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
-    endpoint = API_ROOT + url_for('api.post_comment', board_id=board_id)
+    endpoint = API_ROOT + url_for('api.get_comment', board_id=board_id)
     authentication = authenticate(request, cursor)
 
     if authentication is None:
@@ -1198,4 +1246,23 @@ def get_board_categories():
         'data': categories
     }
     return json.dumps(result, ensure_ascii=False), 200
+# endregion
+
+
+# region cache test
+# @cache.cached(timeout=50, key_prefix='cache_test')
+@api.route('/cache')
+def cache_test():
+    cached_data = cache.get('random_addition')
+
+    if cached_data is not None:
+        result = {'result!!!!!!!!!': cached_data, 'cached_data': cached_data}
+        return json.dumps(result, ensure_ascii=False)
+    else:
+        a = random.randrange(0, 1000)
+        b = random.randrange(1001, 2000)
+        cache.set('random_addition', a+b, 120)
+        result = {'result': a + b, 'cached_data': cached_data}
+
+        return json.dumps(result, ensure_ascii=False)
 # endregion
