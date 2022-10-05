@@ -129,10 +129,10 @@ dmypy.json
 .pyre/
 
 ./global_configuration/database.py
-./temp
+./temp/
 ./temp/*
 ./execution_log.log
-./_cache
+./_cache/
 ./_cache/*
 .idea
 .DS_Store
