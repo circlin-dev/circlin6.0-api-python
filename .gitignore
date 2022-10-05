@@ -132,7 +132,7 @@ dmypy.json
 ./temp/
 ./temp/*
 ./execution_log.log
-./_cache/
-./_cache/*
+._cache/
+._cache/*
 .idea
 .DS_Store
