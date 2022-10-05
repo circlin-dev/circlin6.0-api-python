@@ -11,7 +11,7 @@ app = Flask(__name__)
 # Cache configuration
 cache_config = {
     "DEBUG": True,          # some Flask specific configs
-    "CACHE_TYPE": "SimpleCache",  # Flask-Caching related configs
+    "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
     "CACHE_DEFAULT_TIMEOUT": 50
 }
 cache.init_app(app=app, config=cache_config)
