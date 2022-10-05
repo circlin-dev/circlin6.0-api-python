@@ -3,6 +3,7 @@ from global_configuration.cache import cache
 from flask import Flask, request
 from flask_cors import CORS
 import logging
+import os
 
 
 app = Flask(__name__)
@@ -12,6 +13,7 @@ app = Flask(__name__)
 cache_config = {
     "DEBUG": True,          # some Flask specific configs
     "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
+    "CACHE_DIR": os.getenv("CACHE_DIR") or f"./_cache",
     "CACHE_DEFAULT_TIMEOUT": 50
 }
 cache.init_app(app=app, config=cache_config)
