@@ -358,42 +358,110 @@ def get_followers_board():
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
-    sql = f"""
-        WITH follower_recent_board AS (
-            SELECT
-                f.target_id,
-                JSON_OBJECT('id', b.id, 'body', b.body) AS board_data,
-                RANK() OVER (PARTITION BY f.target_id ORDER BY b.created_at DESC) AS ranking
-            FROM
-                boards b
-            INNER JOIN
-                    follows f ON b.user_id = f.target_id
-            WHERE
-                f.user_id = {user_id}
-            AND
-                ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) < 7
-            AND b.is_show = 1
-        )
-        SELECT
-            frb.target_id,
-            frb.board_data
-        FROM
-            follower_recent_board frb
-        WHERE frb.ranking < 2
-    """
+    page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+    limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+    page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
+    sql = f"""
+        SELECT
+            JSON_OBJECT(
+                'id', b.id,
+                'createdAt', DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s'),
+                'updatedAt', DATE_FORMAT(b.updated_at, '%Y/%m/%d %H:%i:%s'),
+                'userId', b.user_id,
+                'boardCategoryId', b.board_category_id,
+                'body', b.body,
+                'isShow', b.is_show
+            ) AS board_data,
+            CONCAT(LPAD(b.id, 15, '0')) as `cursor`
+        FROM
+            boards b
+        INNER JOIN
+                follows f ON b.user_id = f.target_id
+        WHERE
+            f.user_id = {user_id}
+        AND
+            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 7
+        AND b.deleted_at IS NULL
+        AND b.is_show = 1
+        AND b.id < {page_cursor} 
+        ORDER BY b.id DESC, b.created_at DESC
+        LIMIT {limit}
+    """
     cursor.execute(sql)
+
     follower_recent_board = cursor.fetchall()
-    for data in follower_recent_board:
-        data['board_data'] = json.loads(data['board_data'])
+    last_cursor = None if len(follower_recent_board) == 0 else follower_recent_board[-1]['cursor']  # 배열 원소의 cursor string
+    follower_recent_board = [json.loads(x['board_data']) for x in follower_recent_board]
+
+    sql = f"""
+        SELECT
+            COUNT(JSON_OBJECT(
+                'id', b.id,
+                'createdAt', DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s'),
+                'updatedAt', DATE_FORMAT(b.updated_at, '%Y/%m/%d %H:%i:%s'),
+                'userId', b.user_id,
+                'boardCategoryId', b.board_category_id,
+                'body', b.body,
+                'isShow', b.is_show
+            )) AS total_count
+        FROM
+            boards b
+        INNER JOIN
+                follows f ON b.user_id = f.target_id
+        WHERE
+            f.user_id = {user_id}
+        AND
+            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 7
+        AND b.deleted_at IS NULL
+        AND b.is_show = 1
+    """
+    cursor.execute(sql)
+    total_count = cursor.fetchone()['total_count']
     connection.close()
 
-    result = {
+    response = {
         'result': True,
-        'data': follower_recent_board
+        'data': follower_recent_board,
+        'next': last_cursor,
+        'total_count': total_count
     }
-    return json.dumps(result, ensure_ascii=False), 200
-
+    return json.dumps(response, ensure_ascii=False), 200
+    # if len(follower_recent_board) == 0:
+    #     connection.close()
+    #     response = {
+    #         'result': True,
+    #         'data': follower_recent_board,
+    #         'next': last_cursor,
+    #         'total_count': len(follower_recent_board)
+    #     }
+    #     return json.dumps(response, ensure_ascii=False), 200
+    # else:
+    #     sql = f"""
+    #         SELECT
+    #             COUNT(JSON_OBJECT(
+    #                 'id', b.id,
+    #                 'createdAt', DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s'),
+    #                 'updatedAt', DATE_FORMAT(b.updated_at, '%Y/%m/%d %H:%i:%s'),
+    #                 'userId', b.user_id,
+    #                 'boardCategoryId', b.board_category_id,
+    #                 'body', b.body,
+    #                 'isShow', b.is_show
+    #             )) AS total_count
+    #         FROM
+    #             boards b
+    #         INNER JOIN
+    #                 follows f ON b.user_id = f.target_id
+    #         WHERE
+    #             f.user_id = {user_id}
+    #         AND
+    #             ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) < 1000
+    #         AND b.deleted_at IS NULL
+    #         AND b.is_show = 1
+    #     """
+    #     cursor.execute(sql)
+    #     total_count = cursor.fetchone()['total_count']
+    #     connection.close()
 
 # 게시글 수정
 @api.route('/board/<board_id>', methods=['PATCH'])
@@ -555,6 +623,7 @@ def get_board_likes(board_id: int):
         connection.close()
         result = []
         response = {
+            'result': True,
             'data': result,
             'next': None,
             'total_count': len(result)
@@ -577,6 +646,7 @@ def get_board_likes(board_id: int):
     last_cursor = liked_users[-1]['cursor']  # 배열 원소의 cursor string
 
     response = {
+        'result': True,
         'data': liked_users,
         'next': last_cursor,
         'total_count': total_count
