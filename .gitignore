@@ -132,3 +132,4 @@ dmypy.json
 ./temp
 ./execution_log.log
 ./_cache
+./_cache/*
