@@ -131,3 +131,4 @@ dmypy.json
 ./global_configuration/database.py
 ./temp
 ./execution_log.log
+./_cache
