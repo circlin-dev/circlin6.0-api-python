@@ -202,7 +202,7 @@ def get_a_board(board_id: int):
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
-            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
+            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id AND bcm.deleted_at IS NULL) AS commentsCount,
             CASE
                 WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                 ELSE 0
