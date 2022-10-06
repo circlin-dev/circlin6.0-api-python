@@ -57,7 +57,7 @@ def get_boards():
                 'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
-            (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likeCount,
+            (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
             (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
             CASE
                 WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
@@ -84,6 +84,7 @@ def get_boards():
         AND b.user_id != {user_id}        
         AND b.id < {page_cursor}
         GROUP BY b.id
+        ORDER BY b.id DESC
         LIMIT {limit}
     """
 
@@ -116,7 +117,7 @@ def get_boards():
                     'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
-                (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likeCount,
+                (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
                 (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
                 CASE
                     WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
@@ -151,20 +152,12 @@ def get_boards():
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
         board['images'] = json.loads(board['images'])
 
-    if len(boards) == 0:  # 좋아요 누른 사람이 없을 경우 return
-        result = []
-        response = {
-            'data': result,
-            'next': None,
-            'total_count': total_count
-        }
-        return json.dumps(response, ensure_ascii=False), 200
-
-    last_cursor = boards[-1]['cursor']  # 배열 원소의 cursor string
+    last_cursor = None if len(boards) <= 0 else boards[-1]['cursor']  # 배열 원소의 cursor string
     response = {
+        'result': True,
         'data': boards,
         'next': last_cursor,
-        'total_count': total_count
+        'totalCount': total_count
     }
     return json.dumps(response, ensure_ascii=False), 200
 
@@ -208,7 +201,7 @@ def get_a_board(board_id: int):
                 'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
-            (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likeCount,
+            (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
             (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
             CASE
                 WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
@@ -381,7 +374,7 @@ def get_followers_board():
         WHERE
             f.user_id = {user_id}
         AND
-            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 7
+            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 100
         AND b.deleted_at IS NULL
         AND b.is_show = 1
         AND b.id < {page_cursor} 
@@ -412,7 +405,7 @@ def get_followers_board():
         WHERE
             f.user_id = {user_id}
         AND
-            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 7
+            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 1000
         AND b.deleted_at IS NULL
         AND b.is_show = 1
     """
@@ -424,7 +417,7 @@ def get_followers_board():
         'result': True,
         'data': follower_recent_board,
         'next': last_cursor,
-        'total_count': total_count
+        'totalCount': total_count
     }
     return json.dumps(response, ensure_ascii=False), 200
     # if len(follower_recent_board) == 0:
@@ -433,7 +426,7 @@ def get_followers_board():
     #         'result': True,
     #         'data': follower_recent_board,
     #         'next': last_cursor,
-    #         'total_count': len(follower_recent_board)
+    #         'totalCount': len(follower_recent_board)
     #     }
     #     return json.dumps(response, ensure_ascii=False), 200
     # else:
@@ -462,6 +455,7 @@ def get_followers_board():
     #     cursor.execute(sql)
     #     total_count = cursor.fetchone()['total_count']
     #     connection.close()
+
 
 # 게시글 수정
 @api.route('/board/<board_id>', methods=['PATCH'])
@@ -619,17 +613,16 @@ def get_board_likes(board_id: int):
     cursor.execute(sql)
     liked_users = cursor.fetchall()
 
-    if len(liked_users) == 0:  # 좋아요 누른 사람이 없을 경우 return
-        connection.close()
-        result = []
-        response = {
-            'result': True,
-            'data': result,
-            'next': None,
-            'total_count': len(result)
-        }
-        return json.dumps(response, ensure_ascii=False), 200
-
+    # if len(liked_users) == 0:  # 좋아요 누른 사람이 없을 경우 return
+    #     connection.close()
+    #     result = []
+    #     response = {
+    #         'result': True,
+    #         'data': result,
+    #         'next': None,
+    #         'totalCount': len(result)
+    #     }
+    #     return json.dumps(response, ensure_ascii=False), 200
     sql = Query.from_(
         BoardLikes
     ).select(
@@ -643,13 +636,13 @@ def get_board_likes(board_id: int):
     total_count = cursor.fetchone()['total_count']
     connection.close()
 
-    last_cursor = liked_users[-1]['cursor']  # 배열 원소의 cursor string
+    last_cursor = None if len(liked_users) <= 0 else liked_users[-1]['cursor']  # 배열 원소의 cursor string
 
     response = {
         'result': True,
         'data': liked_users,
         'next': last_cursor,
-        'total_count': total_count
+        'totalCount': total_count
     }
 
     # 페이징
@@ -874,70 +867,67 @@ def get_comment(board_id: int):
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
+    page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
+    limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+    page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
     sql = f"""
-        WITH comment_list AS (
+        WITH grouped_comment_cursor AS (
             SELECT
                 bc.id,
-                bc.created_at,
+                DATE_FORMAT(bc.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 bc.`group`,
                 bc.depth,
                 bc.comment,
+                bc.user_id AS userId,
                 CASE
-                    WHEN bc.deleted_at IS NULL THEN 0
-                    ELSE 1
-                END AS is_delete,
-                bc.user_id,
-                CASE
-                    WHEN bc.user_id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                    WHEN bc.user_id in (SELECT target_id FROM blocks WHERE user_id = 64477) THEN 1
                     ELSE 0
-                END AS is_blocked,
+                END AS isBlocked,
                 u.nickname,
-                u.profile_image,
-                u.gender
+                u.profile_image AS profileImage,
+                u.gender,
+                CONCAT(LPAD(bc.group, 15, '0')) as `cursor`
             FROM
                 board_comments bc
-            INNER JOIN
-                    users u
-                ON
-                    u.id = bc.user_id
-            WHERE
-                bc.board_id = {board_id}
-            ORDER BY bc.`group` DESC, bc.depth, bc.created_at)
-        SELECT COUNT(*) AS total_count FROM comment_list;"""
-
+            INNER JOIN 
+                users u ON u.id = bc.user_id
+            WHERE bc.board_id = 2
+            AND bc.deleted_at IS NULL
+            AND bc.`group` > {page_cursor}
+            GROUP BY bc.`group`
+            ORDER BY bc.`group`, bc.depth, bc.created_at
+            LIMIT {limit}
+        )
+        SELECT `cursor` FROM grouped_comment_cursor
+    """
     cursor.execute(sql)
-    total = cursor.fetchone()['total_count']
+    grouped_comment_cursors = cursor.fetchall()
 
-    if total == 0:
-        connection.close()
-        result = {
-            'result': True,
-            'data': {
-                'total': total,
-                'comments': []
-            }
-        }
-        return json.dumps(result, ensure_ascii=False), 200
-    else:
+    last_cursor = grouped_comment_cursors[-1]['cursor'] if len(grouped_comment_cursors) > 0 else None
+
+    grouped_comment_cursors = tuple([
+        grouped_comment_cursors[i]['cursor']
+        for i in range(0, len(grouped_comment_cursors))
+    ])
+
+    if len(grouped_comment_cursors) > 0:
         sql = f"""
             SELECT
                 bc.id,
-                DATE_FORMAT(bc.created_at, '%Y/%m/%d %H:%i:%s') as created_at,
+                DATE_FORMAT(bc.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 bc.`group`,
                 bc.depth,
                 bc.comment,
-                CASE
-                    WHEN bc.deleted_at IS NULL THEN 0
-                    ELSE 1
-                END AS is_delete,
-                bc.user_id,
+                bc.user_id AS userId,
                 CASE
                     WHEN bc.user_id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
                     ELSE 0
-                END AS is_blocked,
+                END AS isBlocked,
                 u.nickname,
-                u.profile_image,
-                u.gender
+                u.profile_image AS profileImage,
+                u.gender,
+                CONCAT(LPAD(bc.`group`, 15, '0')) as `cursor`
             FROM
                 board_comments bc
             INNER JOIN
@@ -945,20 +935,54 @@ def get_comment(board_id: int):
                 ON
                     u.id = bc.user_id
             WHERE
+                bc.`group` 
+                {'=' 
+                if len(grouped_comment_cursors) == 1 
+                else 
+                'IN'} 
+                {grouped_comment_cursors[0] 
+                if len(grouped_comment_cursors) == 1 
+                else 
+                grouped_comment_cursors}
+            AND
+                bc.deleted_at IS NULL
+            AND
                 bc.board_id = {board_id}
-            ORDER BY bc.`group` DESC, bc.depth, bc.created_at"""
+            ORDER BY bc.`group`, bc.depth, bc.created_at
+        """
+        try:
+            cursor.execute(sql)
+        except Exception as e:
+            return json.dumps({'sql': sql})
+        board_comments = cursor.fetchall()
+    else:
+        board_comments = []
 
-        cursor.execute(sql)
-        comments = cursor.fetchall()
-        connection.close()
-        result = {
-            'result': True,
-            'data': {
-                'total': total,
-                'comments': comments
-            }
-        }
-        return json.dumps(result, ensure_ascii=False), 200
+    sql = f"""
+        SELECT
+            COUNT(*) AS total_count
+        FROM
+            board_comments bc
+        INNER JOIN
+                users u
+            ON
+                u.id = bc.user_id
+        WHERE bc.board_id = {board_id}
+            AND bc.deleted_at IS NULL
+        ORDER BY bc.`group`, bc.depth, bc.created_at
+    """
+    cursor.execute(sql)
+    total_count = cursor.fetchone()['total_count']
+    connection.close()
+
+    # last_cursor = None if len(board_comments) <= 0 else board_comments[-1]['cursor']  # 배열 원소의 cursor string
+    response = {
+        'result': True,
+        'data': board_comments,
+        'next': last_cursor,
+        'totalCount': total_count
+    }
+    return json.dumps(response, ensure_ascii=False), 200
 
 
 # 댓글 작성
@@ -1028,123 +1052,122 @@ def post_comment(board_id: int):
             }
             return json.dumps(result, ensure_ascii=False), 400
         else:
-            pass
+            comment_body = params['comment']
+            comment_group = params['group']
 
-        comment_body = params['comment']
-        comment_group = params['group']
-
-        # 게시글의 댓글 group값 중 가장 큰 값 가져오기
-        sql = Query.from_(
-            BoardComments
-        ).select(
-            fn.Max(BoardComments.group).as_('max_group')
-        ).where(
-            BoardComments.board_id == board_id
-        ).get_sql()
-        cursor.execute(sql)
-        max_group = cursor.fetchone()['max_group']  # 현재 게시된 댓글 그룹 number 중 최대값
-
-        if max_group is None:
-            # 첫 댓글이 달릴 시에는 group, depth 모두 0으로 시작
-            group = 0
-            depth = 0
-        else:
-            group = comment_group if comment_group >= 0 else max_group + 1  # 새 댓글일 경우 else, 대댓글일 경우 target group의 값으로 들어감.
-            depth = 0 if group >= max_group + 1 else 1  # comment_group 의 최초값이 -1 이라는 가정
-
-        # 게시글의 댓글 저장
-        sql = Query.into(
-            BoardComments
-        ).columns(
-            BoardComments.board_id,
-            BoardComments.user_id,
-            BoardComments.group,
-            BoardComments.depth,
-            BoardComments.comment
-        ).insert(
-            board_id,
-            user_id,
-            group,
-            depth,
-            comment_body
-        ).get_sql()
-
-        cursor.execute(sql)
-        connection.commit()
-        board_comment_id = cursor.lastrowid  # 저장한 후 id값 기억해 두기
-
-        # 방금 올린 답글의 원 댓글 작성자 확인
-        sql = Query.from_(
-            BoardComments
-        ).select(
-            BoardComments.id,
-            BoardComments.user_id
-        ).where(
-            Criterion.all([
+            # 게시글의 댓글 group값 중 가장 큰 값 가져오기
+            sql = Query.from_(
+                BoardComments
+            ).select(
+                fn.Max(BoardComments.group).as_('max_group')
+            ).where(Criterion.all([
                 BoardComments.board_id == board_id,
-                BoardComments.group == group,
-                BoardComments.depth == 0,
-            ])
-        ).get_sql()
-        cursor.execute(sql)
-        target_comment_user = cursor.fetchone()
-        target_comment_id = target_comment_user['id']
-        target_comment_user_id = int(target_comment_user['user_id'])
+                BoardComments.deleted_at.isnull()
+            ])).get_sql()
+            cursor.execute(sql)
+            max_group = cursor.fetchone()['max_group']  # 현재 게시된 댓글 그룹 number 중 최대값
 
-        # 알림, 푸시
-        sql = Query.from_(
-            Users
-        ).select(
-            Users.nickname
-        ).where(
-            Users.id == user_id
-        ).get_sql()
-        cursor.execute(sql)
-        user_nickname = cursor.fetchone()['nickname']
+            if max_group is None:
+                # 첫 댓글이 달릴 시에는 group, depth 모두 0으로 시작
+                group = 1  # 0
+                depth = 0
+            else:
+                group = comment_group if comment_group >= 1 else max_group + 1  # 새 댓글일 경우 else, 대댓글일 경우 comment_group의 값으로 들어감.
+                depth = 0 if group >= max_group + 1 else 1  # comment_group 의 최초값이 -1 이라는 가정
 
-        if depth > 0 and target_comment_user_id != user_id:
-            # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 다른 경우 => 댓글 작성자에게 알림
-            # 게시글 작성자와 답글 작성자가 다르다면 => 게시글 작성자에게도 알림.
-            # 단 본인의 댓글에 본인이 답글을 남기는 경우 알림 불필요
-            create_notification(target_comment_user_id, 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
-            push_type = f"board_reply.{str(board_id)}"
-            push_target = list()
-            push_target.append(target_comment_user_id)
-            push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
-            send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
+            # 게시글의 댓글 저장
+            sql = Query.into(
+                BoardComments
+            ).columns(
+                BoardComments.board_id,
+                BoardComments.user_id,
+                BoardComments.group,
+                BoardComments.depth,
+                BoardComments.comment
+            ).insert(
+                board_id,
+                user_id,
+                group,
+                depth,
+                comment_body
+            ).get_sql()
 
-            if target_board['user_id'] != user_id:
+            cursor.execute(sql)
+            connection.commit()
+            board_comment_id = cursor.lastrowid  # 저장한 후 id값 기억해 두기
+
+            # 방금 올린 답글의 원 댓글 작성자 확인
+            sql = Query.from_(
+                BoardComments
+            ).select(
+                BoardComments.id,
+                BoardComments.user_id
+            ).where(
+                Criterion.all([
+                    BoardComments.board_id == board_id,
+                    BoardComments.group == group,
+                    BoardComments.depth == 0,
+                ])
+            ).get_sql()
+            cursor.execute(sql)
+            target_comment_user = cursor.fetchone()
+            target_comment_id = target_comment_user['id']
+            target_comment_user_id = int(target_comment_user['user_id'])
+
+            # 알림, 푸시
+            sql = Query.from_(
+                Users
+            ).select(
+                Users.nickname
+            ).where(
+                Users.id == user_id
+            ).get_sql()
+            cursor.execute(sql)
+            user_nickname = cursor.fetchone()['nickname']
+
+            if depth > 0 and target_comment_user_id != user_id:
+                # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 다른 경우 => 댓글 작성자에게 알림
+                # 게시글 작성자와 답글 작성자가 다르다면 => 게시글 작성자에게도 알림.
+                # 단 본인의 댓글에 본인이 답글을 남기는 경우 알림 불필요
+                create_notification(target_comment_user_id, 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
+                push_type = f"board_reply.{str(board_id)}"
+                push_target = list()
+                push_target.append(target_comment_user_id)
+                push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
+
+                if target_board['user_id'] != user_id:
+                    create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+                    push_type = f"board_comment.{str(board_comment_id)}"
+                    push_target = list()
+                    push_target.append(int(target_board['user_id']))
+                    push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                    send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
+            elif depth > 0 and target_comment_user_id == user_id:
+                # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
                 create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
-                push_type = f"board_comment.{str(board_comment_id)}"
+                push_type = f"board_comment.{str(board_id)}"
                 push_target = list()
                 push_target.append(int(target_board['user_id']))
                 push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
                 send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
-        elif depth > 0 and target_comment_user_id == user_id:
-            # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
-            create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
-            push_type = f"board_comment.{str(board_id)}"
-            push_target = list()
-            push_target.append(int(target_board['user_id']))
-            push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
-            send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
-        elif depth <= 0 and target_board['user_id'] != user_id:
-            # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
-            # 단 본인의 게시글에 본인이 댓글을 남기는 경우 알림 불필요
-            create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
-            push_type = f"board_comment.{str(board_id)}"
-            push_target = list()
-            push_target.append(int(target_board['user_id']))
-            push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
-            send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
-        else:
-            # 자신의 게시글에 새 댓글을 남기는 경우 => 아무것도 하지 않음.
-            pass
+            elif depth <= 0 and target_board['user_id'] != user_id:
+                # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
+                # 단 본인의 게시글에 본인이 댓글을 남기는 경우 알림 불필요
+                create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
+                push_type = f"board_comment.{str(board_id)}"
+                push_target = list()
+                push_target.append(int(target_board['user_id']))
+                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
+            else:
+                # 자신의 게시글에 새 댓글을 남기는 경우 => 아무것도 하지 않음.
+                pass
 
-        connection.close()
-        result = {'result': True}
+            connection.close()
+            result = {'result': True}
 
-        return json.dumps(result, ensure_ascii=False), 200
+            return json.dumps(result, ensure_ascii=False), 200
 
 
 # 댓글 수정
