@@ -21,7 +21,7 @@ from werkzeug.utils import secure_filename
 
 from global_configuration.constants import S3_BUCKET, JWT_SECRET_KEY, JWT_AUDIENCE, API_CIRCLIN, INVALID_MIMES, \
     RESIZE_WIDTHS_IMAGE, RESIZE_WIDTHS_VIDEO, APP_ROOT, APP_TEMP, FFMPEG_PATH2, FFMPEG_PATH1, FFMPEG_PATH3, \
-    FIREBASE_AUTHORIZATION_KEY
+    FIREBASE_AUTHORIZATION_KEY, AMAZON_URL
 from global_configuration.database import DATABASE
 from global_configuration.table import Files, Notifications, Users, PushHistories
 
@@ -150,8 +150,8 @@ def upload_single_file_to_s3(file, object_path):
 
     if request_ext in INVALID_MIMES['image']:  # or video
         original_file = heic_to_jpg(request_path)
-    # elif request_ext in INVALID_MIMES['video']:
-    #     original_file = video_to_mp4(request_path)
+    elif request_ext in INVALID_MIMES['video']:
+        original_file = video_to_mp4(request_path)
     else:
         original_file = request_path
 
@@ -166,7 +166,7 @@ def upload_single_file_to_s3(file, object_path):
     hashed_size = get_file_information(hashed_file, mime_type)['size']
     hashed_width = get_file_information(hashed_file, mime_type)['width']
     hashed_height = get_file_information(hashed_file, mime_type)['height']
-    hashed_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", hashed_object_name)
+    hashed_s3_pathname = os.path.join(AMAZON_URL, hashed_object_name)
 
     s3_client.upload_file(hashed_file, S3_BUCKET, hashed_object_name, ExtraArgs={'ContentType': mime_type})
 
@@ -205,7 +205,7 @@ def upload_single_file_to_s3(file, object_path):
         resized_size = get_file_information(resized_path, mime_type)['size']
         resized_width = get_file_information(resized_path, mime_type)['width']
         resized_height = get_file_information(resized_path, mime_type)['height']
-        resized_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", object_name)
+        resized_s3_pathname = os.path.join(AMAZON_URL, object_name)
 
         s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': mime_type})
 
