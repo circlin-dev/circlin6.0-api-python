@@ -135,14 +135,16 @@ def upload_single_file_to_s3(file, object_path):
         request_file = file.filename
     else:
         request_file = file['uri'].split('/')[-1]  # file path form from react-native client.
-    secure_file = secure_filename(request_file)
-    if not os.path.exists(secure_file):
-        file.save(secure_file)
+
+    filename = secure_filename(request_file)
+
+    if not os.path.exists(filename):
+        file.save(filename)
 
     request_path = os.path.join(os.getcwd(), 'temp', request_file)
     # request_path = os.path.join(APP_TEMP, request_file)
-    if os.path.exists(secure_file):
-        shutil.move(secure_file, request_path)
+    if os.path.exists(filename):
+        shutil.move(filename, request_path)
 
     # 2. Check image mime type & change if invalid.
     mime_type = check_mimetype(request_path)['mime_type'].split('/')[0]
