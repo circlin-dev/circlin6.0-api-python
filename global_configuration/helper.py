@@ -137,6 +137,11 @@ def upload_single_file_to_s3(file, object_path):
         request_file = file['uri'].split('/')[-1]  # file path form from react-native client.
 
     filename = secure_filename(request_file)
+    if filename == '':
+        result = {
+            'result': f'filename: {filename}, file: {file}',
+        }
+        return result
 
     if not os.path.exists(filename):
         file.save(filename)
