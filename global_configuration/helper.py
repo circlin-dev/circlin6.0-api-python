@@ -266,33 +266,33 @@ def heic_to_jpg(path):
 
 
 def video_to_mp4(path):
+    # new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
+    # original_clip = VideoFileClip(path)
+    # original_clip.write_videofile(new_path,
+    #                               codec='libx264',
+    #                               audio_codec='aac',  # Super important for sound
+    #                               remove_temp=True)
+    original_file = cv2.VideoCapture(path)
+    height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
+
+    if width % 2 != 0:
+        width += 1
+    else:
+        pass
+
+    if height % 2 != 0:
+        height += 1
+    else:
+        pass
+
     new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
     original_clip = VideoFileClip(path)
-    original_clip.write_videofile(new_path,
-                                  codec='libx264',
-                                  audio_codec='aac',  # Super important for sound
-                                  remove_temp=True)
+    original_clip.resize((width, height)).write_videofile(new_path,
+                                                          codec='libx264',
+                                                          audio_codec='aac',  # Super important for sound
+                                                          remove_temp=True)
     original_clip.close()
-    # original_file = cv2.VideoCapture(path)
-    # height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    # width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
-    #
-    # if width % 2 != 0:
-    #     width += 1
-    # else:
-    #     pass
-    #
-    # if height % 2 != 0:
-    #     height += 1
-    # else:
-    #     pass
-    #
-    # new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
-    # VideoFileClip(path).resize((width, height)).write_videofile(new_path,
-    #                                                             codec='libx264',
-    #                                                             audio_codec='aac',  # Super important for sound
-    #                                                             remove_temp=True)
-
     if os.path.exists(path):
         os.remove(path)
 
