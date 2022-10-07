@@ -195,7 +195,7 @@ def get_a_board(board_id: int):
                 'nickname', u.nickname,
                 'profile', u.profile_image,
                 'followed', CASE
-                                WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                WHEN {user_id} in (SELECT target_id FROM follows WHERE user_id = b.user_id) THEN 1
                                 ELSE 0
                             END,
                 'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
@@ -214,7 +214,7 @@ def get_a_board(board_id: int):
                 board_files bf
             ON
                 b.id = bf.board_id
-        INNER JOIN
+        LEFT JOIN
                 files f
             ON
                 bf.file_id = f.id
@@ -235,7 +235,7 @@ def get_a_board(board_id: int):
     if board is not None:
         board['user'] = json.loads(board['user'])
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
-        board['images'] = json.loads(board['images'])
+        board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
         result = {
             'result': True,
             'data': board
