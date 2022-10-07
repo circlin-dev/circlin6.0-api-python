@@ -1,7 +1,7 @@
 import hashlib
 import base64
 import subprocess
-import moviepy.editor as mp
+from moviepy.editor import VideoFileClip
 import requests
 import boto3
 import cv2
@@ -197,47 +197,47 @@ def upload_single_file_to_s3(file, object_path):
     original_file_id = cursor.lastrowid
 
     # 3. Generate resized image
-    resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, mime_type)
-
-    for resized_path in resized_file_list:
-        object_name = os.path.join(object_path, resized_path.split('/')[-1])
-        resized_mime_type = check_mimetype(resized_path)['mime_type']
-        resized_size = get_file_information(resized_path, mime_type)['size']
-        resized_width = get_file_information(resized_path, mime_type)['width']
-        resized_height = get_file_information(resized_path, mime_type)['height']
-        resized_s3_pathname = os.path.join(AMAZON_URL, object_name)
-
-        s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': mime_type})
-
-        sql = Query.into(
-            Files
-        ).columns(
-            Files.created_at,
-            Files.updated_at,
-            Files.pathname,
-            Files.original_name,
-            Files.mime_type,
-            Files.size,
-            Files.width,
-            Files.height,
-            Files.original_file_id
-        ).insert(
-            fn.Now(),
-            fn.Now(),
-            resized_s3_pathname,
-            original_file_name,
-            resized_mime_type,
-            resized_size,
-            resized_width,
-            resized_height,
-            original_file_id
-        ).get_sql()
-
-        cursor.execute(sql)
-        os.remove(resized_path)
-
+    # resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, mime_type)
+    #
+    # for resized_path in resized_file_list:
+    #     object_name = os.path.join(object_path, resized_path.split('/')[-1])
+    #     resized_mime_type = check_mimetype(resized_path)['mime_type']
+    #     resized_size = get_file_information(resized_path, mime_type)['size']
+    #     resized_width = get_file_information(resized_path, mime_type)['width']
+    #     resized_height = get_file_information(resized_path, mime_type)['height']
+    #     resized_s3_pathname = os.path.join(AMAZON_URL, object_name)
+    #
+    #     s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': mime_type})
+    #
+    #     sql = Query.into(
+    #         Files
+    #     ).columns(
+    #         Files.created_at,
+    #         Files.updated_at,
+    #         Files.pathname,
+    #         Files.original_name,
+    #         Files.mime_type,
+    #         Files.size,
+    #         Files.width,
+    #         Files.height,
+    #         Files.original_file_id
+    #     ).insert(
+    #         fn.Now(),
+    #         fn.Now(),
+    #         resized_s3_pathname,
+    #         original_file_name,
+    #         resized_mime_type,
+    #         resized_size,
+    #         resized_width,
+    #         resized_height,
+    #         original_file_id
+    #     ).get_sql()
+    #
+    #     cursor.execute(sql)
+    #     os.remove(resized_path)
+    #
+    # connection.commit()
     os.remove(hashed_file)
-    connection.commit()
     connection.close()
 
     result = {'result': True, 'original_file_id': original_file_id}
@@ -265,26 +265,32 @@ def heic_to_jpg(path):
 
 
 def video_to_mp4(path):
-    original_file = cv2.VideoCapture(path)
-    height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
-    width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
-
-    if width % 2 != 0:
-        width += 1
-    else:
-        pass
-
-    if height % 2 != 0:
-        height += 1
-    else:
-        pass
-
     new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
-    mp.VideoFileClip(path).resize((width, height)).write_videofile(new_path,
-                                                                   codec='libx264',
-                                                                   audio_codec='aac',  # Super important for sound
-                                                                   remove_temp=True)
-    # os.system(f"ffmpeg -i {path} -vf scale={width}x{height} {new_path}")
+    original_clip = VideoFileClip(path)
+    original_clip.write_videofile(new_path,
+                                  codec='libx264',
+                                  audio_codec='aac',  # Super important for sound
+                                  remove_temp=True)
+    original_clip.close()
+    # original_file = cv2.VideoCapture(path)
+    # height = int(original_file.get(cv2.CAP_PROP_FRAME_HEIGHT))
+    # width = int(original_file.get(cv2.CAP_PROP_FRAME_WIDTH))
+    #
+    # if width % 2 != 0:
+    #     width += 1
+    # else:
+    #     pass
+    #
+    # if height % 2 != 0:
+    #     height += 1
+    # else:
+    #     pass
+    #
+    # new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
+    # VideoFileClip(path).resize((width, height)).write_videofile(new_path,
+    #                                                             codec='libx264',
+    #                                                             audio_codec='aac',  # Super important for sound
+    #                                                             remove_temp=True)
 
     if os.path.exists(path):
         os.remove(path)
