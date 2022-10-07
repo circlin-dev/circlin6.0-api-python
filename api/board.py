@@ -496,25 +496,46 @@ def update_a_board(board_id: int):
         new_body = data['body']
         new_is_show = int(data['isShow'])
         new_board_category_id = int(data['boardCategoryId'])
+        if new_body is None or new_body.strip() == '':
+            connection.close()
+            result = {
+                'result': False,
+                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(body).'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        elif new_is_show is None:
+            connection.close()
+            result = {
+                'result': False,
+                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(isShow).'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        elif new_board_category_id is None:
+            connection.close()
+            result = {
+                'result': False,
+                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(boardCategoryId).'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        else:
+            sql = Query.update(
+                Boards
+            ).set(
+                Boards.body, new_body
+            ).set(
+                Boards.is_show, new_is_show
+            ).set(
+                Boards.board_category_id, new_board_category_id
+            ).where(
+                Boards.id == board_id
+            ).get_sql()
 
-        sql = Query.update(
-            Boards
-        ).set(
-            Boards.body, new_body
-        ).set(
-            Boards.is_show, new_is_show
-        ).set(
-            Boards.board_category_id, new_board_category_id
-        ).where(
-            Boards.id == board_id
-        ).get_sql()
+            cursor.execute(sql)
+            connection.commit()
+            connection.close()
 
-        cursor.execute(sql)
-        connection.commit()
-        connection.close()
-
-        result = {'result': True}
-        return json.dumps(result, ensure_ascii=False), 200
+            result = {'result': True}
+            return json.dumps(result, ensure_ascii=False), 200
 
 
 # 게시글 삭제
