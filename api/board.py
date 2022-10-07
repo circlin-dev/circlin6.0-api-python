@@ -471,8 +471,7 @@ def update_a_board(board_id: int):
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
-    # data = json.loads(request.get_data())
-    data = request.form.to_dict()
+    data = json.loads(request.get_data())
 
     sql = Query.from_(
         Boards
