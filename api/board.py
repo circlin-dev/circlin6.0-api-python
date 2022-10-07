@@ -150,13 +150,13 @@ def get_boards():
     for board in boards:
         board['user'] = json.loads(board['user'])
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
-        board['images'] = json.loads(board['images'])
+        board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
 
     last_cursor = None if len(boards) <= 0 else boards[-1]['cursor']  # 배열 원소의 cursor string
     response = {
         'result': True,
         'data': boards,
-        'next': last_cursor,
+        'cursor': last_cursor,
         'totalCount': total_count
     }
     return json.dumps(response, ensure_ascii=False), 200
@@ -247,6 +247,154 @@ def get_a_board(board_id: int):
             'error': "존재하지 않거나, 삭제되었거나, 공개되지 않은 게시물입니다."
         }
         return json.dumps(result, ensure_ascii=False), 400
+
+
+# 특정 유저의 게시글만 전체 조회(모아보기)
+@api.route('/board/user/<target_user_id>', methods=['GET'])
+def get_user_boards(target_user_id: int):
+    connection = db_connection()
+    cursor = get_dict_cursor(connection)
+    endpoint = API_ROOT + url_for('api.get_user_boards', target_user_id=target_user_id)
+    authentication = authenticate(request, cursor)
+
+    if authentication is None:
+        connection.close()
+        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        return json.dumps(result, ensure_ascii=False), 401
+    user_id = authentication['user_id']
+
+    page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+    limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+    page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+    sql = f"""
+        SELECT
+            b.id,
+            b.body,
+            IFNULL(JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'order', bf.order,
+                    'mimeType', f.mime_type,
+                    'pathname', f.pathname,
+                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                        'pathname', ff.pathname,
+                        'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                )
+            ), JSON_ARRAY()) AS images,
+            JSON_OBJECT(
+                'id', u.id,
+                'nickname', u.nickname,
+                'profile', u.profile_image,
+                'followed', CASE
+                                WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                ELSE 0
+                            END,
+                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+            ) AS user,
+            DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
+            (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
+            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
+            CASE
+                WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
+                ELSE 0
+            END AS liked,
+            b.board_category_id as boardCategoryId,
+            CONCAT(LPAD(b.id, 15, '0')) as `cursor`
+        FROM
+            boards b
+        LEFT JOIN
+                board_files bf
+            ON
+                b.id = bf.board_id
+        LEFT JOIN
+                files f
+            ON
+                bf.file_id = f.id
+        INNER JOIN
+                users u
+            ON
+                u.id = b.user_id
+        WHERE b.deleted_at IS NULL
+        AND b.is_show = 1
+        AND b.user_id = {target_user_id}        
+        AND b.id < {page_cursor}
+        GROUP BY b.id
+        ORDER BY b.id DESC
+        LIMIT {limit}
+    """
+
+    cursor.execute(sql)
+    boards = cursor.fetchall()
+
+    sql = f"""
+        WITH board_list AS (
+            SELECT
+                b.id,
+                b.body,
+                IFNULL(JSON_ARRAYAGG(
+                    JSON_OBJECT(
+                        'order', bf.order,
+                        'mimeType', f.mime_type,
+                        'pathname', f.pathname,
+                        'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                            'pathname', ff.pathname,
+                            'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                    )
+                ), JSON_ARRAY()) AS images,
+                JSON_OBJECT(
+                    'id', u.id,
+                    'nickname', u.nickname,
+                    'profile', u.profile_image,
+                    'followed', CASE
+                                    WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                    ELSE 0
+                                END,
+                    'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+                ) AS user,
+                DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
+                (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
+                (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
+                CASE
+                    WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
+                    ELSE 0
+                END AS liked,
+                b.board_category_id as boardCategoryId
+            FROM
+                boards b
+            LEFT JOIN
+                    board_files bf
+                ON
+                    b.id = bf.board_id
+            INNER JOIN
+                    files f
+                ON
+                    bf.file_id = f.id
+            INNER JOIN
+                    users u
+                ON
+                    u.id = b.user_id
+            WHERE b.deleted_at IS NULL
+            AND b.is_show = 1
+            AND b.user_id = {target_user_id}
+            GROUP BY b.id)
+        SELECT COUNT(*) AS total_count FROM board_list"""
+    cursor.execute(sql)
+    total_count = cursor.fetchone()['total_count']
+    connection.close()
+
+    for board in boards:
+        board['user'] = json.loads(board['user'])
+        board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
+        board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
+
+    last_cursor = None if len(boards) <= 0 else boards[-1]['cursor']  # 배열 원소의 cursor string
+    response = {
+        'result': True,
+        'data': boards,
+        'cursor': last_cursor,
+        'totalCount': total_count
+    }
+    return json.dumps(response, ensure_ascii=False), 200
 
 
 # 등록
@@ -416,7 +564,7 @@ def get_followers_board():
     response = {
         'result': True,
         'data': follower_recent_board,
-        'next': last_cursor,
+        'cursor': last_cursor,
         'totalCount': total_count
     }
     return json.dumps(response, ensure_ascii=False), 200
@@ -425,7 +573,7 @@ def get_followers_board():
     #     response = {
     #         'result': True,
     #         'data': follower_recent_board,
-    #         'next': last_cursor,
+    #         'cursor': last_cursor,
     #         'totalCount': len(follower_recent_board)
     #     }
     #     return json.dumps(response, ensure_ascii=False), 200
@@ -639,7 +787,7 @@ def get_board_likes(board_id: int):
     #     response = {
     #         'result': True,
     #         'data': result,
-    #         'next': None,
+    #         'cursor': None,
     #         'totalCount': len(result)
     #     }
     #     return json.dumps(response, ensure_ascii=False), 200
@@ -661,7 +809,7 @@ def get_board_likes(board_id: int):
     response = {
         'result': True,
         'data': liked_users,
-        'next': last_cursor,
+        'cursor': last_cursor,
         'totalCount': total_count
     }
 
@@ -999,7 +1147,7 @@ def get_comment(board_id: int):
     response = {
         'result': True,
         'data': board_comments,
-        'next': last_cursor,
+        'cursor': last_cursor,
         'totalCount': total_count
     }
     return json.dumps(response, ensure_ascii=False), 200
