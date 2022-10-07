@@ -143,17 +143,15 @@ def upload_single_file_to_s3(file, object_path):
         }
         return result
 
-    if not os.path.exists(filename):
-        file.save(filename)
+    file.save(filename)
 
     request_path = os.path.join(os.getcwd(), 'temp', request_file)
-    # request_path = os.path.join(APP_TEMP, request_file)
-    if os.path.exists(filename):
-        shutil.move(filename, request_path)
+
+    shutil.move(filename, request_path)
 
     # 2. Check image mime type & change if invalid.
-    mime_type = check_mimetype(request_path)['mime_type'].split('/')[0]
-    request_ext = check_mimetype(request_path)['mime_type'].split('/')[1]
+    mime_type, request_ext = check_mimetype(request_path)['mime_type'].split('/')
+    # request_ext = check_mimetype(request_path)['mime_type'].split('/')[1]
 
     if request_ext in INVALID_MIMES['image']:  # or video
         original_file = heic_to_jpg(request_path)
@@ -166,13 +164,10 @@ def upload_single_file_to_s3(file, object_path):
     hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
     hashed_file = os.path.join(os.getcwd(), 'temp', hashed_file_name)
     os.rename(original_file, hashed_file)
-    # shutil.move(original_file, hashed_file)
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
     hashed_mime_type = check_mimetype(hashed_file)['mime_type']
-    hashed_size = get_file_information(hashed_file, mime_type)['size']
-    hashed_width = get_file_information(hashed_file, mime_type)['width']
-    hashed_height = get_file_information(hashed_file, mime_type)['height']
+    hashed_file_info = get_file_information(hashed_file, mime_type)
     hashed_s3_pathname = os.path.join(AMAZON_URL, hashed_object_name)
 
     s3_client.upload_file(hashed_file, S3_BUCKET, hashed_object_name, ExtraArgs={'ContentType': mime_type})
@@ -194,9 +189,9 @@ def upload_single_file_to_s3(file, object_path):
         hashed_s3_pathname,
         original_file_name,
         hashed_mime_type,
-        hashed_size,
-        hashed_width,
-        hashed_height
+        hashed_file_info['size'],
+        hashed_file_info['width'],
+        hashed_file_info['height']
     ).get_sql()
 
     cursor.execute(sql)
@@ -204,46 +199,45 @@ def upload_single_file_to_s3(file, object_path):
     original_file_id = cursor.lastrowid
 
     # 3. Generate resized image
-    # resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, mime_type)
-    #
-    # for resized_path in resized_file_list:
-    #     object_name = os.path.join(object_path, resized_path.split('/')[-1])
-    #     resized_mime_type = check_mimetype(resized_path)['mime_type']
-    #     resized_size = get_file_information(resized_path, mime_type)['size']
-    #     resized_width = get_file_information(resized_path, mime_type)['width']
-    #     resized_height = get_file_information(resized_path, mime_type)['height']
-    #     resized_s3_pathname = os.path.join(AMAZON_URL, object_name)
-    #
-    #     s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': mime_type})
-    #
-    #     sql = Query.into(
-    #         Files
-    #     ).columns(
-    #         Files.created_at,
-    #         Files.updated_at,
-    #         Files.pathname,
-    #         Files.original_name,
-    #         Files.mime_type,
-    #         Files.size,
-    #         Files.width,
-    #         Files.height,
-    #         Files.original_file_id
-    #     ).insert(
-    #         fn.Now(),
-    #         fn.Now(),
-    #         resized_s3_pathname,
-    #         original_file_name,
-    #         resized_mime_type,
-    #         resized_size,
-    #         resized_width,
-    #         resized_height,
-    #         original_file_id
-    #     ).get_sql()
-    #
-    #     cursor.execute(sql)
-    #     os.remove(resized_path)
-    #
-    # connection.commit()
+    if hashed_mime_type.split('/')[0] == 'image':
+        resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, mime_type)
+
+        for resized_path in resized_file_list:
+            object_name = os.path.join(object_path, resized_path.split('/')[-1])
+            resized_mime_type = check_mimetype(resized_path)['mime_type']
+            resized_file_info = get_file_information(resized_path, mime_type)
+            resized_s3_pathname = os.path.join(AMAZON_URL, object_name)
+
+            s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': mime_type})
+
+            sql = Query.into(
+                Files
+            ).columns(
+                Files.created_at,
+                Files.updated_at,
+                Files.pathname,
+                Files.original_name,
+                Files.mime_type,
+                Files.size,
+                Files.width,
+                Files.height,
+                Files.original_file_id
+            ).insert(
+                fn.Now(),
+                fn.Now(),
+                resized_s3_pathname,
+                original_file_name,
+                resized_mime_type,
+                resized_file_info['size'],
+                resized_file_info['width'],
+                resized_file_info['height'],
+                original_file_id
+            ).get_sql()
+
+            cursor.execute(sql)
+            connection.commit()
+            os.remove(resized_path)
+
     os.remove(hashed_file)
     connection.close()
 
