@@ -493,9 +493,9 @@ def update_a_board(board_id: int):
         result = {'result': False, 'error': '이미 삭제된 게시글은 수정할 수 없습니다.'}
         return json.dumps(result, ensure_ascii=False), 400
     else:
-        new_body = data['body']
-        new_is_show = int(data['isShow'])
-        new_board_category_id = int(data['boardCategoryId'])
+        new_body = data['body'] if data['body'] is not None or data['body'].strip() != '' else None
+        new_is_show = int(data['isShow']) if data['isShow'] is not None else None
+        new_board_category_id = int(data['boardCategoryId']) if data['boardCategoryId'] is not None else None
         if new_body is None or new_body.strip() == '':
             connection.close()
             result = {
