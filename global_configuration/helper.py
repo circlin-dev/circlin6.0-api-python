@@ -150,8 +150,8 @@ def upload_single_file_to_s3(file, object_path):
 
     if request_ext in INVALID_MIMES['image']:  # or video
         original_file = heic_to_jpg(request_path)
-    # elif request_ext in INVALID_MIMES['video']:
-    #     original_file = video_to_mp4(request_path)
+    elif request_ext in INVALID_MIMES['video']:
+        original_file = video_to_mp4(request_path)
     else:
         original_file = request_path
 
@@ -162,11 +162,11 @@ def upload_single_file_to_s3(file, object_path):
     # shutil.move(original_file, hashed_file)
 
     hashed_object_name = os.path.join(object_path, hashed_file_name)
-    hashed_mime_type = check_mimetype(hashed_file)['mime_type']  # Insert to DB
-    hashed_size = get_file_information(hashed_file, mime_type)['size']  # Insert to DB
-    hashed_width = get_file_information(hashed_file, mime_type)['width']  # Insert to DB
-    hashed_height = get_file_information(hashed_file, mime_type)['height']  # Insert to DB
-    hashed_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", hashed_object_name)  # Insert to DB
+    hashed_mime_type = check_mimetype(hashed_file)['mime_type']
+    hashed_size = get_file_information(hashed_file, mime_type)['size']
+    hashed_width = get_file_information(hashed_file, mime_type)['width']
+    hashed_height = get_file_information(hashed_file, mime_type)['height']
+    hashed_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", hashed_object_name)
 
     s3_client.upload_file(hashed_file, S3_BUCKET, hashed_object_name, ExtraArgs={'ContentType': mime_type})
 
@@ -201,11 +201,11 @@ def upload_single_file_to_s3(file, object_path):
 
     for resized_path in resized_file_list:
         object_name = os.path.join(object_path, resized_path.split('/')[-1])
-        resized_mime_type = check_mimetype(resized_path)['mime_type']  # Insert to DB
-        resized_size = get_file_information(resized_path, mime_type)['size']  # Insert to DB
-        resized_width = get_file_information(resized_path, mime_type)['width']  # Insert to DB
-        resized_height = get_file_information(resized_path, mime_type)['height']  # Insert to DB
-        resized_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", object_name)  # Insert to DB
+        resized_mime_type = check_mimetype(resized_path)['mime_type']
+        resized_size = get_file_information(resized_path, mime_type)['size']
+        resized_width = get_file_information(resized_path, mime_type)['width']
+        resized_height = get_file_information(resized_path, mime_type)['height']
+        resized_s3_pathname = os.path.join("https://circlin-app.s3.ap-northeast-2.amazonaws.com/", object_name)
 
         s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': mime_type})
 
