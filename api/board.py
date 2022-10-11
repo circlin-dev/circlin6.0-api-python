@@ -1087,7 +1087,7 @@ def get_comment(board_id: int):
             AND bc.deleted_at IS NULL
             AND bc.`group` < {page_cursor}
             GROUP BY bc.`group`
-            ORDER BY bc.`group` DESC, bc.depth, bc.created_at DESC
+            ORDER BY bc.`group` DESC, bc.depth, bc.created_at
             LIMIT {limit}
         )
         SELECT `cursor` FROM grouped_comment_cursor
@@ -1140,7 +1140,7 @@ def get_comment(board_id: int):
                 bc.deleted_at IS NULL
             AND
                 bc.board_id = {board_id}
-            ORDER BY bc.`group` DESC, bc.depth, bc.created_at DESC
+            ORDER BY bc.`group` DESC, bc.depth, bc.created_at
         """
         try:
             cursor.execute(sql)
