@@ -113,7 +113,7 @@ def get_query_strings_from_request(request, param, init_value):
         elif param == 'cursor':
             result = int(request.args.get(param))
         elif param == 'page':
-            page = int(request.args.get(param))
+            result = int(request.args.get(param))
         else:
             result = ''
 

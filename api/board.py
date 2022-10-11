@@ -62,7 +62,7 @@ def get_boards():
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
-            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
+            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id AND bcm.deleted_at IS NULL) AS commentsCount,
             CASE
                 WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                 ELSE 0
@@ -126,7 +126,7 @@ def get_boards():
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
-                (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
+                (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id AND bcm.deleted_at IS NULL) AS commentsCount,
                 CASE
                     WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                     ELSE 0
@@ -311,7 +311,7 @@ def get_user_boards(target_user_id: int):
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
-            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
+            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id WHERE bcm.deleted_at IS NULL) AS commentsCount,
             CASE
                 WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                 ELSE 0
@@ -375,7 +375,7 @@ def get_user_boards(target_user_id: int):
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
-                (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id) AS commentsCount,
+                (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id AND bcm.deleted_at IS NULL) AS commentsCount,
                 CASE
                     WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                     ELSE 0
@@ -1083,7 +1083,7 @@ def get_comment(board_id: int):
                 board_comments bc
             INNER JOIN 
                 users u ON u.id = bc.user_id
-            WHERE bc.board_id = 2
+            WHERE bc.board_id = {board_id}
             AND bc.deleted_at IS NULL
             AND bc.`group` > {page_cursor}
             GROUP BY bc.`group`
@@ -1092,6 +1092,7 @@ def get_comment(board_id: int):
         )
         SELECT `cursor` FROM grouped_comment_cursor
     """
+
     cursor.execute(sql)
     grouped_comment_cursors = cursor.fetchall()
 
