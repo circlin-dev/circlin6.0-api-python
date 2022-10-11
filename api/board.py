@@ -1058,7 +1058,7 @@ def get_comment(board_id: int):
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
-    page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
+    page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
     limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
     page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
@@ -1085,9 +1085,9 @@ def get_comment(board_id: int):
                 users u ON u.id = bc.user_id
             WHERE bc.board_id = {board_id}
             AND bc.deleted_at IS NULL
-            AND bc.`group` > {page_cursor}
+            AND bc.`group` < {page_cursor}
             GROUP BY bc.`group`
-            ORDER BY bc.`group`, bc.depth, bc.created_at
+            ORDER BY bc.`group` DESC, bc.depth, bc.created_at DESC
             LIMIT {limit}
         )
         SELECT `cursor` FROM grouped_comment_cursor
@@ -1140,7 +1140,7 @@ def get_comment(board_id: int):
                 bc.deleted_at IS NULL
             AND
                 bc.board_id = {board_id}
-            ORDER BY bc.`group`, bc.depth, bc.created_at
+            ORDER BY bc.`group` DESC, bc.depth, bc.created_at DESC
         """
         try:
             cursor.execute(sql)
