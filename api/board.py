@@ -54,7 +54,11 @@ def get_boards():
                                 WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
                                 ELSE 0
                             END,
-                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
+                'isBlocked', CASE
+                                WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                ELSE 0
+                            END
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -114,7 +118,11 @@ def get_boards():
                                     WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
                                     ELSE 0
                                 END,
-                    'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+                    'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
+                    'isBlocked', CASE
+                                    WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                    ELSE 0
+                                END                    
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -149,6 +157,7 @@ def get_boards():
 
     for board in boards:
         board['user'] = json.loads(board['user'])
+        board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
         board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
 
@@ -198,7 +207,11 @@ def get_a_board(board_id: int):
                                 WHEN {user_id} in (SELECT target_id FROM follows WHERE user_id = b.user_id) THEN 1
                                 ELSE 0
                             END,
-                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
+                'isBlocked', CASE
+                                WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                ELSE 0
+                            END
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -234,6 +247,7 @@ def get_a_board(board_id: int):
 
     if board is not None:
         board['user'] = json.loads(board['user'])
+        board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
         board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
         result = {
@@ -289,7 +303,11 @@ def get_user_boards(target_user_id: int):
                                 WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
                                 ELSE 0
                             END,
-                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+                'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
+                'isBlocked', CASE
+                                WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                ELSE 0
+                            END                
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -349,7 +367,11 @@ def get_user_boards(target_user_id: int):
                                     WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
                                     ELSE 0
                                 END,
-                    'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id)
+                    'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
+                    'isBlocked', CASE
+                                    WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                    ELSE 0
+                                END                    
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -384,6 +406,7 @@ def get_user_boards(target_user_id: int):
 
     for board in boards:
         board['user'] = json.loads(board['user'])
+        board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
         board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
 
@@ -1049,7 +1072,7 @@ def get_comment(board_id: int):
                 bc.comment,
                 bc.user_id AS userId,
                 CASE
-                    WHEN bc.user_id in (SELECT target_id FROM blocks WHERE user_id = 64477) THEN 1
+                    WHEN bc.user_id IN (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
                     ELSE 0
                 END AS isBlocked,
                 u.nickname,
@@ -1143,7 +1166,10 @@ def get_comment(board_id: int):
     total_count = cursor.fetchone()['total_count']
     connection.close()
 
-    # last_cursor = None if len(board_comments) <= 0 else board_comments[-1]['cursor']  # 배열 원소의 cursor string
+    for comment in board_comments:
+        comment['isBlocked'] = True if comment['isBlocked'] == 1 else False
+
+
     response = {
         'result': True,
         'data': board_comments,
