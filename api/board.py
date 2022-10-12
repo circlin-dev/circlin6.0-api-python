@@ -440,7 +440,7 @@ def get_user_boards(target_user_id: int):
 
 @api.route('/board_test', methods=['POST'])
 def post_a_board_test():
-    files = request.files.getlist('files')
+    files = request.files.getlist('files[]')
     data = request.form.to_dict()
     response = {
         'result': True,
