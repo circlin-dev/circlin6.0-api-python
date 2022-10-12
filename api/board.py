@@ -438,6 +438,19 @@ def get_user_boards(target_user_id: int):
     return json.dumps(response, ensure_ascii=False), 200
 
 
+@api.route('/board_test', methods=['POST'])
+def post_a_board_test():
+    files = request.files.getlist('files')
+    data = request.form.to_dict()
+    response = {
+        'result': True,
+        'files': files,
+        'data': data
+    }
+
+    return json.dumps(response, ensure_ascii=False), 200
+
+
 # 등록
 @api.route('/board', methods=['POST'])
 def post_a_board():
@@ -496,7 +509,7 @@ def post_a_board():
         result = {'result': True, 'boardId': board_id}
         return json.dumps(result, ensure_ascii=False), 200
     else:
-        files = request.files.getlist('files[]')
+        files = request.files.getlist('files')
 
         for index, file in enumerate(files):
             upload_result = upload_single_file_to_s3(file, f'board/{str(user_id)}')
