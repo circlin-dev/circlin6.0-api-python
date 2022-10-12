@@ -137,12 +137,7 @@ def get_boards():
                     ELSE 0
                 END AS liked,
                 b.board_category_id as boardCategoryId,
-                CASE
-                    WHEN 
-                        b.user_id = {user_id} 
-                    THEN 1
-                    ELSE b.is_show
-                END AS isShow
+                b.is_show AS isShow
             FROM
                 boards b
             LEFT JOIN
@@ -231,12 +226,7 @@ def get_a_board(board_id: int):
                 ELSE 0
             END AS liked,
             b.board_category_id as boardCategoryId,
-            CASE
-                WHEN 
-                    b.user_id = {user_id} 
-                THEN 1
-                ELSE b.is_show
-            END AS isShow
+            b.is_show AS isShow
         FROM
             boards b
         LEFT JOIN
@@ -627,41 +617,6 @@ def get_followers_board():
         'totalCount': total_count
     }
     return json.dumps(response, ensure_ascii=False), 200
-    # if len(follower_recent_board) == 0:
-    #     connection.close()
-    #     response = {
-    #         'result': True,
-    #         'data': follower_recent_board,
-    #         'cursor': last_cursor,
-    #         'totalCount': len(follower_recent_board)
-    #     }
-    #     return json.dumps(response, ensure_ascii=False), 200
-    # else:
-    #     sql = f"""
-    #         SELECT
-    #             COUNT(JSON_OBJECT(
-    #                 'id', b.id,
-    #                 'createdAt', DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s'),
-    #                 'updatedAt', DATE_FORMAT(b.updated_at, '%Y/%m/%d %H:%i:%s'),
-    #                 'userId', b.user_id,
-    #                 'boardCategoryId', b.board_category_id,
-    #                 'body', b.body,
-    #                 'isShow', b.is_show
-    #             )) AS total_count
-    #         FROM
-    #             boards b
-    #         INNER JOIN
-    #                 follows f ON b.user_id = f.target_id
-    #         WHERE
-    #             f.user_id = {user_id}
-    #         AND
-    #             ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) < 1000
-    #         AND b.deleted_at IS NULL
-    #         AND b.is_show = 1
-    #     """
-    #     cursor.execute(sql)
-    #     total_count = cursor.fetchone()['total_count']
-    #     connection.close()
 
 
 # 게시글 수정
