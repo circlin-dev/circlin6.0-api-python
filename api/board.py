@@ -477,7 +477,7 @@ def post_a_board():
 
     category_id = int(data['boardCategoryId'])
     body = data['body']
-    is_show = data['isShow']
+    is_show = int(data['isShow'])
 
     sql = Query.into(
         Boards
