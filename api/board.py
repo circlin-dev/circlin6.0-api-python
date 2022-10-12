@@ -440,12 +440,12 @@ def get_user_boards(target_user_id: int):
 
 @api.route('/board_test', methods=['POST'])
 def post_a_board_test():
-    files = request.files.getlist('files[]')
+    # files = request.files.getlist('files[]')
     data = request.form.to_dict()
+    files = data['files[]']
     response = {
         'result': True,
-        'files': files,
-        'data': data
+        'files': len(files),
     }
 
     return json.dumps(response, ensure_ascii=False), 200
@@ -503,13 +503,13 @@ def post_a_board():
         result = {'result': False, 'error': f'서버 오류로 게시글을 업로드하지 못했어요. 고객센터에 문의해 주세요.({e})'}
         return json.dumps(result, ensure_ascii=False), 500
 
-    num_files = len(request.files.to_dict())
+    num_files = len(data['files[]'])  # len(request.files.to_dict())
     if num_files < 1:
         connection.close()
         result = {'result': True, 'boardId': board_id}
         return json.dumps(result, ensure_ascii=False), 200
     else:
-        files = request.files.getlist('files')
+        files = data['files[]']  # request.files.getlist('files[]')
 
         for index, file in enumerate(files):
             upload_result = upload_single_file_to_s3(file, f'board/{str(user_id)}')
