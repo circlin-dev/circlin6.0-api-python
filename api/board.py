@@ -68,19 +68,14 @@ def get_boards():
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
             (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id AND bcm.deleted_at IS NULL) AS commentsCount,
             CASE
-                WHEN 
-                    {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) 
+                WHEN
+                    {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id))
                 THEN 1
                 ELSE 0
             END AS liked,
             b.board_category_id as boardCategoryId,
             CONCAT(LPAD(b.id, 15, '0')) as `cursor`,
-            CASE
-                WHEN 
-                    b.user_id = {user_id} 
-                THEN 1
-                ELSE b.is_show
-            END AS isShow
+            b.is_show AS isShow
         FROM
             boards b
         LEFT JOIN
@@ -340,12 +335,7 @@ def get_user_boards(target_user_id: int):
             END AS liked,
             b.board_category_id as boardCategoryId,
             CONCAT(LPAD(b.id, 15, '0')) as `cursor`,
-            CASE
-                WHEN 
-                    {target_user_id} = {user_id} 
-                THEN 1
-                ELSE b.is_show
-            END AS isShow
+            b.is_show AS isShow
         FROM
             boards b
         LEFT JOIN
@@ -408,12 +398,7 @@ def get_user_boards(target_user_id: int):
                     ELSE 0
                 END AS liked,
                 b.board_category_id as boardCategoryId,
-                CASE
-                    WHEN 
-                        b.user_id = {user_id} 
-                    THEN 1
-                    ELSE b.is_show
-                END AS isShow          
+                b.is_show AS isShow        
             FROM
                 boards b
             LEFT JOIN
