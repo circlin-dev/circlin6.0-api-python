@@ -82,7 +82,7 @@ def get_boards():
                 board_files bf
             ON
                 b.id = bf.board_id
-        INNER JOIN
+        LEFT JOIN
                 files f
             ON
                 bf.file_id = f.id
@@ -149,7 +149,7 @@ def get_boards():
                     board_files bf
                 ON
                     b.id = bf.board_id
-            INNER JOIN
+            LEFT JOIN
                     files f
                 ON
                     bf.file_id = f.id
@@ -405,7 +405,7 @@ def get_user_boards(target_user_id: int):
                     board_files bf
                 ON
                     b.id = bf.board_id
-            INNER JOIN
+            LEFT JOIN
                     files f
                 ON
                     bf.file_id = f.id
