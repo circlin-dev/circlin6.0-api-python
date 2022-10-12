@@ -440,12 +440,17 @@ def get_user_boards(target_user_id: int):
 
 @api.route('/board_test', methods=['POST'])
 def post_a_board_test():
-    # files = request.files.getlist('files[]')
-    data = request.form.to_dict()
-    files = data['files[]']
+    files = request.files.getlist('files[]')
+    file_length = 0 if len(files) < 1 else len(files)
+    paths = []
+    if file_length > 0:
+        for file in files:
+            paths.append(file['uri'])
+
     response = {
         'result': True,
-        'files': len(files),
+        'num': file_length,
+        'files': paths,
     }
 
     return json.dumps(response, ensure_ascii=False), 200
