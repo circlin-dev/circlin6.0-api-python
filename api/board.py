@@ -508,13 +508,13 @@ def post_a_board():
         result = {'result': False, 'error': f'서버 오류로 게시글을 업로드하지 못했어요. 고객센터에 문의해 주세요.({e})'}
         return json.dumps(result, ensure_ascii=False), 500
 
-    num_files = len(data['files[]'])  # len(request.files.to_dict())
+    num_files = len(request.files.getlist('files[]'))  # len(request.files.to_dict())
     if num_files < 1:
         connection.close()
         result = {'result': True, 'boardId': board_id}
         return json.dumps(result, ensure_ascii=False), 200
     else:
-        files = data['files[]']  # request.files.getlist('files[]')
+        files = request.files.getlist('files[]')  # request.files.getlist('files[]')
 
         for index, file in enumerate(files):
             upload_result = upload_single_file_to_s3(file, f'board/{str(user_id)}')
