@@ -51,12 +51,16 @@ def get_boards():
                 'nickname', u.nickname,
                 'profile', u.profile_image,
                 'followed', CASE
-                                WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                WHEN
+                                    {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) 
+                                THEN 1
                                 ELSE 0
                             END,
                 'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
                 'isBlocked', CASE
-                                WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                WHEN 
+                                    u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
+                                THEN 1
                                 ELSE 0
                             END
             ) AS user,
@@ -64,11 +68,19 @@ def get_boards():
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
             (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id AND bcm.deleted_at IS NULL) AS commentsCount,
             CASE
-                WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
+                WHEN 
+                    {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) 
+                THEN 1
                 ELSE 0
             END AS liked,
             b.board_category_id as boardCategoryId,
-            CONCAT(LPAD(b.id, 15, '0')) as `cursor`
+            CONCAT(LPAD(b.id, 15, '0')) as `cursor`,
+            CASE
+                WHEN 
+                    b.user_id = {user_id} 
+                THEN 1
+                ELSE b.is_show
+            END AS isShow
         FROM
             boards b
         LEFT JOIN
@@ -84,8 +96,6 @@ def get_boards():
             ON
                 u.id = b.user_id
         WHERE b.deleted_at IS NULL
-        AND b.is_show = 1
-        AND b.user_id != {user_id}        
         AND b.id < {page_cursor}
         GROUP BY b.id
         ORDER BY b.id DESC
@@ -131,7 +141,13 @@ def get_boards():
                     WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                     ELSE 0
                 END AS liked,
-                b.board_category_id as boardCategoryId
+                b.board_category_id as boardCategoryId,
+                CASE
+                    WHEN 
+                        b.user_id = {user_id} 
+                    THEN 1
+                    ELSE b.is_show
+                END AS isShow
             FROM
                 boards b
             LEFT JOIN
@@ -147,8 +163,6 @@ def get_boards():
                 ON
                     u.id = b.user_id
             WHERE b.deleted_at IS NULL
-            AND b.is_show = 1
-            AND b.user_id != {user_id}
             GROUP BY b.id)
         SELECT COUNT(*) AS total_count FROM board_list"""
     cursor.execute(sql)
@@ -159,6 +173,7 @@ def get_boards():
         board['user'] = json.loads(board['user'])
         board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
+        board['isShow'] = True if board['isShow'] == 1 else False
         board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
 
     last_cursor = None if len(boards) <= 0 else boards[-1]['cursor']  # 배열 원소의 cursor string
@@ -220,7 +235,13 @@ def get_a_board(board_id: int):
                 WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                 ELSE 0
             END AS liked,
-            b.board_category_id as boardCategoryId
+            b.board_category_id as boardCategoryId,
+            CASE
+                WHEN 
+                    b.user_id = {user_id} 
+                THEN 1
+                ELSE b.is_show
+            END AS isShow
         FROM
             boards b
         LEFT JOIN
@@ -236,7 +257,6 @@ def get_a_board(board_id: int):
             ON
                 u.id = b.user_id
         WHERE b.deleted_at IS NULL
-        AND b.is_show = 1
         AND b.id = {board_id}
         GROUP BY b.id
     """
@@ -249,7 +269,9 @@ def get_a_board(board_id: int):
         board['user'] = json.loads(board['user'])
         board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
+        board['isShow'] = True if board['isShow'] == 1 else False
         board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
+
         result = {
             'result': True,
             'data': board
@@ -311,13 +333,19 @@ def get_user_boards(target_user_id: int):
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
-            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id WHERE bcm.deleted_at IS NULL) AS commentsCount,
+            (SELECT COUNT(*) FROM board_comments bcm WHERE bcm.board_id = b.id AND bcm.deleted_at IS NULL) AS commentsCount,
             CASE
                 WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                 ELSE 0
             END AS liked,
             b.board_category_id as boardCategoryId,
-            CONCAT(LPAD(b.id, 15, '0')) as `cursor`
+            CONCAT(LPAD(b.id, 15, '0')) as `cursor`,
+            CASE
+                WHEN 
+                    {target_user_id} = {user_id} 
+                THEN 1
+                ELSE b.is_show
+            END AS isShow
         FROM
             boards b
         LEFT JOIN
@@ -333,7 +361,6 @@ def get_user_boards(target_user_id: int):
             ON
                 u.id = b.user_id
         WHERE b.deleted_at IS NULL
-        AND b.is_show = 1
         AND b.user_id = {target_user_id}        
         AND b.id < {page_cursor}
         GROUP BY b.id
@@ -380,7 +407,13 @@ def get_user_boards(target_user_id: int):
                     WHEN {user_id} in ((SELECT bl.user_id FROM board_likes bl WHERE bl.board_id = b.id)) THEN 1
                     ELSE 0
                 END AS liked,
-                b.board_category_id as boardCategoryId
+                b.board_category_id as boardCategoryId,
+                CASE
+                    WHEN 
+                        b.user_id = {user_id} 
+                    THEN 1
+                    ELSE b.is_show
+                END AS isShow          
             FROM
                 boards b
             LEFT JOIN
@@ -396,7 +429,6 @@ def get_user_boards(target_user_id: int):
                 ON
                     u.id = b.user_id
             WHERE b.deleted_at IS NULL
-            AND b.is_show = 1
             AND b.user_id = {target_user_id}
             GROUP BY b.id)
         SELECT COUNT(*) AS total_count FROM board_list"""
@@ -408,6 +440,7 @@ def get_user_boards(target_user_id: int):
         board['user'] = json.loads(board['user'])
         board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
+        board['isShow'] = True if board['isShow'] == 1 else False
         board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
 
     last_cursor = None if len(boards) <= 0 else boards[-1]['cursor']  # 배열 원소의 cursor string
