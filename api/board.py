@@ -51,8 +51,8 @@ def get_boards():
                 'nickname', u.nickname,
                 'profile', u.profile_image,
                 'followed', CASE
-                                WHEN
-                                    {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) 
+                                WHEN 
+                                    u.id in (SELECT target_id FROM follows WHERE user_id = {user_id})
                                 THEN 1
                                 ELSE 0
                             END,
@@ -120,12 +120,16 @@ def get_boards():
                     'nickname', u.nickname,
                     'profile', u.profile_image,
                     'followed', CASE
-                                    WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                    WHEN 
+                                        u.id in (SELECT target_id FROM follows WHERE user_id = {user_id}) 
+                                    THEN 1
                                     ELSE 0
                                 END,
                     'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
                     'isBlocked', CASE
-                                    WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                    WHEN 
+                                        u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
+                                    THEN 1
                                     ELSE 0
                                 END                    
                 ) AS user,
@@ -209,12 +213,16 @@ def get_a_board(board_id: int):
                 'nickname', u.nickname,
                 'profile', u.profile_image,
                 'followed', CASE
-                                WHEN {user_id} in (SELECT target_id FROM follows WHERE user_id = b.user_id) THEN 1
+                                WHEN 
+                                    u.id in (SELECT target_id FROM follows WHERE user_id = {user_id}) 
+                                THEN 1
                                 ELSE 0
                             END,
                 'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
                 'isBlocked', CASE
-                                WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                WHEN 
+                                    u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
+                                THEN 1
                                 ELSE 0
                             END
             ) AS user,
@@ -307,12 +315,16 @@ def get_user_boards(target_user_id: int):
                 'nickname', u.nickname,
                 'profile', u.profile_image,
                 'followed', CASE
-                                WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                WHEN 
+                                    u.id in (SELECT target_id FROM follows WHERE user_id = {user_id}) 
+                                THEN 1
                                 ELSE 0
                             END,
                 'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
                 'isBlocked', CASE
-                                WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                WHEN 
+                                    u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
+                                THEN 1
                                 ELSE 0
                             END                
             ) AS user,
@@ -371,12 +383,16 @@ def get_user_boards(target_user_id: int):
                     'nickname', u.nickname,
                     'profile', u.profile_image,
                     'followed', CASE
-                                    WHEN {user_id} in (SELECT COUNT(*) FROM follows WHERE user_id = b.user_id) THEN 1
+                                    WHEN 
+                                        u.id in (SELECT target_id FROM follows WHERE user_id = {user_id})
+                                    THEN 1
                                     ELSE 0
                                 END,
                     'followers', (SELECT COUNT(*) FROM follows WHERE target_id = b.user_id),
                     'isBlocked', CASE
-                                    WHEN u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) THEN 1
+                                    WHEN 
+                                        u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
+                                    THEN 1
                                     ELSE 0
                                 END                    
                 ) AS user,
@@ -425,24 +441,6 @@ def get_user_boards(target_user_id: int):
         'cursor': last_cursor,
         'totalCount': total_count
     }
-    return json.dumps(response, ensure_ascii=False), 200
-
-
-@api.route('/board_test', methods=['POST'])
-def post_a_board_test():
-    files = request.files.getlist('files[]')
-    file_length = 0 if len(files) < 1 else len(files)
-    paths = []
-    if file_length > 0:
-        for file in files:
-            paths.append(file['uri'])
-
-    response = {
-        'result': True,
-        'num': file_length,
-        'files': paths,
-    }
-
     return json.dumps(response, ensure_ascii=False), 200
 
 
