@@ -65,5 +65,5 @@ INITIAL_PAGE_LIMIT = 20
 INITIAL_PAGE = 1
 
 # Push message title
-BOARD_PUSH_TITLE = "써클인 게시판 알림"
+BOARD_PUSH_TITLE = "써클인 커뮤니티"
 # endregion

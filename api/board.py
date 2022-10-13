@@ -660,21 +660,21 @@ def update_a_board(board_id: int):
             connection.close()
             result = {
                 'result': False,
-                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(body).'
+                'error': '누락된 필수 데이터가 있어 게시글을 수정할 수 없습니다(body).'
             }
             return json.dumps(result, ensure_ascii=False), 400
         elif new_is_show is None:
             connection.close()
             result = {
                 'result': False,
-                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(isShow).'
+                'error': '누락된 필수 데이터가 있어 게시글을 수정할 수 없습니다(isShow).'
             }
             return json.dumps(result, ensure_ascii=False), 400
         elif new_board_category_id is None:
             connection.close()
             result = {
                 'result': False,
-                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(boardCategoryId).'
+                'error': '누락된 필수 데이터가 있어 게시글을 수정할 수 없습니다(boardCategoryId).'
             }
             return json.dumps(result, ensure_ascii=False), 400
         else:
@@ -1507,22 +1507,35 @@ def get_board_categories():
         result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
         return json.dumps(result, ensure_ascii=False), 401
 
-    sql = Query.from_(
-        BoardCategories
-    ).select(
-        BoardCategories.id,
-        BoardCategories.title.as_('label')
-    ).get_sql()
+    cached_category = cache.get('board_category')
+    if cached_category is not None:
+        connection.close()
+        result = {
+            'result': True,
+            'data': cached_category
+        }
+        return json.dumps(result, ensure_ascii=False), 200
+    else:
+        sql = Query.from_(
+            BoardCategories
+        ).select(
+            BoardCategories.id,
+            BoardCategories.title
+        ).get_sql()
 
-    cursor.execute(sql)
-    categories = cursor.fetchall()
-    connection.close()
+        cursor.execute(sql)
+        categories = cursor.fetchall()
+        connection.close()
 
-    result = {
-        'result': True,
-        'data': categories
-    }
-    return json.dumps(result, ensure_ascii=False), 200
+        category_dict = {category['id']:category['title'] for category in categories}
+        cache.set('board_category', category_dict, 600)
+        result = {
+            'result': True,
+            'data': category_dict
+        }
+        return json.dumps(result, ensure_ascii=False), 200
+
+
 # endregion
 
 
