@@ -1313,7 +1313,7 @@ def post_comment(board_id: int):
                 # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 다른 경우 => 댓글 작성자에게 알림
                 # 게시글 작성자와 답글 작성자가 다르다면 => 게시글 작성자에게도 알림.
                 # 단 본인의 댓글에 본인이 답글을 남기는 경우 알림 불필요
-                create_notification(target_comment_user_id, 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
+                create_notification(int(target_comment_user_id), 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
                 push_type = f"board_reply.{str(board_id)}"
                 push_target = list()
                 push_target.append(target_comment_user_id)
