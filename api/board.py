@@ -1317,7 +1317,7 @@ def post_comment(board_id: int):
                 push_type = f"board_reply.{str(board_id)}"
                 push_target = list()
                 push_target.append(target_comment_user_id)
-                push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\\"{comment_body}\\"'
                 send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
 
                 if target_board['user_id'] != user_id:
@@ -1325,7 +1325,7 @@ def post_comment(board_id: int):
                     push_type = f"board_comment.{str(board_comment_id)}"
                     push_target = list()
                     push_target.append(int(target_board['user_id']))
-                    push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                    push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
                     send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
             elif depth > 0 and target_comment_user_id == user_id:
                 # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
@@ -1333,7 +1333,7 @@ def post_comment(board_id: int):
                 push_type = f"board_comment.{str(board_id)}"
                 push_target = list()
                 push_target.append(int(target_board['user_id']))
-                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
                 send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
             elif depth <= 0 and target_board['user_id'] != user_id:
                 # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
@@ -1342,7 +1342,7 @@ def post_comment(board_id: int):
                 push_type = f"board_comment.{str(board_id)}"
                 push_target = list()
                 push_target.append(int(target_board['user_id']))
-                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\n\\"{comment_body}\\"'
+                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
                 send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
             else:
                 # 자신의 게시글에 새 댓글을 남기는 경우 => 아무것도 하지 않음.
