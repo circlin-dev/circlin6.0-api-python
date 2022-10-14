@@ -376,7 +376,7 @@ def generate_resized_file(extension, original_file_path, file_type):
 
 
 # region 알림(notification)
-def create_notification(target_user_id: any, notification_type: str, user_id: int,  target_table: str, target_table_id: int, target_comment_id: any, variables: any):
+def create_notification(target_user_id: int, notification_type: str, user_id: int,  target_table: str, target_table_id: int, target_comment_id: any, variables: any):
     # notification_type: board_like, board_comment, board_reply
     connection = db_connection()
     cursor = get_dict_cursor(connection)

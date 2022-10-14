@@ -1232,12 +1232,13 @@ def post_comment(board_id: int):
             connection.close()
             result = {
                 'result': False,
-                'error': '누락된 필수 데이터가 있어 댓글을 입력할 수 없습니다(group).'
+                'error': '누락된 필수 데이터가 있어 댓글을 저장할 수 없습니다(group).'
             }
             return json.dumps(result, ensure_ascii=False), 400
         else:
             comment_body = params['comment']
             comment_group = params['group']
+            board_user_id = int(target_board['user_id'])
 
             # 게시글의 댓글 group값 중 가장 큰 값 가져오기
             sql = Query.from_(
@@ -1280,23 +1281,13 @@ def post_comment(board_id: int):
             connection.commit()
             board_comment_id = int(cursor.lastrowid)  # 저장한 후 id값 기억해 두기
 
-            # 방금 올린 답글의 원 댓글 작성자 확인
-            sql = Query.from_(
-                BoardComments
-            ).select(
-                BoardComments.id,
-                BoardComments.user_id
-            ).where(
-                Criterion.all([
-                    BoardComments.board_id == board_id,
-                    BoardComments.group == group,
-                    BoardComments.depth == 0,
-                ])
-            ).get_sql()
-            cursor.execute(sql)
-            target_comment_user = cursor.fetchone()
-            target_comment_id = target_comment_user['id']
-            target_comment_user_id = int(target_comment_user['user_id'])
+            # 댓글
+            if depth == 0:
+                pass
+            # 답글
+            else:
+                pass
+
 
             # 알림, 푸시
             sql = Query.from_(
@@ -1309,44 +1300,80 @@ def post_comment(board_id: int):
             cursor.execute(sql)
             user_nickname = cursor.fetchone()['nickname']
 
-            if depth > 0 and target_comment_user_id != user_id:
-                # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 다른 경우 => 댓글 작성자에게 알림
-                # 게시글 작성자와 답글 작성자가 다르다면 => 게시글 작성자에게도 알림.
-                # 단 본인의 댓글에 본인이 답글을 남기는 경우 알림 불필요
-                create_notification(int(target_comment_user_id), 'board_reply', user_id, 'board', board_id, board_comment_id, json.dumps({"board_reply": comment_body}, ensure_ascii=False))
-                push_type = f"board_reply.{str(board_id)}"
-                push_target = list()
-                push_target.append(target_comment_user_id)
-                push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
-
-                if target_board['user_id'] != user_id:
-                    create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
-                    push_type = f"board_comment.{str(board_comment_id)}"
-                    push_target = list()
-                    push_target.append(int(target_board['user_id']))
+            if depth <= 0:
+                if board_user_id != user_id:
+                    # 댓글을 남기는 경우 => 게시글 작성자에게만 알림, 푸쉬를 보낸다.
+                    # 단, 작성자 id == 자신의 id 이면 아무것도 할 필요 없다.
+                    push_type = f"board_comment.{str(board_id)}"
                     push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                    send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
-            elif depth > 0 and target_comment_user_id == user_id:
-                # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
-                create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
-                push_type = f"board_comment.{str(board_id)}"
-                push_target = list()
-                push_target.append(int(target_board['user_id']))
-                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
-            elif depth <= 0 and target_board['user_id'] != user_id:
-                # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
-                # 단 본인의 게시글에 본인이 댓글을 남기는 경우 알림 불필요
-                create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
-                push_type = f"board_comment.{str(board_id)}"
-                push_target = list()
-                push_target.append(int(target_board['user_id']))
-                push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
+                    send_fcm_push(
+                        [board_user_id],
+                        push_type,
+                        user_id,
+                        int(board_id),
+                        board_comment_id,
+                        BOARD_PUSH_TITLE,
+                        push_body
+                    )
+
+                    create_notification(
+                        board_user_id,
+                        'board_comment',
+                        user_id,
+                        'board',
+                        board_id,
+                        board_comment_id,
+                        json.dumps({"board_comment": comment_body}, ensure_ascii=False)
+                    )
+                else:
+                    pass
             else:
-                # 자신의 게시글에 새 댓글을 남기는 경우 => 아무것도 하지 않음.
-                pass
+                # 댓글에 답글을 남기는 경우. commented_user_ids_list에서 중복 & 나와 같은 user id를 제외하고 보낸다.
+
+                # 방금 올린 답글의 게시글 id과 댓글 group값으로 같은 group의 댓글 정보 확인
+                sql = Query.from_(
+                    BoardComments
+                ).select(
+                    BoardComments.id,
+                    BoardComments.user_id
+                ).where(
+                    Criterion.all([
+                        BoardComments.board_id == board_id,
+                        BoardComments.group == group,
+                        # BoardComments.depth == 0,
+                    ])
+                ).get_sql()
+                cursor.execute(sql)
+
+                same_group_comments = cursor.fetchall()  # [{'id': comment_id, 'user_id': comment_writer_id}]
+                commented_user_ids_list = [comment['user_id'] for comment in same_group_comments]  # board_user_id(게시글 작성자 id)와 별도
+
+                commented_user_ids_list = list(set(commented_user_ids_list))  # 유저 id list 중복 제거
+                commented_user_ids_list.remove(user_id) if user_id in commented_user_ids_list else None  # 나 자신의 user_id가 있을 경우 배열에서 제외
+                # board_user_id에게 댓글 알림 & 푸시를 보내야 한다면, commented_user_ids_list 배열에 추가시키고, push_body를 댓글의 것으로 바꾼다.
+
+                push_type = f"board_reply.{str(board_id)}"
+                push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\\"{comment_body}\\"'
+                send_fcm_push(
+                    commented_user_ids_list,
+                    push_type,
+                    user_id,
+                    int(board_id),
+                    board_comment_id,
+                    BOARD_PUSH_TITLE,
+                    push_body
+                )
+
+                for commented_user_id in commented_user_ids_list:
+                    create_notification(
+                        commented_user_id,
+                        'board_reply',
+                        user_id,
+                        'board',
+                        board_id,
+                        board_comment_id,
+                        json.dumps({"board_reply": comment_body}, ensure_ascii=False)
+                    )
 
             connection.close()
             result = {'result': True}
