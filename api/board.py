@@ -1278,7 +1278,7 @@ def post_comment(board_id: int):
 
             cursor.execute(sql)
             connection.commit()
-            board_comment_id = cursor.lastrowid  # 저장한 후 id값 기억해 두기
+            board_comment_id = int(cursor.lastrowid)  # 저장한 후 id값 기억해 두기
 
             # 방금 올린 답글의 원 댓글 작성자 확인
             sql = Query.from_(
@@ -1318,7 +1318,7 @@ def post_comment(board_id: int):
                 push_target = list()
                 push_target.append(target_comment_user_id)
                 push_body = f'{user_nickname}님이 게시판의 내 댓글에 답글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
+                send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
 
                 if target_board['user_id'] != user_id:
                     create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
@@ -1326,7 +1326,7 @@ def post_comment(board_id: int):
                     push_target = list()
                     push_target.append(int(target_board['user_id']))
                     push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                    send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
+                    send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
             elif depth > 0 and target_comment_user_id == user_id:
                 # 댓글에 답글을 남기는 경우 and 답글 작성자와 댓글 작성자가 같은 경우 => 게시글 작성자에게 알림
                 create_notification(int(target_board['user_id']), 'board_comment', user_id, 'board', board_id, board_comment_id, json.dumps({"board_comment": comment_body}, ensure_ascii=False))
@@ -1334,7 +1334,7 @@ def post_comment(board_id: int):
                 push_target = list()
                 push_target.append(int(target_board['user_id']))
                 push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                send_fcm_push(push_target, push_type, user_id, int(board_id), target_comment_id, BOARD_PUSH_TITLE, push_body)
+                send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
             elif depth <= 0 and target_board['user_id'] != user_id:
                 # 게시글에 댓글을 남기는 경우 => 게시글 작성자에게 알림
                 # 단 본인의 게시글에 본인이 댓글을 남기는 경우 알림 불필요
@@ -1343,7 +1343,7 @@ def post_comment(board_id: int):
                 push_target = list()
                 push_target.append(int(target_board['user_id']))
                 push_body = f'{user_nickname}님이 내 게시글에 댓글을 남겼습니다.\r\n\\"{comment_body}\\"'
-                send_fcm_push(push_target, push_type, user_id, int(board_id), None, BOARD_PUSH_TITLE, push_body)
+                send_fcm_push(push_target, push_type, user_id, int(board_id), board_comment_id, BOARD_PUSH_TITLE, push_body)
             else:
                 # 자신의 게시글에 새 댓글을 남기는 경우 => 아무것도 하지 않음.
                 pass

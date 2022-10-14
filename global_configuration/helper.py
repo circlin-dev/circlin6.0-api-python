@@ -423,16 +423,16 @@ def send_fcm_push(target_ids: list, push_type: str, user_id: int, board_id: int,
     }
 
     # 1. target_ids 에서 유저 정보 획득
-    sql = Query.from_(
-        Users
-    ).select(
-        Users.nickname
-    ).where(
-        Users.id == user_id
-    ).get_sql()
-    cursor.execute(sql)
-    user = cursor.fetchone()
-    user_nickname = user['nickname']
+    # sql = Query.from_(
+    #     Users
+    # ).select(
+    #     Users.nickname
+    # ).where(
+    #     Users.id == user_id
+    # ).get_sql()
+    # cursor.execute(sql)
+    # user = cursor.fetchone()
+    # user_nickname = user['nickname']
 
     # 3. target별 푸시 전송
     for index, target in enumerate(target_ids):
@@ -473,7 +473,7 @@ def send_fcm_push(target_ids: list, push_type: str, user_id: int, board_id: int,
                     "data": {
                         "link": {
                             "route": "Sub",
-                            "screen": "Board",
+                            "screen": "BoardDetail",
                             "params": {
                                 "id": board_id,
                                 "comment_id": comment_id
