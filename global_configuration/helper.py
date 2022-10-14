@@ -45,33 +45,14 @@ def get_dict_cursor(connection):
 
 
 # region authentication
-def authenticate(request, cursor):
+def authenticate(request):
     token = request.headers.get('token')
     uid = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
 
-    if uid == '' or uid is None:
-        user_id = {'user_id': None}
+    if uid.strip() == '' or uid is None:
+        user_id = None
     else:
         user_id = {'user_id': int(uid)}
-
-    # if request.cookies.get('circlinapi_session') is not None:
-    #     #     cookie = request.cookies.get('circlinapi_session')
-    #     #     sql = Query.from_(
-    #     #         Sessions
-    #     #     ).select(
-    #     #         Sessions.user_id
-    #     #     ).where(
-    #     #         Sessions.id == cookie
-    #     #     ).get_sql()
-    #     #
-    #     #     cursor.execute(sql)
-    #     #     # user_id = json.dumps(cursor.fetchone(), indent=4, ensure_ascii=False)
-    #     #     user_id = cursor.fetchone()
-    #     # else:
-    #     #     token = request.headers.get('token')
-    #     #     user_id = {
-    #     #         'user_id': int(jwt.decode(token, options={"verify_signature": False}))   # out secret key
-    #     #     }
 
     return user_id
 # endregion
