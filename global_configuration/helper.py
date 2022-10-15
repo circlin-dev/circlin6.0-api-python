@@ -49,7 +49,7 @@ def authenticate(request):
     token = request.headers.get('token')
     uid = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
 
-    if uid.strip() == '' or uid is None:
+    if uid == '' or uid is None:
         user_id = None
     else:
         user_id = {'user_id': int(uid)}
