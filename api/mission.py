@@ -81,7 +81,7 @@ def get_mission_comments(mission_id: int):
 					ELSE 0
 				END AS isBlocked,
 				u.nickname,
-				u.profile_image AS profileImage,
+				u.profile_image AS profile,
 				u.gender,
 				CONCAT(LPAD(mc.`group`, 15, '0')) as `cursor`
 			FROM
