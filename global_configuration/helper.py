@@ -45,7 +45,7 @@ def get_dict_cursor(connection):
 
 
 # region authentication
-def authenticate(request, cursor), cursor):
+def authenticate(request, cursor):
     token = request.headers.get('token')
     uid: int = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
 
