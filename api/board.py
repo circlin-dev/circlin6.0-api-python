@@ -41,7 +41,8 @@ def get_boards():
                     'order', bf.order,
                     'mimeType', f.mime_type,
                     'pathname', f.pathname,
-                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                        'mimeType', ff.mime_type,
                         'pathname', ff.pathname,
                         'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
                 )
