@@ -276,3 +276,123 @@ def get_newsfeed():
 	}
 
 	return json.dumps(response, ensure_ascii=False), 200
+
+
+@api.route('/feed/<feed_id>/comment', methods=['GET'])
+def get_feed_comments(feed_id: int):
+	connection = db_connection()
+	cursor = get_dict_cursor(connection)
+	endpoint = API_ROOT + url_for('api.get_boards', feed_id=feed_id)
+	authentication = authenticate(request, cursor)
+
+	if authentication is None:
+		connection.close()
+		result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+		return json.dumps(result, ensure_ascii=False), 401
+	user_id = authentication['user_id']
+
+	page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+	limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+	page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+	sql = f"""
+		WITH grouped_comment_cursor AS (
+			SELECT
+				fc.id,
+				DATE_FORMAT(fc.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
+				fc.`group`,
+				fc.depth,
+				fc.comment,
+				fc.user_id AS userId,
+				CASE
+					WHEN
+						fc.user_id IN (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
+					THEN 1
+					ELSE 0
+				END AS isBlocked,
+				u.nickname,
+				u.profile_image AS profile,
+				u.gender,
+				CONCAT(LPAD(fc.group, 15, '0')) as `cursor`
+			FROM
+				feed_comments fc
+			INNER JOIN 
+				users u ON u.id = fc.user_id
+			WHERE fc.feed_id = {feed_id}
+			AND fc.deleted_at IS NULL
+			AND fc.`group` < {page_cursor}
+			GROUP BY fc.`group`
+			ORDER BY fc.`group` DESC, fc.depth, fc.created_at
+			LIMIT {limit}
+		)
+			SELECT `cursor` FROM grouped_comment_cursor
+	"""
+
+	cursor.execute(sql)
+	grouped_comment_cursors = cursor.fetchall()
+
+	last_cursor = grouped_comment_cursors[-1]['cursor'] if len(grouped_comment_cursors) > 0 else None
+
+	grouped_comment_cursors = tuple([
+		grouped_comment_cursors[i]['cursor']
+		for i in range(0, len(grouped_comment_cursors))
+	])
+
+	if len(grouped_comment_cursors) > 0:
+		sql = f"""
+			SELECT
+				fc.id,
+				DATE_FORMAT(fc.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
+				fc.`group`,
+				fc.depth,
+				fc.comment,
+				fc.user_id AS userId,
+				CASE
+					WHEN 
+						fc.user_id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
+					THEN 1
+					ELSE 0
+				END AS isBlocked,
+				u.nickname,
+				u.profile_image AS profile,
+				u.gender,
+				CONCAT(LPAD(fc.`group`, 15, '0')) as `cursor`
+			FROM
+				feed_comments fc
+			INNER JOIN
+				users u ON u.id = fc.user_id
+			WHERE
+			fc.`group` {'=' if len(grouped_comment_cursors) == 1 else 'IN'} {grouped_comment_cursors[0] if len(grouped_comment_cursors) == 1 else grouped_comment_cursors}
+			AND fc.deleted_at IS NULL
+			AND fc.feed_id = {feed_id}
+			ORDER BY fc.`group` DESC, fc.depth, fc.created_at
+		"""
+		cursor.execute(sql)
+		board_comments = cursor.fetchall()
+	else:
+		board_comments = []
+
+	sql = f"""
+		SELECT
+			COUNT(*) AS total_count
+		FROM
+			feed_comments fc
+		INNER JOIN users u ON u.id = fc.user_id
+		WHERE fc.feed_id = {feed_id}
+		AND fc.deleted_at IS NULL
+		ORDER BY fc.`group`, fc.depth, fc.created_at
+	"""
+	cursor.execute(sql)
+	total_count = cursor.fetchone()['total_count']
+	connection.close()
+
+	for comment in board_comments:
+		comment['isBlocked'] = True if comment['isBlocked'] == 1 else False
+
+	response = {
+		'result': True,
+		'data': board_comments,
+		'cursor': last_cursor,
+		'totalCount': total_count
+	}
+	return json.dumps(response, ensure_ascii=False), 200
