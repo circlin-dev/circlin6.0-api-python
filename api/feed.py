@@ -10,7 +10,7 @@ def get_newsfeed():
 	connection = db_connection()
 	cursor = get_dict_cursor(connection)
 	endpoint = API_ROOT + url_for('api.get_boards')
-	authentication = authenticate(request)
+	authentication = authenticate(request, cursor)
 
 	if authentication is None:
 		connection.close()

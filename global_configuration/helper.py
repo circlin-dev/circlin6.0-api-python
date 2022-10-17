@@ -45,14 +45,25 @@ def get_dict_cursor(connection):
 
 
 # region authentication
-def authenticate(request):
+def authenticate(request, cursor), cursor):
     token = request.headers.get('token')
     uid: int = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
 
-    if uid == '' or uid is None:
-        user_id = None
-    else:
+    sql = Query.from_(
+        Users
+    ).select(
+        fn.Count('*').as_('data_count')
+    ).where(
+        Users.id == uid
+    ).get_sql()
+
+    cursor.execute(sql)
+    exists = cursor.fetchone()['data_count']
+
+    if exists == 1:
         user_id = {'user_id': int(uid)}
+    else:
+        user_id = None
 
     return user_id
 # endregion

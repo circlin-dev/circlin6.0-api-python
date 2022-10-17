@@ -20,7 +20,7 @@ def get_boards():
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.get_boards')
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -187,7 +187,7 @@ def get_a_board(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.post_a_board')
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -285,7 +285,7 @@ def get_user_boards(target_user_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.get_user_boards', target_user_id=target_user_id)
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -451,7 +451,7 @@ def post_a_board():
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.post_a_board')
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -539,7 +539,7 @@ def get_followers_board():
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.get_followers_board')
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -624,7 +624,7 @@ def update_a_board(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.update_a_board', board_id=board_id)
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -705,7 +705,7 @@ def delete_a_board(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.delete_a_board', board_id=board_id)
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -764,7 +764,7 @@ def get_board_likes(board_id: int):
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.get_board_likes', board_id=board_id)
 
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -838,7 +838,7 @@ def post_like(board_id: int):
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.post_like',  board_id=board_id)
 
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
     if authentication is None:
         connection.close()
         result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
@@ -965,7 +965,7 @@ def delete_like(board_id: int):
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.delete_like', board_id=board_id)
 
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -1057,7 +1057,7 @@ def get_comment(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.get_comment', board_id=board_id)
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -1193,7 +1193,7 @@ def post_comment(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.post_comment', board_id=board_id)
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -1405,7 +1405,7 @@ def update_comment(board_id: int, comment_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.update_comment', board_id=board_id, comment_id=comment_id)
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -1479,7 +1479,7 @@ def delete_comment(board_id: int, comment_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.delete_comment', board_id=board_id, comment_id=comment_id)
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
@@ -1545,7 +1545,7 @@ def get_board_categories():
     connection = db_connection()
     cursor = get_dict_cursor(connection)
     endpoint = API_ROOT + url_for('api.get_board_categories')
-    authentication = authenticate(request)
+    authentication = authenticate(request, cursor)
 
     if authentication is None:
         connection.close()
