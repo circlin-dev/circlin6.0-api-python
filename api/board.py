@@ -1201,6 +1201,11 @@ def post_comment(board_id: int):
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
+    if board_id is None:
+        connection.close()
+        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        return json.dumps(result, ensure_ascii=False), 400
+
     sql = Query.from_(
         Boards
     ).select(

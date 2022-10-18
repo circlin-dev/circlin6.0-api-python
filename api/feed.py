@@ -9,7 +9,7 @@ import json
 def get_newsfeed():
 	connection = db_connection()
 	cursor = get_dict_cursor(connection)
-	endpoint = API_ROOT + url_for('api.get_boards')
+	endpoint = API_ROOT + url_for('api.get_newsfeed')
 	authentication = authenticate(request, cursor)
 
 	if authentication is None:
@@ -290,6 +290,11 @@ def get_feed_comments(feed_id: int):
 		result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
 		return json.dumps(result, ensure_ascii=False), 401
 	user_id = authentication['user_id']
+
+	if feed_id is None:
+		connection.close()
+		result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(feed_id).'}
+		return json.dumps(result, ensure_ascii=False), 400
 
 	page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
 	limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
