@@ -5,7 +5,7 @@ from flask import request, url_for
 import json
 
 
-@api.route('/newsfeed2', methods=['GET'])
+@api.route('/newsfeed', methods=['GET'])
 def get_newsfeed():
 	connection = db_connection()
 	cursor = get_dict_cursor(connection)
