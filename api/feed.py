@@ -91,19 +91,36 @@ def get_newsfeed():
 								THEN 1
 								ELSE 0
 							END,
-			'eventType', m.event_type,
-			'startedAt', DATE_FORMAT(m.created_at, '%Y/%m/%d %H:%i:%s'),
-			'endedAt', DATE_FORMAT(m.ended_at,  '%Y/%m/%d %H:%i:%s'),
-			'thumbnail', m.thumbnail_image,
-			'bookmarked', CASE
-							WHEN
-								(SELECT COUNT(*) FROM mission_stats WHERE mission_id = m.id AND user_id = 64477 AND ended_at IS NULL) > 0
-							THEN 1
-							ELSE 0
-						END
-			)) AS missions
+				'eventType', m.event_type,
+				'startedAt', DATE_FORMAT(m.created_at, '%Y/%m/%d %H:%i:%s'),
+				'endedAt', DATE_FORMAT(m.ended_at,  '%Y/%m/%d %H:%i:%s'),
+				'thumbnail', m.thumbnail_image,
+				'bookmarked', CASE
+								WHEN
+									(SELECT COUNT(*) FROM mission_stats WHERE mission_id = m.id AND user_id = 64477 AND ended_at IS NULL) > 0
+								THEN 1
+								ELSE 0
+							END
+			)) AS missions,
+			JSON_OBJECT(
+				'type', fp.type,
+				'id', fp.id,
+				'brand', IF(fp.type = 'inside', b.name_ko, op.brand),
+				'title', IF(fp.type = 'inside', p.name_ko, op.title),
+				'image', IF(fp.type = 'inside', p.thumbnail_image, op.image),
+				'url', IF(fp.type = 'inside', null, op.url),
+				'price', IF(fp.type = 'inside', p.price, op.price)
+			) AS product
 		FROM
 			feeds f
+		LEFT JOIN
+			feed_products fp ON fp.feed_id = f.id
+		LEFT JOIN
+			products p ON fp.product_id = p.id
+		LEFT JOIN
+			brands b ON p.brand_id = b.id
+		LEFT JOIN
+			outside_products op ON fp.outside_product_id = op.id
 		LEFT JOIN
 			feed_images fi ON fi.feed_id = f.id
 		INNER JOIN
@@ -115,7 +132,7 @@ def get_newsfeed():
 		INNER JOIN
 			missions m ON fm.mission_id = m.id
 		INNER JOIN
-			mission_categories mc on m.mission_category_id = mc.id			
+			mission_categories mc on m.mission_category_id = mc.id		
 		WHERE ABS(TIMESTAMPDIFF(DAY, f.created_at, NOW())) <= 1
 		AND f.deleted_at IS NULL
 		AND f.is_hidden = 0
@@ -150,35 +167,35 @@ def get_newsfeed():
 					)
 				), JSON_ARRAY()) AS images,
 				JSON_OBJECT(
-				'id', u.id,
-				'nickname', u.nickname,
-				'profile', u.profile_image,
-				'followed', CASE
-								WHEN
-									u.id in (SELECT target_id FROM follows WHERE user_id = {user_id})
-								THEN 1
-								ELSE 0
-							END,
-				'followers', (SELECT COUNT(*) FROM follows WHERE target_id = f.user_id),
-				'isBlocked', CASE
-								WHEN
-									u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id})
-								THEN 1
-								ELSE 0
+					'id', u.id,
+					'nickname', u.nickname,
+					'profile', u.profile_image,
+					'followed', CASE
+									WHEN
+										u.id in (SELECT target_id FROM follows WHERE user_id = {user_id})
+									THEN 1
+									ELSE 0
 								END,
-				'isChatBlocked', IFNULL(
-					(SELECT
-						cu1.is_block
-					FROM 
-						chat_users cu1,
-						chat_users cu2
-					WHERE 
-						cu1.chat_room_id = cu2.chat_room_id
-					AND cu1.user_id = {user_id}
-					AND cu2.user_id = u.id
-					AND cu1.deleted_at IS NULL), 0),
-				'gender', u.gender,
-				'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)
+					'followers', (SELECT COUNT(*) FROM follows WHERE target_id = f.user_id),
+					'isBlocked', CASE
+									WHEN
+										u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id})
+									THEN 1
+									ELSE 0
+									END,
+					'isChatBlocked', IFNULL(
+						(SELECT
+							cu1.is_block
+						FROM 
+							chat_users cu1,
+							chat_users cu2
+						WHERE 
+							cu1.chat_room_id = cu2.chat_room_id
+						AND cu1.user_id = {user_id}
+						AND cu2.user_id = u.id
+						AND cu1.deleted_at IS NULL), 0),
+					'gender', u.gender,
+					'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)
 				) AS user,
 				(SELECT COUNT(*) FROM feed_comments WHERE feed_id = f.id AND deleted_at IS NULL) AS commentsCount,
 				(SELECT COUNT(*) FROM feed_likes WHERE feed_id = f.id AND deleted_at IS NULL) AS checksCount,
@@ -197,7 +214,7 @@ def get_newsfeed():
 									THEN 1
 									ELSE 0
 								END,
-					-- 'eventType', m.event_type,
+					'eventType', m.event_type,
 					'startedAt', DATE_FORMAT(m.created_at, '%Y/%m/%d %H:%i:%s'),
 					'endedAt', DATE_FORMAT(m.ended_at,  '%Y/%m/%d %H:%i:%s'),
 					'thumbnail', m.thumbnail_image,
@@ -206,9 +223,26 @@ def get_newsfeed():
 									THEN 1
 									ELSE 0
 								END
-				)) AS missions
+				)) AS missions,
+				JSON_OBJECT(
+								'type', fp.type,
+								'id', fp.id,
+								'brand', IF(fp.type = 'inside', b.name_ko, op.brand),
+								'title', IF(fp.type = 'inside', p.name_ko, op.title),
+								'image', IF(fp.type = 'inside', p.thumbnail_image, op.image),
+								'url', IF(fp.type = 'inside', null, op.url),
+								'price', IF(fp.type = 'inside', p.price, op.price)
+							) AS product
 			FROM
 				feeds f
+			LEFT JOIN
+				feed_products fp ON fp.feed_id = f.id
+			LEFT JOIN
+				products p ON fp.product_id = p.id
+			LEFT JOIN
+				brands b ON p.brand_id = b.id
+			LEFT JOIN
+				outside_products op ON fp.outside_product_id = op.id
 			LEFT JOIN
 				feed_images fi ON fi.feed_id = f.id
 			INNER JOIN
@@ -264,7 +298,16 @@ def get_newsfeed():
 				'thumbnail': mission['thumbnail'],
 				'bookmarked': True if mission['bookmarked'] == 1 else False,
 				'isOldEvent': True if mission['isOldEvent'] == 1 else False,
-			} for mission in json.loads(feed['missions'])]
+			} for mission in json.loads(feed['missions'])],
+			'product': {
+				'id': json.loads(feed['product'])['id'],
+				'type': json.loads(feed['product'])['type'],
+				'brand': json.loads(feed['product'])['brand'],
+				'title': json.loads(feed['product'])['title'],
+				'image': json.loads(feed['product'])['image'],
+				'url': json.loads(feed['product'])['url'],
+				'price': json.loads(feed['product'])['price'],
+			}
 		} for feed in news_feeds
 	]
 
