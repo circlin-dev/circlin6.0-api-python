@@ -431,8 +431,21 @@ def get_feed_comments(feed_id: int):
 	total_count = cursor.fetchone()['total_count']
 	connection.close()
 
-	for comment in board_comments:
-		comment['isBlocked'] = True if comment['isBlocked'] == 1 else False
+	board_comments = [
+		{
+			'id': comment['id'],
+			"createdAt": comment['createdAt'],
+			"group": comment['group'],
+			"depth": comment['depth'],
+			"comment": comment['comment'],
+			"userId": comment['userId'],
+			"isBlocked": True if comment['isBlocked'] == 1 else False,
+			"nickname": comment['nickname'],
+			"profile": comment['profile'],
+			"gender": comment['gender'],
+			"cursor": comment['cursor'],
+		} for comment in board_comments
+	]
 
 	response = {
 		'result': True,
