@@ -34,14 +34,14 @@ def get_newsfeed():
 			f.id,
 			DATE_FORMAT(f.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
 			f.content as body,
-			IFNULL(JSON_ARRAYAGG(
+			(SELECT JSON_ARRAYAGG(
 				JSON_OBJECT(
 					'order', fi.order,
 					'mimeType', fi.type,
 					'pathname', fi.image,
 					'resized', null
 				)
-			), JSON_ARRAY()) AS images,
+			) FROM feed_images fi WHERE fi.feed_id = f.id) AS images,
 			JSON_OBJECT(
 				'id', u.id,
 				'nickname', u.nickname,
@@ -113,16 +113,6 @@ def get_newsfeed():
 			) AS product
 		FROM
 			feeds f
-		LEFT JOIN
-			feed_products fp ON fp.feed_id = f.id
-		LEFT JOIN
-			products p ON fp.product_id = p.id
-		LEFT JOIN
-			brands b ON p.brand_id = b.id
-		LEFT JOIN
-			outside_products op ON fp.outside_product_id = op.id
-		LEFT JOIN
-			feed_images fi ON fi.feed_id = f.id
 		INNER JOIN
 			users u ON f.user_id = u.id
 		INNER JOIN
@@ -131,6 +121,14 @@ def get_newsfeed():
 			feed_missions fm ON fm.feed_id = f.id
 		INNER JOIN
 			missions m ON fm.mission_id = m.id
+		LEFT JOIN
+			feed_products fp ON fp.feed_id = f.id
+		LEFT JOIN
+			products p ON fp.product_id = p.id
+		LEFT JOIN
+			brands b ON p.brand_id = b.id
+		LEFT JOIN
+			outside_products op ON fp.outside_product_id = op.id
 		INNER JOIN
 			mission_categories mc on m.mission_category_id = mc.id		
 		WHERE ABS(TIMESTAMPDIFF(DAY, f.created_at, NOW())) <= 1
@@ -158,14 +156,14 @@ def get_newsfeed():
 				f.id,
 				DATE_FORMAT(f.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
 				f.content as body,
-				IFNULL(JSON_ARRAYAGG(
+				(SELECT JSON_ARRAYAGG(
 					JSON_OBJECT(
 						'order', fi.order,
 						'mimeType', fi.type,
 						'pathname', fi.image,
 						'resized', null
 					)
-				), JSON_ARRAY()) AS images,
+				) FROM feed_images fi WHERE fi.feed_id = f.id) AS images,
 				JSON_OBJECT(
 					'id', u.id,
 					'nickname', u.nickname,
@@ -186,11 +184,9 @@ def get_newsfeed():
 					'isChatBlocked', IFNULL(
 						(SELECT
 							cu1.is_block
-						FROM 
-							chat_users cu1,
+						FROM chat_users cu1,
 							chat_users cu2
-						WHERE 
-							cu1.chat_room_id = cu2.chat_room_id
+						WHERE cu1.chat_room_id = cu2.chat_room_id
 						AND cu1.user_id = {user_id}
 						AND cu2.user_id = u.id
 						AND cu1.deleted_at IS NULL), 0),
@@ -200,17 +196,19 @@ def get_newsfeed():
 				(SELECT COUNT(*) FROM feed_comments WHERE feed_id = f.id AND deleted_at IS NULL) AS commentsCount,
 				(SELECT COUNT(*) FROM feed_likes WHERE feed_id = f.id AND deleted_at IS NULL) AS checksCount,
 				CASE
-					WHEN (SELECT COUNT(*) FROM feed_likes WHERE feed_id = f.id AND user_id = {user_id} AND deleted_at IS NULL) > 0 
+					WHEN
+						(SELECT COUNT(*) FROM feed_likes WHERE feed_id = f.id AND user_id = {user_id} AND deleted_at IS NULL) > 0 
 					THEN 1
 					ELSE 0
 				END AS checked,
 				JSON_ARRAYAGG(JSON_OBJECT(
 					'id', m.id,
-					'title', m.title,
 					'emoji', mc.emoji,
+					'title', m.title,
 					'isEvent', m.is_event,
 					'isOldEvent', CASE
-									WHEN m.id <= 1213 AND m.is_event = 1
+									WHEN
+										m.id <= 1213 AND m.is_event = 1
 									THEN 1
 									ELSE 0
 								END,
@@ -219,32 +217,23 @@ def get_newsfeed():
 					'endedAt', DATE_FORMAT(m.ended_at,  '%Y/%m/%d %H:%i:%s'),
 					'thumbnail', m.thumbnail_image,
 					'bookmarked', CASE
-									WHEN (SELECT COUNT(*) FROM mission_stats WHERE mission_id = m.id AND user_id = {user_id} AND ended_at IS NULL) > 0
+									WHEN
+										(SELECT COUNT(*) FROM mission_stats WHERE mission_id = m.id AND user_id = {user_id} AND ended_at IS NULL) > 0
 									THEN 1
 									ELSE 0
 								END
 				)) AS missions,
 				JSON_OBJECT(
-								'type', fp.type,
-								'id', fp.id,
-								'brand', IF(fp.type = 'inside', b.name_ko, op.brand),
-								'title', IF(fp.type = 'inside', p.name_ko, op.title),
-								'image', IF(fp.type = 'inside', p.thumbnail_image, op.image),
-								'url', IF(fp.type = 'inside', null, op.url),
-								'price', IF(fp.type = 'inside', p.price, op.price)
-							) AS product
+					'type', fp.type,
+					'id', fp.id,
+					'brand', IF(fp.type = 'inside', b.name_ko, op.brand),
+					'title', IF(fp.type = 'inside', p.name_ko, op.title),
+					'image', IF(fp.type = 'inside', p.thumbnail_image, op.image),
+					'url', IF(fp.type = 'inside', null, op.url),
+					'price', IF(fp.type = 'inside', p.price, op.price)
+				) AS product
 			FROM
 				feeds f
-			LEFT JOIN
-				feed_products fp ON fp.feed_id = f.id
-			LEFT JOIN
-				products p ON fp.product_id = p.id
-			LEFT JOIN
-				brands b ON p.brand_id = b.id
-			LEFT JOIN
-				outside_products op ON fp.outside_product_id = op.id
-			LEFT JOIN
-				feed_images fi ON fi.feed_id = f.id
 			INNER JOIN
 				users u ON f.user_id = u.id
 			INNER JOIN
@@ -253,8 +242,16 @@ def get_newsfeed():
 				feed_missions fm ON fm.feed_id = f.id
 			INNER JOIN
 				missions m ON fm.mission_id = m.id
+			LEFT JOIN
+				feed_products fp ON fp.feed_id = f.id
+			LEFT JOIN
+				products p ON fp.product_id = p.id
+			LEFT JOIN
+				brands b ON p.brand_id = b.id
+			LEFT JOIN
+				outside_products op ON fp.outside_product_id = op.id
 			INNER JOIN
-				mission_categories mc on m.mission_category_id = mc.id
+				mission_categories mc on m.mission_category_id = mc.id		
 			WHERE ABS(TIMESTAMPDIFF(DAY, f.created_at, NOW())) <= 1
 			AND f.deleted_at IS NULL
 			AND f.is_hidden = 0
