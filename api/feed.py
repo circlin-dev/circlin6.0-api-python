@@ -258,7 +258,7 @@ def get_newsfeed():
 			WHERE ABS(TIMESTAMPDIFF(DAY, f.created_at, NOW())) <= 1
 			AND f.deleted_at IS NULL
 			AND f.is_hidden = 0
-			GROUP BY f.id, m.id
+			GROUP BY f.id
 			ORDER BY f.id DESC
 		) SELECT COUNT(*) AS total_count FROM newsfeeds
 	"""
