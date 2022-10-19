@@ -97,7 +97,7 @@ def get_newsfeed():
 				'thumbnail', m.thumbnail_image,
 				'bookmarked', CASE
 								WHEN
-									(SELECT COUNT(*) FROM mission_stats WHERE mission_id = m.id AND user_id = 64477 AND ended_at IS NULL) > 0
+									(SELECT COUNT(*) FROM mission_stats WHERE mission_id = m.id AND user_id = {user_id} AND ended_at IS NULL) > 0
 								THEN 1
 								ELSE 0
 							END
@@ -258,7 +258,7 @@ def get_newsfeed():
 			WHERE ABS(TIMESTAMPDIFF(DAY, f.created_at, NOW())) <= 1
 			AND f.deleted_at IS NULL
 			AND f.is_hidden = 0
-			GROUP BY f.id
+			GROUP BY f.id, m.id
 			ORDER BY f.id DESC
 		) SELECT COUNT(*) AS total_count FROM newsfeeds
 	"""
