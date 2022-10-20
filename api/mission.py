@@ -100,9 +100,9 @@ def get_mission_comments(mission_id: int):
 			ORDER BY mc.`group` DESC, mc.depth, mc.created_at
 		"""
 		cursor.execute(sql)
-		board_comments = cursor.fetchall()
+		mission_comments = cursor.fetchall()
 	else:
-		board_comments = []
+		mission_comments = []
 
 	sql = f"""
 		SELECT
@@ -118,12 +118,25 @@ def get_mission_comments(mission_id: int):
 	total_count = cursor.fetchone()['total_count']
 	connection.close()
 
-	for comment in board_comments:
-		comment['isBlocked'] = True if comment['isBlocked'] == 1 else False
+	mission_comments = [
+		{
+			'id': comment['id'],
+			"createdAt": comment['createdAt'],
+			"group": comment['group'],
+			"depth": comment['depth'],
+			"comment": comment['comment'],
+			"userId": comment['userId'],
+			"isBlocked": True if comment['isBlocked'] == 1 else False,
+			"nickname": comment['nickname'],
+			"profile": comment['profile'],
+			"gender": comment['gender'],
+			"cursor": comment['cursor'],
+		} for comment in mission_comments
+	]
 
 	response = {
 		'result': True,
-		'data': board_comments,
+		'data': mission_comments,
 		'cursor': last_cursor,
 		'totalCount': total_count
 	}

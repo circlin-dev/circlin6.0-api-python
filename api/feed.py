@@ -413,9 +413,9 @@ def get_feed_comments(feed_id: int):
 			ORDER BY fc.`group` DESC, fc.depth, fc.created_at
 		"""
 		cursor.execute(sql)
-		board_comments = cursor.fetchall()
+		feed_comments = cursor.fetchall()
 	else:
-		board_comments = []
+		feed_comments = []
 
 	sql = f"""
 		SELECT
@@ -431,7 +431,7 @@ def get_feed_comments(feed_id: int):
 	total_count = cursor.fetchone()['total_count']
 	connection.close()
 
-	board_comments = [
+	feed_comments = [
 		{
 			'id': comment['id'],
 			"createdAt": comment['createdAt'],
@@ -444,12 +444,12 @@ def get_feed_comments(feed_id: int):
 			"profile": comment['profile'],
 			"gender": comment['gender'],
 			"cursor": comment['cursor'],
-		} for comment in board_comments
+		} for comment in feed_comments
 	]
 
 	response = {
 		'result': True,
-		'data': board_comments,
+		'data': feed_comments,
 		'cursor': last_cursor,
 		'totalCount': total_count
 	}

@@ -41,10 +41,11 @@ def get_boards():
                     'order', bf.order,
                     'mimeType', f.mime_type,
                     'pathname', f.pathname,
-                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT(
+                    'resized', (SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
                         'mimeType', ff.mime_type,
                         'pathname', ff.pathname,
-                        'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                        'width', ff.width
+                    )), JSON_ARRAY()) FROM files ff WHERE f.id = ff.original_file_id)
                 )
             ), JSON_ARRAY()) AS images,
             JSON_OBJECT(
@@ -111,9 +112,11 @@ def get_boards():
                         'order', bf.order,
                         'mimeType', f.mime_type,
                         'pathname', f.pathname,
-                        'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                        'resized', (SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                            'mimeType', ff.mime_type,
                             'pathname', ff.pathname,
-                            'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                            'width', ff.width
+                        )), JSON_ARRAY()) FROM files ff WHERE f.id = ff.original_file_id)
                     )
                 ), JSON_ARRAY()) AS images,
                 JSON_OBJECT(
@@ -164,12 +167,28 @@ def get_boards():
     total_count = cursor.fetchone()['total_count']
     connection.close()
 
-    for board in boards:
-        board['user'] = json.loads(board['user'])
-        board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
-        board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
-        board['isShow'] = True if board['isShow'] == 1 else False
-        board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
+    boards = [
+        {
+            'id': board['id'],
+            'body': board['body'],
+            'createdAt': board['createdAt'],
+            'images': json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else [],
+            'user': {
+                'id': json.loads(board['user'])['id'],
+                'profile': json.loads(board['user'])['profile'],
+                'followed': True if json.loads(board['user'])['followed'] == 1 or json.loads(board['user'])['id'] == user_id else False,
+                'nickname': json.loads(board['user'])['nickname'],
+                'followers': json.loads(board['user'])['followers'],
+                'isBlocked': True if json.loads(board['user'])['isBlocked'] == 1 else False,
+            },
+            'commentsCount': board['commentsCount'],
+            'likesCount': board['likesCount'],
+            'liked': True if board['liked'] == 1 else False,
+            'boardCategoryId': board['boardCategoryId'],
+            'isShow': True if board['isShow'] == 1 else False,
+            'cursor': board['cursor']
+        } for board in boards
+    ]
 
     last_cursor = None if len(boards) <= 0 else boards[-1]['cursor']  # 배열 원소의 cursor string
     response = {
@@ -209,9 +228,11 @@ def get_a_board(board_id: int):
                     'order', bf.order,
                     'mimeType', f.mime_type,
                     'pathname', f.pathname,
-                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                    'resized', (SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                        'mimeType', ff.mime_type,
                         'pathname', ff.pathname,
-                        'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                        'width', ff.width
+                    )), JSON_ARRAY()) FROM files ff WHERE f.id = ff.original_file_id)
                 )
             ), JSON_ARRAY()) AS images,
             JSON_OBJECT(
@@ -316,9 +337,11 @@ def get_user_boards(target_user_id: int):
                     'order', bf.order,
                     'mimeType', f.mime_type,
                     'pathname', f.pathname,
-                    'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                    'resized', (SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                        'mimeType', ff.mime_type,
                         'pathname', ff.pathname,
-                        'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                        'width', ff.width
+                    )), JSON_ARRAY()) FROM files ff WHERE f.id = ff.original_file_id)
                 )
             ), JSON_ARRAY()) AS images,
             JSON_OBJECT(
@@ -384,9 +407,11 @@ def get_user_boards(target_user_id: int):
                         'order', bf.order,
                         'mimeType', f.mime_type,
                         'pathname', f.pathname,
-                        'resized', (SELECT JSON_ARRAYAGG(JSON_OBJECT('mimeType', ff.mime_type,
+                        'resized', (SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                            'mimeType', ff.mime_type,
                             'pathname', ff.pathname,
-                            'width', ff.width)) FROM files ff WHERE f.id = ff.original_file_id)
+                            'width', ff.width
+                        )), JSON_ARRAY()) FROM files ff WHERE f.id = ff.original_file_id)
                     )
                 ), JSON_ARRAY()) AS images,
                 JSON_OBJECT(
@@ -438,12 +463,28 @@ def get_user_boards(target_user_id: int):
     total_count = cursor.fetchone()['total_count']
     connection.close()
 
-    for board in boards:
-        board['user'] = json.loads(board['user'])
-        board['user']['isBlocked'] = True if board['user']['isBlocked'] == 1 else False
-        board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
-        board['isShow'] = True if board['isShow'] == 1 else False
-        board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
+    boards = [
+        {
+            'id': board['id'],
+            'body': board['body'],
+            'createdAt': board['createdAt'],
+            'images': json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else [],
+            'user': {
+                'id': json.loads(board['user'])['id'],
+                'profile': json.loads(board['user'])['profile'],
+                'followed': True if json.loads(board['user'])['followed'] == 1 or json.loads(board['user'])['id'] == user_id else False,
+                'nickname': json.loads(board['user'])['nickname'],
+                'followers': json.loads(board['user'])['followers'],
+                'isBlocked': True if json.loads(board['user'])['isBlocked'] == 1 else False,
+            },
+            'commentsCount': board['commentsCount'],
+            'likesCount': board['likesCount'],
+            'liked': True if board['liked'] == 1 else False,
+            'boardCategoryId': board['boardCategoryId'],
+            'isShow': True if board['isShow'] == 1 else False,
+            'cursor': board['cursor']
+        } for board in boards
+    ]
 
     last_cursor = None if len(boards) <= 0 else boards[-1]['cursor']  # 배열 원소의 cursor string
     response = {
@@ -1189,10 +1230,7 @@ def get_comment(board_id: int):
                 bc.board_id = {board_id}
             ORDER BY bc.`group` DESC, bc.depth, bc.created_at
         """
-        try:
-            cursor.execute(sql)
-        except Exception as e:
-            return json.dumps({'sql': sql})
+        cursor.execute(sql)
         board_comments = cursor.fetchall()
     else:
         board_comments = []
@@ -1214,9 +1252,21 @@ def get_comment(board_id: int):
     total_count = cursor.fetchone()['total_count']
     connection.close()
 
-    for comment in board_comments:
-        comment['isBlocked'] = True if comment['isBlocked'] == 1 else False
-
+    board_comments = [
+        {
+            'id': comment['id'],
+            "createdAt": comment['createdAt'],
+            "group": comment['group'],
+            "depth": comment['depth'],
+            "comment": comment['comment'],
+            "userId": comment['userId'],
+            "isBlocked": True if comment['isBlocked'] == 1 else False,
+            "nickname": comment['nickname'],
+            "profileImage": comment['profileImage'],
+            "gender": comment['gender'],
+            "cursor": comment['cursor'],
+        } for comment in board_comments
+    ]
 
     response = {
         'result': True,
@@ -1343,14 +1393,6 @@ def post_comment(board_id: int):
             cursor.execute(sql)
             connection.commit()
             board_comment_id = int(cursor.lastrowid)  # 저장한 후 id값 기억해 두기
-
-            # 댓글
-            if depth == 0:
-                pass
-            # 답글
-            else:
-                pass
-
 
             # 알림, 푸시
             sql = Query.from_(
@@ -1635,15 +1677,13 @@ def get_board_categories():
         categories = cursor.fetchall()
         connection.close()
 
-        category_dict = {category['id']:category['title'] for category in categories}
+        category_dict = {category['id']: category['title'] for category in categories}
         cache.set('board_category', category_dict, 600)
         result = {
             'result': True,
             'data': category_dict
         }
         return json.dumps(result, ensure_ascii=False), 200
-
-
 # endregion
 
 

@@ -100,9 +100,9 @@ def get_notice_comments(notice_id: int):
 			ORDER BY nc.`group` DESC, nc.depth, nc.created_at
 		"""
 		cursor.execute(sql)
-		board_comments = cursor.fetchall()
+		notice_comments = cursor.fetchall()
 	else:
-		board_comments = []
+		notice_comments = []
 
 	sql = f"""
 		SELECT
@@ -118,12 +118,25 @@ def get_notice_comments(notice_id: int):
 	total_count = cursor.fetchone()['total_count']
 	connection.close()
 
-	for comment in board_comments:
-		comment['isBlocked'] = True if comment['isBlocked'] == 1 else False
+	notice_comments = [
+		{
+			'id': comment['id'],
+			"createdAt": comment['createdAt'],
+			"group": comment['group'],
+			"depth": comment['depth'],
+			"comment": comment['comment'],
+			"userId": comment['userId'],
+			"isBlocked": True if comment['isBlocked'] == 1 else False,
+			"nickname": comment['nickname'],
+			"profile": comment['profile'],
+			"gender": comment['gender'],
+			"cursor": comment['cursor'],
+		} for comment in notice_comments
+	]
 
 	response = {
 		'result': True,
-		'data': board_comments,
+		'data': notice_comments,
 		'cursor': last_cursor,
 		'totalCount': total_count
 	}
