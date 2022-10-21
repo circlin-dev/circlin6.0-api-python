@@ -84,16 +84,15 @@ def get_newsfeed():
 				'id', m.id,
 				'emoji', mc.emoji,
 				'title', m.title,
+				'isGround', m.is_ground,
 				'isEvent', m.is_event,
 				'isOldEvent', CASE
 								WHEN
-									m.id <= 1213 AND m.is_event = 1
+									m.id <= 1749 AND m.is_event = 1
 								THEN 1
 								ELSE 0
 							END,
 				'eventType', m.event_type,
-				'startedAt', DATE_FORMAT(m.created_at, '%Y/%m/%d %H:%i:%s'),
-				'endedAt', DATE_FORMAT(m.ended_at,  '%Y/%m/%d %H:%i:%s'),
 				'thumbnail', m.thumbnail_image,
 				'bookmarked', CASE
 								WHEN
@@ -120,7 +119,7 @@ def get_newsfeed():
 		INNER JOIN
 			feed_missions fm ON fm.feed_id = f.id
 		INNER JOIN
-			missions m ON fm.mission_id = m.id
+			missions m ON fm.mission_id = m.id		
 		LEFT JOIN
 			feed_products fp ON fp.feed_id = f.id
 		LEFT JOIN
@@ -206,15 +205,14 @@ def get_newsfeed():
 					'emoji', mc.emoji,
 					'title', m.title,
 					'isEvent', m.is_event,
+					'isGround', m.is_ground,
 					'isOldEvent', CASE
 									WHEN
-										m.id <= 1213 AND m.is_event = 1
+										m.id <= 1749 AND m.is_event = 1
 									THEN 1
 									ELSE 0
 								END,
 					'eventType', m.event_type,
-					'startedAt', DATE_FORMAT(m.created_at, '%Y/%m/%d %H:%i:%s'),
-					'endedAt', DATE_FORMAT(m.ended_at,  '%Y/%m/%d %H:%i:%s'),
 					'thumbnail', m.thumbnail_image,
 					'bookmarked', CASE
 									WHEN
@@ -251,7 +249,7 @@ def get_newsfeed():
 			LEFT JOIN
 				outside_products op ON fp.outside_product_id = op.id
 			INNER JOIN
-				mission_categories mc on m.mission_category_id = mc.id		
+				mission_categories mc ON m.mission_category_id = mc.id
 			WHERE ABS(TIMESTAMPDIFF(DAY, f.created_at, NOW())) <= 1
 			AND f.deleted_at IS NULL
 			AND f.is_hidden = 0
@@ -288,10 +286,9 @@ def get_newsfeed():
 				'id': mission['id'],
 				'emoji': mission['emoji'],
 				'title': mission['title'],
-				'endedAt': mission['endedAt'],
+				'isGround': True if mission['isGround'] == 1 else False,
 				'isEvent': True if mission['isEvent'] == 1 else False,
 				'eventType': mission['eventType'],
-				'startedAt': mission['startedAt'],
 				'thumbnail': mission['thumbnail'],
 				'bookmarked': True if mission['bookmarked'] == 1 else False,
 				'isOldEvent': True if mission['isOldEvent'] == 1 else False,
@@ -316,6 +313,22 @@ def get_newsfeed():
 	}
 
 	return json.dumps(response, ensure_ascii=False), 200
+
+
+@api.route('/feed/recently-most-checked', methods=['GET'])
+def get_recently_most_checked_feeds():
+	connection = db_connection()
+	cursor = get_dict_cursor(connection)
+	endpoint = API_ROOT + url_for('api.get_recently_most_checked_feeds')
+	authentication = authenticate(request, cursor)
+
+	if authentication is None:
+		connection.close()
+		result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+		return json.dumps(result, ensure_ascii=False), 401
+	user_id = authentication['user_id']
+
+	return ''
 
 
 @api.route('/feed/<feed_id>/comment', methods=['GET'])
