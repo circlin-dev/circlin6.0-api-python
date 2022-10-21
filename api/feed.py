@@ -39,7 +39,7 @@ def get_newsfeed():
 					'order', fi.order,
 					'mimeType', fi.type,
 					'pathname', fi.image,
-					'resized', null
+					'resized', JSON_ARRAY()
 				)
 			) FROM feed_images fi WHERE fi.feed_id = f.id) AS images,
 			JSON_OBJECT(
@@ -160,7 +160,7 @@ def get_newsfeed():
 						'order', fi.order,
 						'mimeType', fi.type,
 						'pathname', fi.image,
-						'resized', null
+						'resized', JSON_ARRAY()
 					)
 				) FROM feed_images fi WHERE fi.feed_id = f.id) AS images,
 				JSON_OBJECT(
@@ -328,140 +328,6 @@ def get_recently_most_checked_feeds():
 		return json.dumps(result, ensure_ascii=False), 401
 	user_id = authentication['user_id']
 
-	# sql = f"""
-	# 	SELECT
-	# 		feed_id
-	# 	FROM (
-	# 		SELECT
-	# 			DISTINCT u.id AS user_id,
-	# 			f.id AS feed_id,
-	# 			f.content,
-	# 			JSON_ARRAYAGG(JSON_OBJECT(fl.id, fl.created_at)),
-	# 			COUNT(*)   AS like_count
-	# 		FROM feed_likes fl
-	# 			INNER JOIN feeds f on fl.feed_id = f.id
-	# 			INNER JOIN users u ON f.user_id = u.id
-	# 		WHERE
-	# 			fl.created_at >= DATE(NOW())
-	# 		AND
-	# 			fl.deleted_at IS NULL
-	# 		GROUP BY f.id
-	# 		ORDER BY like_count DESC
-	# 	) t
-	# 	GROUP BY t.user_id
-	# 	LIMIT 10
-	# """
-	# cursor.execute(sql)
-	# most_checked_feed_ids = tuple(feed_id['feed_id'] for feed_id in cursor.fetchall())
-	#
-	# if len(most_checked_feed_ids) == 0:
-	# 	most_checked_feeds = []
-	# else:
-	# 	sql = f"""
-	# 		SELECT
-	# 			f.id,
-	# 			DATE_FORMAT(f.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
-	# 			f.content as body,
-	# 			(SELECT JSON_ARRAYAGG(
-	# 				JSON_OBJECT(
-	# 					'order', fi.order,
-	# 					'mimeType', fi.type,
-	# 					'pathname', fi.image,
-	# 					'resized', null
-	# 				)
-	# 			) FROM feed_images fi WHERE fi.feed_id = f.id) AS images,
-	# 			JSON_OBJECT(
-	# 				'id', u.id,
-	# 				'nickname', u.nickname,
-	# 				'profile', u.profile_image,
-	# 				'followed', CASE
-	# 								WHEN
-	# 									u.id in (SELECT target_id FROM follows WHERE user_id = {user_id})
-	# 								THEN 1
-	# 								ELSE 0
-	# 							END,
-	# 				'followers', (SELECT COUNT(*) FROM follows WHERE target_id = f.user_id),
-	# 				'isBlocked', CASE
-	# 								WHEN
-	# 									u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id})
-	# 								THEN 1
-	# 								ELSE 0
-	# 								END,
-	# 				'isChatBlocked', IFNULL(
-	# 					(SELECT
-	# 						cu1.is_block
-	# 					FROM chat_users cu1,
-	# 						chat_users cu2
-	# 					WHERE cu1.chat_room_id = cu2.chat_room_id
-	# 					AND cu1.user_id = {user_id}
-	# 					AND cu2.user_id = u.id
-	# 					AND cu1.deleted_at IS NULL), 0),
-	# 				'gender', u.gender,
-	# 				'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)
-	# 			) AS user,
-	# 			(SELECT COUNT(*) FROM feed_comments WHERE feed_id = f.id AND deleted_at IS NULL) AS commentsCount,
-	# 			(SELECT COUNT(*) FROM feed_likes WHERE feed_id = f.id AND deleted_at IS NULL) AS checksCount,
-	# 			CASE
-	# 				WHEN
-	# 					(SELECT COUNT(*) FROM feed_likes WHERE feed_id = f.id AND user_id = {user_id} AND deleted_at IS NULL) > 0
-	# 				THEN 1
-	# 				ELSE 0
-	# 			END AS checked,
-	# 			CONCAT(LPAD(f.id, 15, '0')) as `cursor`,
-	# 			JSON_ARRAYAGG(JSON_OBJECT(
-	# 				'id', m.id,
-	# 				'emoji', mc.emoji,
-	# 				'title', m.title,
-	# 				'isGround', m.is_ground,
-	# 				'isEvent', m.is_event,
-	# 				'isOldEvent', CASE
-	# 								WHEN
-	# 									m.id <= 1749 AND m.is_event = 1
-	# 								THEN 1
-	# 								ELSE 0
-	# 							END,
-	# 				'eventType', m.event_type,
-	# 				'thumbnail', m.thumbnail_image,
-	# 				'bookmarked', CASE
-	# 								WHEN
-	# 									(SELECT COUNT(*) FROM mission_stats WHERE mission_id = m.id AND user_id = {user_id} AND ended_at IS NULL) > 0
-	# 								THEN 1
-	# 								ELSE 0
-	# 							END
-	# 			)) AS missions,
-	# 			JSON_OBJECT(
-	# 				'type', fp.type,
-	# 				'id', fp.id,
-	# 				'brand', IF(fp.type = 'inside', b.name_ko, op.brand),
-	# 				'title', IF(fp.type = 'inside', p.name_ko, op.title),
-	# 				'image', IF(fp.type = 'inside', p.thumbnail_image, op.image),
-	# 				'url', IF(fp.type = 'inside', null, op.url),
-	# 				'price', IF(fp.type = 'inside', p.price, op.price)
-	# 			) AS product
-	# 		FROM
-	# 			feeds f
-	# 		INNER JOIN
-	# 			users u ON f.user_id = u.id
-	# 		INNER JOIN
-	# 			followers f3 ON f3.follower_id = u.id
-	# 		INNER JOIN
-	# 			feed_missions fm ON fm.feed_id = f.id
-	# 		INNER JOIN
-	# 			missions m ON fm.mission_id = m.id
-	# 		LEFT JOIN
-	# 			feed_products fp ON fp.feed_id = f.id
-	# 		LEFT JOIN
-	# 			products p ON fp.product_id = p.id
-	# 		LEFT JOIN
-	# 			brands b ON p.brand_id = b.id
-	# 		LEFT JOIN
-	# 			outside_products op ON fp.outside_product_id = op.id
-	# 		INNER JOIN
-	# 			mission_categories mc on m.mission_category_id = mc.id
-	# 		WHERE f.id IN {most_checked_feed_ids}
-	# 		GROUP BY f.id
-	# 		ORDER BY f.id DESC
-	# 	"""
 	sql = f"""
 		WITH
 			followers AS (
@@ -497,7 +363,7 @@ def get_recently_most_checked_feeds():
 						'order', fi.order,
 						'mimeType', fi.type,
 						'pathname', fi.image,
-						'resized', null
+						'resized', JSON_ARRAY()
 					)
 				) FROM feed_images fi WHERE fi.feed_id = f.id) AS images,
 				JSON_OBJECT(
