@@ -64,7 +64,8 @@ def get_boards():
                                     u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
                                 THEN 1
                                 ELSE 0
-                            END
+                            END,
+                'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                   
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -135,7 +136,8 @@ def get_boards():
                                         u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
                                     THEN 1
                                     ELSE 0
-                                END                    
+                                END,
+                    'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -180,6 +182,7 @@ def get_boards():
                 'nickname': json.loads(board['user'])['nickname'],
                 'followers': json.loads(board['user'])['followers'],
                 'isBlocked': True if json.loads(board['user'])['isBlocked'] == 1 else False,
+                'area': json.loads(board['user']['area'])
             },
             'commentsCount': board['commentsCount'],
             'likesCount': board['likesCount'],
@@ -251,7 +254,8 @@ def get_a_board(board_id: int):
                                     u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
                                 THEN 1
                                 ELSE 0
-                            END
+                            END,
+                'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                   
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -360,7 +364,8 @@ def get_user_boards(target_user_id: int):
                                     u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
                                 THEN 1
                                 ELSE 0
-                            END                
+                            END,
+                'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                   
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -430,7 +435,8 @@ def get_user_boards(target_user_id: int):
                                         u.id in (SELECT target_id FROM blocks WHERE user_id = {user_id}) 
                                     THEN 1
                                     ELSE 0
-                                END                    
+                                END,
+                    'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                       
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -476,6 +482,7 @@ def get_user_boards(target_user_id: int):
                 'nickname': json.loads(board['user'])['nickname'],
                 'followers': json.loads(board['user'])['followers'],
                 'isBlocked': True if json.loads(board['user'])['isBlocked'] == 1 else False,
+                'area': json.loads(board['user'])['area']
             },
             'commentsCount': board['commentsCount'],
             'likesCount': board['likesCount'],
@@ -620,8 +627,8 @@ def get_followers_board():
                 follows f ON b.user_id = f.target_id
         WHERE
             f.user_id = {user_id}
-        AND
-            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 100
+--         AND
+--             ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 100
         AND b.deleted_at IS NULL
         AND b.is_show = 1
         AND b.id < {page_cursor} 
@@ -861,16 +868,6 @@ def get_board_likes(board_id: int):
     cursor.execute(sql)
     liked_users = cursor.fetchall()
 
-    # if len(liked_users) == 0:  # 좋아요 누른 사람이 없을 경우 return
-    #     connection.close()
-    #     result = []
-    #     response = {
-    #         'result': True,
-    #         'data': result,
-    #         'cursor': None,
-    #         'totalCount': len(result)
-    #     }
-    #     return json.dumps(response, ensure_ascii=False), 200
     sql = Query.from_(
         BoardLikes
     ).select(
