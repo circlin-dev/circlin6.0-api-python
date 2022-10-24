@@ -182,7 +182,7 @@ def get_boards():
                 'nickname': json.loads(board['user'])['nickname'],
                 'followers': json.loads(board['user'])['followers'],
                 'isBlocked': True if json.loads(board['user'])['isBlocked'] == 1 else False,
-                'area': json.loads(board['user']['area'])
+                'area': json.loads(board['user'])['area']
             },
             'commentsCount': board['commentsCount'],
             'likesCount': board['likesCount'],
