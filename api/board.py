@@ -137,7 +137,7 @@ def get_boards():
                                     THEN 1
                                     ELSE 0
                                 END,
-                    'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                
+                    'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)
                 ) AS user,
                 DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
                 (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -255,7 +255,7 @@ def get_a_board(board_id: int):
                                 THEN 1
                                 ELSE 0
                             END,
-                'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                   
+                'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -295,6 +295,7 @@ def get_a_board(board_id: int):
         board['user']['followed'] = True if board['user']['followed'] == 1 or board['user']['id'] == user_id else False
         board['isShow'] = True if board['isShow'] == 1 else False
         board['images'] = json.loads(board['images']) if json.loads(board['images'])[0]['order'] is not None else []
+        board['liked'] = True if board['liked'] == 1 else False
 
         result = {
             'result': True,
@@ -658,8 +659,8 @@ def get_followers_board():
                 follows f ON b.user_id = f.target_id
         WHERE
             f.user_id = {user_id}
-        AND
-            ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 1000
+--         AND
+--             ABS(TIMESTAMPDIFF(DAY, b.created_at, NOW())) <= 1000
         AND b.deleted_at IS NULL
         AND b.is_show = 1
     """
