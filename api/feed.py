@@ -337,23 +337,36 @@ def get_recently_most_checked_feeds():
 					follows
 				WHERE user_id = {user_id}
 			),
-			top10_today_checked_feed_id AS (
-				SELECT
-					f.id AS feed_id,
-					COUNT(*) AS today_check_count
-				FROM 
-					feed_likes fl
-				INNER JOIN 
-						feeds f on fl.feed_id = f.id
-				INNER JOIN 
-						users u ON f.user_id = u.id
-				WHERE fl.created_at >= DATE(NOW())
-				AND fl.deleted_at IS NULL
-				AND f.user_id NOT IN (SELECT follower_id FROM followers)
-				GROUP BY f.id, f.user_id
-				ORDER BY today_check_count DESC
-				LIMIT 10
-			)
+		    today_checked_feeds AS (
+		        SELECT
+		            f.user_id,
+		            f.id AS feed_id,
+		            COUNT(*) AS today_check_count
+		        FROM
+		            feed_likes fl
+		        LEFT JOIN
+		                feeds f on fl.feed_id = f.id
+		        INNER JOIN
+		                users u ON f.user_id = u.id
+		        WHERE
+		            fl.created_at >= DATE(NOW())
+		        AND f.deleted_at IS NULL
+		        AND fl.deleted_at IS NULL
+		        AND f.user_id NOT IN (SELECT follower_id FROM followers)
+		        GROUP BY f.id
+		        ORDER BY today_check_count DESC
+		    ),
+		    today_top10_checked AS (
+		        SELECT
+		            user_id,
+		            feed_id,
+		            MAX(today_check_count) AS today_check_count
+		        FROM
+		            today_checked_feeds
+		        GROUP BY
+		            user_id
+		        LIMIT 10
+		    )
 			SELECT
 				f.id,
 				DATE_FORMAT(f.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
@@ -436,75 +449,90 @@ def get_recently_most_checked_feeds():
 					'url', IF(fp.type = 'inside', null, op.url),
 					'price', IF(fp.type = 'inside', p.price, op.price)
 				) AS product
-			FROM
-				feeds f
-			INNER JOIN
-					users u ON f.user_id = u.id
-			INNER JOIN
-					top10_today_checked_feed_id ttcfi ON ttcfi.feed_id = f.id
-			INNER JOIN
-					feed_missions fm ON fm.feed_id = f.id
-			INNER JOIN
-					missions m ON fm.mission_id = m.id
-			LEFT JOIN
-					feed_products fp ON fp.feed_id = f.id
-			LEFT JOIN
-					products p ON fp.product_id = p.id
-			LEFT JOIN
-					brands b ON p.brand_id = b.id
-			LEFT JOIN
-					outside_products op ON fp.outside_product_id = op.id
-			INNER JOIN
-					mission_categories mc on m.mission_category_id = mc.id
-			GROUP BY f.id
-			ORDER BY ttcfi.today_check_count DESC
+				FROM
+				    feeds f
+				INNER JOIN
+				    users u ON f.user_id = u.id
+				INNER JOIN
+				    today_top10_checked ttc ON ttc.feed_id = f.id
+				INNER JOIN
+				    feed_missions fm ON fm.feed_id = f.id
+				INNER JOIN
+				    missions m ON fm.mission_id = m.id
+				LEFT JOIN
+				    feed_products fp ON fp.feed_id = f.id
+				LEFT JOIN
+				    products p ON fp.product_id = p.id
+				LEFT JOIN
+				    brands b ON p.brand_id = b.id
+				LEFT JOIN
+				    outside_products op ON fp.outside_product_id = op.id
+				INNER JOIN
+				    mission_categories mc on m.mission_category_id = mc.id
+				GROUP BY f.id
+				ORDER BY ttc.today_check_count DESC
 	"""
 	cursor.execute(sql)
 	most_checked_feeds = cursor.fetchall()
 	connection.close()
 
-	most_checked_feeds = [
-		{
-			'id': feed['id'],
-			'createdAt': feed['createdAt'],
-			'body': feed['body'],
-			'images': json.loads(feed['images']),
-			'user': {
-				'id': json.loads(feed['user'])['id'],
-				'area': json.loads(feed['user'])['area'],
-				'gender': json.loads(feed['user'])['gender'],
-				'profile': json.loads(feed['user'])['profile'],
-				'followed': True if json.loads(feed['user'])['followed'] == 1 else False,
-				'nickname': json.loads(feed['user'])['nickname'],
-				'followers': json.loads(feed['user'])['followers'],
-				'isBlocked': True if json.loads(feed['user'])['isBlocked'] == 1 else False,
-				'isChatBlocked': True if json.loads(feed['user'])['isChatBlocked'] == 1 else False
-			},
-			'commentsCount': feed['commentsCount'],
-			'checksCount': feed['checksCount'],
-			'checked': True if feed['checked'] == 1 else False,
-			'missions': [{
-				'id': mission['id'],
-				'emoji': mission['emoji'],
-				'title': mission['title'],
-				'isGround': True if mission['isGround'] == 1 else False,
-				'isEvent': True if mission['isEvent'] == 1 else False,
-				'eventType': mission['eventType'],
-				'thumbnail': mission['thumbnail'],
-				'bookmarked': True if mission['bookmarked'] == 1 else False,
-				'isOldEvent': True if mission['isOldEvent'] == 1 else False,
-			} for mission in json.loads(feed['missions'])],
-			'product': {
-				'id': json.loads(feed['product'])['id'],
-				'type': json.loads(feed['product'])['type'],
-				'brand': json.loads(feed['product'])['brand'],
-				'title': json.loads(feed['product'])['title'],
-				'image': json.loads(feed['product'])['image'],
-				'url': json.loads(feed['product'])['url'],
-				'price': json.loads(feed['product'])['price'],
-			}
-		} for feed in most_checked_feeds
-	]
+	for feed in most_checked_feeds:
+		feed['user'] = json.loads(feed['user'])
+		feed['user']['followed'] = True if feed['user']['followed'] == 1 else False
+		feed['user']['isBlocked'] = True if feed['user']['isBlocked'] == 1 else False
+		feed['user']['isChatBlocked'] = True if feed['user']['isChatBlocked'] == 1 else False
+		feed['checked'] = True if feed['checked'] == 1 else False
+		feed['images'] = json.loads(feed['images'])
+		feed['missions'] = json.loads(feed['missions'])
+		feed['product'] = json.loads(feed['product'])
+		for mission in feed['missions']:
+			mission['isGround'] = True if mission['isGround'] == 1 else False
+			mission['isEvent'] = True if mission['isEvent'] == 1 else False
+			mission['bookmarked'] = True if mission['bookmarked'] == 1 else False
+			mission['isOldEvent'] = True if mission['isOldEvent'] == 1 else False
+
+	# most_checked_feeds = [
+	# 	{
+	# 		'id': feed['id'],
+	# 		'createdAt': feed['createdAt'],
+	# 		'body': feed['body'],
+	# 		'images': json.loads(feed['images']),
+	# 		'user': {
+	# 			'id': json.loads(feed['user'])['id'],
+	# 			'area': json.loads(feed['user'])['area'],
+	# 			'gender': json.loads(feed['user'])['gender'],
+	# 			'profile': json.loads(feed['user'])['profile'],
+	# 			'followed': True if json.loads(feed['user'])['followed'] == 1 else False,
+	# 			'nickname': json.loads(feed['user'])['nickname'],
+	# 			'followers': json.loads(feed['user'])['followers'],
+	# 			'isBlocked': True if json.loads(feed['user'])['isBlocked'] == 1 else False,
+	# 			'isChatBlocked': True if json.loads(feed['user'])['isChatBlocked'] == 1 else False
+	# 		},
+	# 		'commentsCount': feed['commentsCount'],
+	# 		'checksCount': feed['checksCount'],
+	# 		'checked': True if feed['checked'] == 1 else False,
+	# 		'missions': [{
+	# 			'id': mission['id'],
+	# 			'emoji': mission['emoji'],
+	# 			'title': mission['title'],
+	# 			'isGround': True if mission['isGround'] == 1 else False,
+	# 			'isEvent': True if mission['isEvent'] == 1 else False,
+	# 			'eventType': mission['eventType'],
+	# 			'thumbnail': mission['thumbnail'],
+	# 			'bookmarked': True if mission['bookmarked'] == 1 else False,
+	# 			'isOldEvent': True if mission['isOldEvent'] == 1 else False,
+	# 		} for mission in json.loads(feed['missions'])],
+	# 		'product': {
+	# 			'id': json.loads(feed['product'])['id'],
+	# 			'type': json.loads(feed['product'])['type'],
+	# 			'brand': json.loads(feed['product'])['brand'],
+	# 			'title': json.loads(feed['product'])['title'],
+	# 			'image': json.loads(feed['product'])['image'],
+	# 			'url': json.loads(feed['product'])['url'],
+	# 			'price': json.loads(feed['product'])['price'],
+	# 		}
+	# 	} for feed in most_checked_feeds
+	# ]
 
 	response = {
 		'result': True,
