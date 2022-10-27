@@ -1,7 +1,7 @@
 from global_configuration.table import Boards, Files, BoardCategories, BoardFiles, BoardLikes, BoardComments, Users
 from . import api
 from global_configuration.constants import API_ROOT, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR, \
-    INITIAL_PAGE_LIMIT, INITIAL_PAGE, BOARD_PUSH_TITLE
+    INITIAL_PAGE_LIMIT, INITIAL_PAGE, BOARD_PUSH_TITLE, ERROR_RESPONSE
 from global_configuration.helper import db_connection, get_dict_cursor, authenticate, upload_single_file_to_s3, \
     get_query_strings_from_request, create_notification, send_fcm_push
 from flask import request, url_for
@@ -24,7 +24,7 @@ def get_boards():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -213,13 +213,13 @@ def get_a_board(board_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[401]} (board_id)'}
         return json.dumps(result, ensure_ascii=False), 400
 
     sql = f"""
@@ -320,13 +320,13 @@ def get_user_boards(target_user_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if target_user_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(target_user_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (target_user_id)'}
         return json.dumps(result, ensure_ascii=False), 400
 
     page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -514,7 +514,7 @@ def post_a_board():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -522,10 +522,10 @@ def post_a_board():
     data = request.form.to_dict()
 
     if data['boardCategoryId'] is None or data['boardCategoryId'].strip() == '':
-        result = {'result': False, 'error': '게시글의 카테고리가 입력되지 않았습니다.'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (boardCategoryId)'}
         return json.dumps(result, ensure_ascii=False), 400
     if data['body'] is None or data['body'].strip() == '':
-        result = {'result': False, 'error': '게시글 내용을 입력해 주세요.'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (body)'}
         return json.dumps(result, ensure_ascii=False), 400
 
     category_id = int(data['boardCategoryId'])
@@ -553,7 +553,7 @@ def post_a_board():
         # return json.dumps(result, ensure_ascii=False), 200
     except Exception as e:
         connection.close()
-        result = {'result': False, 'error': f'서버 오류로 게시글을 업로드하지 못했어요. 고객센터에 문의해 주세요.({e})'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[500]} ({e})'}
         return json.dumps(result, ensure_ascii=False), 500
 
     num_files = len(request.files.getlist('files[]'))  # len(request.files.to_dict())
@@ -569,7 +569,7 @@ def post_a_board():
 
             if type(upload_result['result']) == str:
                 connection.close()
-                result = {'result': False, 'error': upload_result['result']}
+                result = {'result': False, 'error': f'{ERROR_RESPONSE[500]} ({upload_result["result"]})'}
                 return json.dumps(result, ensure_ascii=False), 500
 
             if upload_result['result'] is True:
@@ -602,7 +602,7 @@ def get_followers_board():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -687,13 +687,13 @@ def update_a_board(board_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     data = json.loads(request.get_data())
@@ -711,7 +711,7 @@ def update_a_board(board_id: int):
 
     if target_board_user_id != user_id:
         connection.close()
-        result = {'result': False, 'error': '해당 유저는 이 게시글에 대한 수정 권한이 없습니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[403]}
         return json.dumps(result, ensure_ascii=False), 403
     elif target_board_deleted_time:
         connection.close()
@@ -725,21 +725,21 @@ def update_a_board(board_id: int):
             connection.close()
             result = {
                 'result': False,
-                'error': '누락된 필수 데이터가 있어 게시글을 수정할 수 없습니다(body).'
+                'error': f'{ERROR_RESPONSE[400]} (body).'
             }
             return json.dumps(result, ensure_ascii=False), 400
         elif new_is_show is None:
             connection.close()
             result = {
                 'result': False,
-                'error': '누락된 필수 데이터가 있어 게시글을 수정할 수 없습니다(isShow).'
+                'error': f'{ERROR_RESPONSE[400]} (isShow).'
             }
             return json.dumps(result, ensure_ascii=False), 400
         elif new_board_category_id is None:
             connection.close()
             result = {
                 'result': False,
-                'error': '누락된 필수 데이터가 있어 게시글을 수정할 수 없습니다(boardCategoryId).'
+                'error': f'{ERROR_RESPONSE[400]} (boardCategoryId).'
             }
             return json.dumps(result, ensure_ascii=False), 400
         else:
@@ -773,13 +773,13 @@ def delete_a_board(board_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     sql = Query.from_(
@@ -801,7 +801,7 @@ def delete_a_board(board_id: int):
         return json.dumps(result, ensure_ascii=False), 400
     elif data['user_id'] != user_id:
         connection.close()
-        result = {'result': False, 'error': '해당 유저는 이 게시글에 대한 삭제 권한이 없습니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[403]}
         return json.dumps(result, ensure_ascii=False), 403
     elif data['deleted_at'] is not None:
         connection.close()
@@ -837,12 +837,12 @@ def get_board_likes(board_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
@@ -905,13 +905,13 @@ def post_like(board_id: int):
     authentication = authenticate(request, cursor)
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     sql = Query.from_(
@@ -1038,12 +1038,12 @@ def delete_like(board_id: int):
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
@@ -1135,13 +1135,13 @@ def get_comment(board_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -1285,13 +1285,13 @@ def post_comment(board_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     sql = Query.from_(
@@ -1494,17 +1494,17 @@ def update_comment(board_id: int, comment_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
     if comment_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(comment_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (comment_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     params = json.loads(request.get_data())
@@ -1512,7 +1512,7 @@ def update_comment(board_id: int, comment_id: int):
         connection.close()
         result = {
             'result': False,
-            'error': '변경하고자 하는 내용이 서버로 전송되지 않았습니다.'
+            'error': f'{ERROR_RESPONSE[400]} (comment)'
         }
         return json.dumps(result, ensure_ascii=False), 400
 
@@ -1539,9 +1539,9 @@ def update_comment(board_id: int, comment_id: int):
         connection.close()
         result = {
             "result": False,
-            "error": "해당 댓글의 작성자가 아니므로 댓글을 수정할 수 없습니다."
+            "error": ERROR_RESPONSE[403]
         }
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(result, ensure_ascii=False), 403
     elif target_comment['deleted_at'] is not None:
         connection.close()
         result = {
@@ -1577,17 +1577,17 @@ def delete_comment(board_id: int, comment_id: int):
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
     user_id = authentication['user_id']
 
     if board_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(board_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
     if comment_id is None:
         connection.close()
-        result = {'result': False, 'error': '필수 데이터가 누락된 요청을 처리할 수 없습니다(comment_id).'}
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (comment_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
     sql = Query.from_(
@@ -1613,9 +1613,9 @@ def delete_comment(board_id: int, comment_id: int):
         connection.close()
         result = {
             "result": False,
-            "error": "해당 댓글의 작성자가 아니므로 댓글을 삭제할 수 없습니다."
+            "error": ERROR_RESPONSE[403]
         }
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(result, ensure_ascii=False), 403
     elif target_comment['deleted_at'] is not None:
         connection.close()
         result = {
@@ -1652,7 +1652,7 @@ def get_board_categories():
 
     if authentication is None:
         connection.close()
-        result = {'result': False, 'error': '요청을 보낸 사용자는 알 수 없는 사용자입니다.'}
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
 
     cached_category = cache.get('board_category')
