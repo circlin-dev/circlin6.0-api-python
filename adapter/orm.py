@@ -3,7 +3,8 @@ from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, IN
 from sqlalchemy.orm import registry, relationship
 
 from domain.board import Board, BoardCategory, BoardComment, BoardFile, BoardLike
-from domain.feed import Feed, FeedComment
+from domain.common_code import CommonCode
+from domain.feed import Feed, FeedComment, FeedImage
 from domain.file import File
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.notice import Notice, NoticeComment
@@ -81,6 +82,25 @@ board_likes = Table(
 # endregion
 
 
+# region common_code
+common_codes = Table(
+    "common_codes",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("ctg_lg", VARCHAR(255)),
+    Column("ctg_md", VARCHAR(255)),
+    Column("ctg_sm", VARCHAR(255), nullable=False),
+    Column("content_ko", VARCHAR(255), nullable=False),
+    Column("content_en", VARCHAR(255)),
+    Column("description", VARCHAR(255))
+)
+
+
+# endregion
+
+
 # region feed
 feeds = Table(
     "feeds",
@@ -111,6 +131,20 @@ feed_comments = Table(
     Column("depth", TINYINT, nullable=False, server_default=text("'0'")),
     Column("comment", TEXT, nullable=False),
     Column("deleted_at", TIMESTAMP),
+)
+
+
+feed_images = Table(
+    "feed_images",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), nullable=False, index=True),
+    Column("order", TINYINT),
+    Column("type", VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)'),
+    Column("image", VARCHAR(255), nullable=False, comment='원본 이미지'),
+    Column("thumbnail_image", VARCHAR(255), comment='미리 작게 보여줄 이미지'),
 )
 # endregion
 
@@ -259,7 +293,7 @@ notifications = Table(
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
     Column("target_id", ForeignKey('users.id'), nullable=False, index=True, comment='알림 받는 사람'),
-    Column("type", VARCHAR(255), nullable=False, comment='알림 구분 (출력 내용은 common_codes)'),
+    Column("type", VARCHAR(255), ForeignKey('common_codes.ctg_lg'), nullable=False, comment='알림 구분 (출력 내용은 common_codes)'),
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), index=True, comment='알림 발생시킨 사람'),
     Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), index=True, comment='알림 발생한 게시물'),
     Column("feed_comment_id", BIGINT(unsigned=True), ForeignKey('feed_comments.id'), index=True),
@@ -455,14 +489,27 @@ def board_like_mappers():
 # endregion
 
 
+# region common_coe
+def common_code_mappers():
+    mapper = mapper_registry.map_imperatively(
+        CommonCode,
+        common_codes,
+        properties={"notifications": relationship(notifications)}
+    )
+    return mapper
+# endregion
+
+
 # region feed
 def feed_mappers():
     mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(FeedImage, feed_images)
     mapper = mapper_registry.map_imperatively(
         Feed,
         feeds,
         properties={
-            "users": relationship(User)
+            "users": relationship(User),
+            "feed_images": relationship(FeedImage)
         }
     )
     return mapper
@@ -482,6 +529,14 @@ def feed_comment_mappers():
     )
     return mapper
 
+
+def feed_image_mappers():
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper = mapper_registry.map_imperatively(
+        FeedImage,
+        feed_images,
+        properties={"feeds": relationship(Feed)}
+    )
 # endregion
 
 
@@ -591,10 +646,8 @@ def notification_mappers():
     mapper_registry.map_imperatively(Mission, missions)
     mapper_registry.map_imperatively(MissionComment, mission_comments)
     mapper_registry.map_imperatively(MissionStat, mission_stats)
-    #     target = relationship('User', primaryjoin='Notification.target_id == User.id')
     mapper_registry.map_imperatively(User, users)
-    # mapper_registry.map_imperatively(User, users, primaryjoin='Notification.user_id == User.id')
-    #     user = relationship('User', primaryjoin='Notification.user_id == User.id')
+    mapper_registry.map_imperatively(CommonCode, common_codes)
 
     mapper = mapper_registry.map_imperatively(
         Notification,
@@ -609,8 +662,8 @@ def notification_mappers():
             "missions": relationship(Mission),
             "mission_comments": relationship(MissionComment),
             "mission_stats": relationship(MissionStat),
-            "users": relationship(User, primaryjoin='Notification.user_id == User.id')
-            # "users": relationship(User, primaryjoin='Notification.target_id == User.id')
+            "users": relationship(User, primaryjoin='Notification.user_id == User.id'),
+            "common_codes": relationship(CommonCode)
         }
     )
     return mapper

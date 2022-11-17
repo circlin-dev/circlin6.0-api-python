@@ -1,9 +1,15 @@
 from adapter.orm import notifications
+from domain.board import Board, BoardComment
+from domain.common_code import CommonCode
+from domain.feed import Feed, FeedComment, FeedImage
+from domain.mission import Mission, MissionCategory, MissionComment
 from domain.notification import Notification
-from sqlalchemy import select, update, delete, insert, desc, and_, case, text, func
+from domain.notice import Notice, NoticeComment
+from domain.user import User
 
 import abc
 import json
+from sqlalchemy import and_, case, delete, desc, distinct, func, insert, select, text, update
 
 
 class AbstractNotificationRepository(abc.ABC):
@@ -16,6 +22,10 @@ class AbstractNotificationRepository(abc.ABC):
 
     @abc.abstractmethod
     def count_number_of_notification(self, user_id: int) -> int:
+        pass
+
+    @abc.abstractmethod
+    def update(self, **kwargs):
         pass
 
 
@@ -66,17 +76,113 @@ class NotificationRepository(AbstractNotificationRepository):
         return self.session.execute(sql)
 
     def get_list(self, user_id: int, page_cursor: int, limit: int) -> list:
+        notification_type: list = [
+            'feed_check', 'feed_comment', 'feed_reply',
+            'mission_like', 'mission_comment', 'mission_reply',
+            'board_like',
+            'board_comment',  # 'OO님 외 N명이 내 게시글에 댓글을 남겼습니다' 형식으로 보이게 하려면 주석 해제
+            'board_reply',   # 'OO님 외 N명이 내 게시글에 댓글을 남겼습니다' 형식으로 보이게 하려면 주석 해제
+            'notice_comment', 'notice_reply'
+        ]
+
         sql = select(
-            Notification.id,
+            func.max(Notification.id).label('id'),
+            func.date_format(Notification.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+            func.count(distinct(func.ifnull(Notification.user_id, 0))).label('count'),
+            # func.concat(func.year(Notification.created_at), '|', func.month(Notification.created_at), '|', func.day(Notification.created_at)).label('what'),
             Notification.target_id,
             Notification.user_id,
-            Notification.type,
+            User.nickname,
+            User.profile_image,
+            User.gender,
+            case(
+                (text(f"users.id IN (SELECT target_id FROM follows WHERE user_id = {user_id})"), 1),
+                else_=0
+            ).label('is_following'),
+            func.IF(
+                and_(Notification.type in notification_type, text('count > 1')),
+                func.concat(Notification.type, '_multi'),
+                Notification.type
+            ).label('type'),
+            CommonCode.content_ko.label('message'),
+            func.concat(
+                text(f"(SELECT mc.emoji FROM mission_categories mc WHERE mc.id=missions.mission_category_id)"),
+                Mission.title
+            ).label('mission_title'),
+            Mission.thumbnail_image.label('mission_image'),
+            Mission.is_ground,
+            FeedComment.comment.label('feed_comment'),
+            MissionComment.comment.label('mission_comment'),
+            BoardComment.comment.label('board_comment'),
+            NoticeComment.comment.label('notice_comment'),
+            Notification.variables,
+            func.max(Notification.feed_id).label('feed_id'),
+            func.max(Notification.feed_comment_id).label('feed_comment_id'),
+            func.max(Notification.mission_id).label('mission_id'),
+            func.max(Notification.mission_comment_id).label('mission_comment_id'),
+            func.max(Notification.mission_stat_id).label('mission_stat_id'),
+            func.max(Notification.notice_id).label('notice_id'),
+            func.max(Notification.notice_comment_id).label('notice_comment_id'),
+            func.max(Notification.board_id).label('board_id'),
+            func.max(Notification.board_comment_id).label('board_comment_id'),
             func.concat(func.lpad(Notification.id, 15, '0')).label('cursor'),
+            text("(SELECT fi.image FROM feed_images fi WHERE fi.feed_id = feeds.id ORDER BY fi.order LIMIT 1)"),
+            text("(SELECT fi.type FROM feed_images fi WHERE fi.feed_id = feeds.id ORDER BY fi.order LIMIT 1)"),
             # func.array_agg(),
-            # text("CONCAT(LPAD(notifications.id, 15, '0')) AS 'cursor'")  # cursor
+        ).select_from(
+            Notification
+        ).join(
+            User, User.id == Notification.user_id, isouter=True
+        ).join(
+            Feed, Feed.id == Notification.feed_id, isouter=True
+        ).join(
+            FeedComment, FeedComment.id == Notification.feed_comment_id, isouter=True
+        ).join(
+            Mission, Mission.id == Notification.mission_id, isouter=True
+        ).join(
+            MissionComment, MissionComment.id == Notification.mission_comment_id, isouter=True
+        ).join(
+            Board, Board.id == Notification.board_id, isouter=True
+        ).join(
+            BoardComment, BoardComment.id == Notification.board_comment_id, isouter=True
+        ).join(
+            Notice, Notice.id == Notification.notice_id, isouter=True
+        ).join(
+            NoticeComment, NoticeComment.id == Notification.notice_comment_id, isouter=True
+        ).join(
+            CommonCode, CommonCode.ctg_sm == text('type'),
+            isouter=True
         ).where(
-            Notification.target_id == user_id
-        ).order_by(desc(Notification.id))
+            and_(
+                Notification.target_id == user_id,
+                Notification.id < page_cursor,
+                CommonCode.ctg_lg == 'notifications'
+            )
+        ).group_by(
+            func.date_format(Notification.created_at, '%Y/%m/%d'),
+            func.IF(
+                Notification.type == 'follow',
+                Notification.user_id,
+                func.IF(
+                    Notification.type in notification_type,
+                    Notification.type,
+                    Notification.id
+                )
+            ),
+            Notification.feed_id,
+            Notification.mission_id,
+            Notification.board_id,
+            Notification.notice_id,
+        ).order_by(
+            desc(func.max(Notification.id))
+        ).limit(limit)
+
+        # where(
+        #     and_(
+        #         BoardLike.board_id == board_id,
+        #         BoardLike.id > page_cursor
+        #     )
+        # ).limit(limit)
 
         result = self.session.execute(sql)
 
@@ -90,3 +196,6 @@ class NotificationRepository(AbstractNotificationRepository):
         )
 
         return self.session.execute(sql).scalar()
+
+    def update(self, **kwargs):
+        pass

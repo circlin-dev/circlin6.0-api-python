@@ -27,14 +27,14 @@ CORS(app, supports_credentials=True)
 app.register_blueprint(api, url_prefix='/api')
 
 
-# Logging configuration
-logging.basicConfig(filename='./' + 'execution_log.log', filemode='a+',
-                    format=' [%(filename)s:%(lineno)s:%(funcName)s()]- %(asctime)s - %(levelname)s - %(message)s',
-                    level=logging.INFO)
-
-gunicorn_logger = logging.getLogger('gunicorn.error')
-app.logger.handlers = gunicorn_logger.handlers
-app.logger.setLevel(gunicorn_logger.level)
+# Logging configuration    # Deactivate here at development environment
+# logging.basicConfig(filename='./' + 'execution_log.log', filemode='a+',
+#                     format=' [%(filename)s:%(lineno)s:%(funcName)s()]- %(asctime)s - %(levelname)s - %(message)s',
+#                     level=logging.INFO)
+#
+# gunicorn_logger = logging.getLogger('gunicorn.error')
+# app.logger.handlers = gunicorn_logger.handlers
+# app.logger.setLevel(gunicorn_logger.level)
 
 
 @app.route('/')
@@ -43,6 +43,7 @@ def hello_world():
 
 
 if __name__ == '__main__':
+    app.debug = True
     localhost = '127.0.0.1'
     production = '0.0.0.0'
     app.run(host=localhost, debug=True)  # 0.0.0.0 for production or 127.0.0.1 for local development

@@ -71,6 +71,182 @@ def get_query_strings_from_request(request, param, init_value):
 
     return result
 
+
+def replace_notification_message_variable(message, value_dict: dict):
+    replace_by_value = {
+        '{%board_comment}': value_dict['board_comment'],
+        '{%count}': value_dict['count'],
+        '{%feed_comment}': value_dict['feed_comment'],
+        '{%mission}': value_dict['mission_title'],
+        '{%mission_comment}': value_dict['mission_comment'],
+        '{%nickname}': value_dict['nickname'],
+        '{%notice_comment}': value_dict['notice_comment'],
+        '{%point}': str(value_dict['point']),
+
+        '{%point2}': 'point2',
+        '{%token}': 'token',
+        '{%url}': 'url',
+
+        '{%id}': 'id',
+        '{%user_id}': 'user_id',
+        '{%mission_stat_id}': 'mission_stat_id',
+    }
+    pattern = re.compile("{%[a-z|A-Z|0-9|(-_~`!@#$%^&*()+=\\|/)]+}")   # \\| or \|
+    matches = pattern.findall(message)
+
+    for data in matches:
+        message = message.replace(data, replace_by_value[data])
+
+    return message
+
+
+def replace_notification_link_by_type(type: str):
+    # CommonCode 테이블에서 확인 가능한 값: where('ctg_lg' = 'click_action')-> return {'ctg_sm': 'content_ko'};
+    push_click_action: dict = {
+        "board": {
+            "route": "Sub",
+            "screen": "BoardDetail",
+            "params": {
+                "id": None,  # "{%id|null}",
+                "comment_id": None,  # "{%comment_id|null}"
+            }
+        },
+        "chat": {
+            "route": "Sub",
+            "screen": "MessageRoom",
+            "params": {
+                "id": None,  # "{%id|null}"
+            }
+        },
+        "event_mission": {
+            "route": "Event",
+            "screen": "EventGround",
+            "params": {
+                "challId": None,  # "{%id|null}",
+                "challPk": None,  # "{%mission_stat_id|null}",
+                "userPk": None,  # "{%user_id|null}",
+                "userData": {
+                    "id": None,  # "{%user_id|null}",
+                    "nickname": None,  # "{%nickname}"
+                }
+            }
+        },
+        "event_mission_intro": {
+            "route": "Event",
+            "screen": "EventIntro",
+            "params": {
+                "uid": None,  # "{%user_id|null}",
+                "token": None,  # "{%token|null}",
+                "challId": None,  # "{%id|null}",
+                "userData": {
+                    "id": None,  # "{%user_id|null}"
+                },
+                "toastVisible": False
+            }
+        },
+        "event_mission_old": {
+            "route": "Event",
+            "screen": "EventMissionDetail",
+            "params": {
+                "challId": None,  # "{%id|null}",
+                "uid": None,  # "{%user_id|null}",
+                "userData": {
+                    "id": None,  # "{%user_id|null}"
+                }
+            }
+        },
+        "feed": {
+            "route": "Sub",
+            "screen": "Feed",
+            "params": {
+                "id": None,  # "{%id|null}",
+                "comment_id": None,  # "{%comment_id|null}"
+            }
+        },
+        "follow": {
+            "route": "Sub",
+            "screen": "User",
+            "params": {
+                "id": None,  # "{%id|null}"
+            }
+        },
+        "home": {
+            "route": "BottomNav",
+            "screen": "Home",
+            "params": {}
+        },
+        "mission": {
+            "route": "Sub",
+            "screen": "Mission",
+            "params": {
+                "id": None,  # "{%id|null}",
+                "comment_id": None,  # "{%comment_id|null}"
+            }
+        },
+        "notice": {
+            "route": "Option",
+            "screen": "NoticeRoom",
+            "params": {
+                "id": None,  # "{%id|null}",
+                "comment_id": None,  # "{%comment_id|null}"
+            }
+        },
+        "point": {
+            "route": "Shop",
+            "screen": "Shop",
+            "params": {
+                "id": None,  # "{%id|null}",
+                "comment_id": None,  # "{%comment_id|null}",
+                "index": 1
+            }
+        },
+        "product": {
+            "route": "Shop",
+            "screen": "ShopDetail",
+            "params": {
+                "id": None,  # "{%id|null}"
+            }
+        },
+        "url": {
+            "route": None,
+            "screen": None,
+            "params": {
+                "id": None,  # "{%id|null}",
+                "url": None,  # "{%url}"
+            }
+        },
+        "user": {
+            "route": "Sub",
+            "screen": "User",
+            "params": {
+                "id": None,  # "{%id|null}"
+            }
+        },
+    }
+
+    # 구체적인 리턴 조건 구현 필요
+    if type in ['follow', 'follow_multi']:
+        return push_click_action['user']
+    elif type in ['feed_check', 'feed_check_multi', 'feed_comment', 'feed_comment_multi',
+                  'feed_reply', 'feed_reply_multi', 'feed_upload_place', 'feed_upload_product']:
+        return push_click_action['feed']
+    elif type in ['mission_like', 'mission_like_multi', 'mission_comment', 'mission_comment_multi',
+                  'mission_reply', 'mission_reply_multi', 'challenge_reward_point', 'challenge_reward_point_old',
+                  'mission_complete', 'mission_invite', 'earn_badge', 'mission_over', 'mission_expire']:
+        return push_click_action['mission']
+    elif type in ['feed_check_reward', 'mission_treasure']:
+        return push_click_action['point']
+    elif type in ['feed_emoji']:
+        return push_click_action['chat']
+    elif type in ['board_like', 'board_like_multi', 'board_comment', 'board_comment_multi', 'board_reply', 'board_reply_multi']:
+        return push_click_action['board']
+    elif type in ['notice_reply', 'notice_reply_multi', 'notice_comment', 'notice_comment_multi']:
+        return push_click_action['notice']
+    else:
+        return None
+
+
+
 # endregion
 
 

@@ -40,3 +40,11 @@ class FeedComment:
         self.depth = depth
         self.comment = comment
         self.deleted_at = deleted_at
+
+
+class FeedImage:
+    def __init__(self, feed_id: int, order: int, type: str, image: str):
+        self.feed_id = feed_id
+        self.order = order
+        self.type = type
+        self.image = image
