@@ -65,7 +65,7 @@ def get_boards():
                                 THEN 1
                                 ELSE 0
                             END,
-                'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)                                   
+                'area', (SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(u.area_code, 1, 5), '00000') LIMIT 1)
             ) AS user,
             DATE_FORMAT(b.created_at, '%Y/%m/%d %H:%i:%s') AS createdAt,
             (SELECT COUNT(*) FROM board_likes bl WHERE bl.board_id = b.id) AS likesCount,
@@ -208,7 +208,7 @@ def get_boards():
 def get_a_board(board_id: int):
     connection = db_connection()
     cursor = get_dict_cursor(connection)
-    endpoint = API_ROOT + url_for('api.post_a_board')
+    endpoint = API_ROOT + url_for('api.get_a_board')
     authentication = authenticate(request, cursor)
 
     if authentication is None:
@@ -1449,7 +1449,7 @@ def post_comment(board_id: int):
                 cursor.execute(sql)
 
                 same_group_comments = cursor.fetchall()  # [{'id': comment_id, 'user_id': comment_writer_id}]
-                commented_user_ids_list = [comment['user_id'] for comment in same_group_comments]  # board_user_id(게시글 작성자 id)와 별도
+                commented_user_ids_list = [comment['user_id'] for comment in same_group_comments]
 
                 commented_user_ids_list = list(set(commented_user_ids_list))  # 유저 id list 중복 제거
                 commented_user_ids_list.remove(user_id) if user_id in commented_user_ids_list else None  # 나 자신의 user_id가 있을 경우 배열에서 제외
