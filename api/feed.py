@@ -337,7 +337,7 @@ def get_recently_most_checked_feeds():
 					follows
 				WHERE user_id = {user_id}
 			),
-		    today_checked_feeds AS (
+			today_checked_feeds AS (
 		        SELECT
 		            f.user_id,
 		            f.id AS feed_id,
