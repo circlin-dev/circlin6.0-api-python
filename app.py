@@ -1,5 +1,5 @@
 from api import api
-from global_configuration.cache import cache
+from helper.cache import cache
 from flask import Flask, request
 from flask_cors import CORS
 import logging
@@ -23,6 +23,10 @@ cache.init_app(app=app, config=cache_config)
 CORS(app, supports_credentials=True)
 
 
+# API configuration
+app.register_blueprint(api, url_prefix='/api')
+
+
 # Logging configuration
 logging.basicConfig(filename='./' + 'execution_log.log', filemode='a+',
                     format=' [%(filename)s:%(lineno)s:%(funcName)s()]- %(asctime)s - %(levelname)s - %(message)s',
@@ -31,10 +35,6 @@ logging.basicConfig(filename='./' + 'execution_log.log', filemode='a+',
 gunicorn_logger = logging.getLogger('gunicorn.error')
 app.logger.handlers = gunicorn_logger.handlers
 app.logger.setLevel(gunicorn_logger.level)
-
-
-# API configuration
-app.register_blueprint(api, url_prefix='/api')
 
 
 @app.route('/')
