@@ -70,10 +70,12 @@ def get_query_strings_from_request(request, param, init_value):
             result = ''
 
     return result
+# endregion
 
 
+# region notification
 def replace_notification_message_variable(message, value_dict: dict):
-    replace_by_value = {
+    values_to_replace = {
         '{%board_comment}': value_dict['board_comment'],
         '{%count}': value_dict['count'],
         '{%feed_comment}': value_dict['feed_comment'],
@@ -82,25 +84,21 @@ def replace_notification_message_variable(message, value_dict: dict):
         '{%nickname}': value_dict['nickname'],
         '{%notice_comment}': value_dict['notice_comment'],
         '{%point}': str(value_dict['point']),
-
-        '{%point2}': 'point2',
-        '{%token}': 'token',
-        '{%url}': 'url',
-
-        '{%id}': 'id',
-        '{%user_id}': 'user_id',
-        '{%mission_stat_id}': 'mission_stat_id',
+        '{%point2}': str(value_dict['point2'])
     }
     pattern = re.compile("{%[a-z|A-Z|0-9|(-_~`!@#$%^&*()+=\\|/)]+}")   # \\| or \|
-    matches = pattern.findall(message)
+    converted_result = regular_expression_converter(pattern, message, values_to_replace)
+    return converted_result
 
+
+def regular_expression_converter(pattern, sentence, dictionary) -> str:
+    matches = pattern.findall(sentence)
     for data in matches:
-        message = message.replace(data, replace_by_value[data])
+        sentence = sentence.replace(data, dictionary[data])
+    return sentence
 
-    return message
 
-
-def replace_notification_link_by_type(type: str):
+def replace_notification_link_by_type(touch_area_direction: str, notification_type: str, value_dict: dict):
     # CommonCode 테이블에서 확인 가능한 값: where('ctg_lg' = 'click_action')-> return {'ctg_sm': 'content_ko'};
     push_click_action: dict = {
         "board": {
@@ -225,28 +223,116 @@ def replace_notification_link_by_type(type: str):
     }
 
     # 구체적인 리턴 조건 구현 필요
-    if type in ['follow', 'follow_multi']:
-        return push_click_action['user']
-    elif type in ['feed_check', 'feed_check_multi', 'feed_comment', 'feed_comment_multi',
-                  'feed_reply', 'feed_reply_multi', 'feed_upload_place', 'feed_upload_product']:
-        return push_click_action['feed']
-    elif type in ['mission_like', 'mission_like_multi', 'mission_comment', 'mission_comment_multi',
-                  'mission_reply', 'mission_reply_multi', 'challenge_reward_point', 'challenge_reward_point_old',
-                  'mission_complete', 'mission_invite', 'earn_badge', 'mission_over', 'mission_expire']:
-        return push_click_action['mission']
-    elif type in ['feed_check_reward', 'mission_treasure']:
-        return push_click_action['point']
-    elif type in ['feed_emoji']:
-        return push_click_action['chat']
-    elif type in ['board_like', 'board_like_multi', 'board_comment', 'board_comment_multi', 'board_reply', 'board_reply_multi']:
-        return push_click_action['board']
-    elif type in ['notice_reply', 'notice_reply_multi', 'notice_comment', 'notice_comment_multi']:
-        return push_click_action['notice']
+    if touch_area_direction == 'center':
+        if notification_type in ['follow', 'follow_multi']:
+            push_click_action['user']['params']['id'] = value_dict['user_id']
+            return push_click_action['user']
+        elif notification_type in [
+            'feed_check', 'feed_check_multi', 'feed_comment', 'feed_comment_multi',
+            'feed_reply', 'feed_reply_multi', 'feed_upload_place', 'feed_upload_product'
+        ]:
+            push_click_action['feed']['params']['id'] = value_dict['feed_id']
+            push_click_action['feed']['params']['comment_id'] = value_dict['feed_comment_id']
+            return push_click_action['feed']
+        elif notification_type in [
+            'mission_like', 'mission_like_multi', 'mission_comment', 'mission_comment_multi',
+            'mission_reply', 'mission_reply_multi', 'challenge_reward_point', 'challenge_reward_point_old',
+            'mission_complete', 'mission_invite', 'earn_badge', 'mission_over', 'mission_expire'
+        ]:
+            if value_dict['is_ground'] is True:
+                mission_push_click_action = push_click_action['event_mission']
+                mission_push_click_action['params']['challId'] = value_dict['mission_id']
+            else:
+                mission_push_click_action = push_click_action['mission']
+                mission_push_click_action['params']['id'] = value_dict['mission_id']
+                mission_push_click_action['params']['comment_id'] = value_dict['mission_comment_id']
+            return mission_push_click_action
+        elif notification_type in ['feed_check_reward', 'mission_treasure']:
+            return push_click_action['point']
+        elif notification_type in ['feed_emoji']:
+            push_click_action['chat']['params']['id'] = value_dict['user_id']
+            return push_click_action['chat']
+        elif notification_type in ['board_like', 'board_like_multi', 'board_comment', 'board_comment_multi', 'board_reply', 'board_reply_multi']:
+            push_click_action['board']['params']['id'] = value_dict['board_id']
+            push_click_action['board']['params']['comment_id'] = value_dict['board_comment_id']
+            return push_click_action['board']
+        elif notification_type in ['notice_reply', 'notice_reply_multi', 'notice_comment', 'notice_comment_multi']:
+            push_click_action['notice']['params']['id'] = value_dict['notice_id']
+            push_click_action['notice']['params']['comment_id'] = value_dict['notice_comment_id']
+            return push_click_action['notice']
+        else:
+            return None
+    elif touch_area_direction == 'left':
+        if notification_type in [
+            'follow', 'follow_multi',
+            'feed_emoji', 'feed_check', 'feed_check_multi', 'feed_comment',
+            'feed_comment_multi', 'feed_reply', 'feed_reply_multi',
+            'mission_like', 'mission_like_multi', 'mission_comment', 'mission_comment_multi',
+            'mission_reply', 'mission_reply_multi', 'mission_invite'
+        ]:
+            push_click_action['user']['params']['id'] = value_dict['user_id']
+            return push_click_action['user']
+        elif notification_type in ['feed_upload_place', 'feed_upload_product']:
+            push_click_action['user']['params']['id'] = value_dict['target_id']
+            return push_click_action['user']
+        elif notification_type in ['feed_check_reward', 'mission_treasure']:
+            return push_click_action['point']
+        elif notification_type in [
+            'challenge_reward_point', 'challenge_reward_point_old', 'earn_badge',
+            'mission_complete', 'mission_expire_warning', 'mission_over', 'mission_expire'
+        ]:
+            if value_dict['is_ground'] is True:
+                mission_push_click_action = push_click_action['event_mission']
+                mission_push_click_action['params']['challId'] = value_dict['mission_id']
+            else:
+                mission_push_click_action = push_click_action['mission']
+                mission_push_click_action['params']['id'] = value_dict['mission_id']
+                mission_push_click_action['params']['comment_id'] = value_dict['mission_comment_id']
+            return mission_push_click_action
+        elif notification_type in ['board_like', 'board_like_multi', 'board_comment', 'board_comment_multi', 'board_reply', 'board_reply_multi']:
+            push_click_action['user']['params']['id'] = value_dict['user_id']
+            return push_click_action['user']
+        elif notification_type in ['notice_comment', 'notice_comment_multi', 'notice_reply', 'notice_reply_multi']:
+            push_click_action['user']['params']['id'] = value_dict['user_id']
+            return push_click_action['user']
+        else:
+            return None
+    elif touch_area_direction == 'right':
+        if notification_type in ['follow', 'follow_multi']:
+            push_click_action['user']['params']['id'] = value_dict['user_id']
+            return push_click_action['user']
+        elif notification_type in [
+            'feed_check', 'feed_check_multi', 'feed_comment', 'feed_comment_multi',
+            'feed_reply', 'feed_reply_multi', 'feed_emoji', 'feed_upload_place', 'feed_upload_product'
+        ]:
+            push_click_action['feed']['params']['id'] = value_dict['feed_id']
+            push_click_action['feed']['params']['comment_id'] = value_dict['feed_comment_id']
+            return push_click_action['feed']
+        elif notification_type in [
+            'mission_like', 'mission_like_multi', 'mission_comment', 'mission_comment_multi',
+            'mission_reply', 'mission_reply_multi', 'challenge_reward_point', 'challenge_reward_point_old',
+            'mission_complete', 'mission_invite', 'mission_expire_warning', 'mission_over', 'mission_expire'
+        ]:
+            if value_dict['is_ground'] is True:
+                mission_push_click_action = push_click_action['event_mission']
+                mission_push_click_action['params']['challId'] = value_dict['mission_id']
+            else:
+                mission_push_click_action = push_click_action['mission']
+                mission_push_click_action['params']['id'] = value_dict['mission_id']
+                mission_push_click_action['params']['comment_id'] = value_dict['mission_comment_id']
+            return mission_push_click_action
+        elif notification_type in ['feed_check_reward', 'mission_treasure']:
+            return push_click_action['point']
+        elif notification_type in ['board_like', 'board_like_multi', 'board_comment', 'board_comment_multi', 'board_reply', 'board_reply_multi']:
+            push_click_action['board']['params']['id'] = value_dict['board_id']
+            push_click_action['board']['params']['comment_id'] = value_dict['board_comment_id']
+            return push_click_action['board']
+        elif notification_type in ['notice_comment', 'notice_comment_multi', 'notice_reply', 'notice_reply_multi']:
+            push_click_action['notice']['params']['id'] = value_dict['notice_id']
+            push_click_action['notice']['params']['comment_id'] = value_dict['notice_comment_id']
+            return push_click_action['notice']
     else:
         return None
-
-
-
 # endregion
 
 

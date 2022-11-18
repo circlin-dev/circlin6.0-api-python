@@ -28,6 +28,10 @@ class AbstractNotificationRepository(abc.ABC):
     def update(self, **kwargs):
         pass
 
+    @abc.abstractmethod
+    def update_read_at_by_id(self, ids: list):
+        pass
+
 
 class NotificationRepository(AbstractNotificationRepository):
     def __init__(self, session):
@@ -198,4 +202,25 @@ class NotificationRepository(AbstractNotificationRepository):
         return self.session.execute(sql).scalar()
 
     def update(self, **kwargs):
+        # self.feed_id = kwargs.get('feed_id')
+        # self.feed_comment_id = kwargs.get('feed_comment_id')
+        # self.mission_id = kwargs.get('mission_id')
+        # self.mission_comment_id = kwargs.get('mission_comment_id')
+        # self.mission_stat_id = kwargs.get('mission_stat_id')
+        # self.notice_id = kwargs.get('notice_id')
+        # self.notice_comment_id = kwargs.get('notice_comment_id')
+        # self.board_id = kwargs.get('board_id')
+        # self.board_comment_id = kwargs.get('board_comment_id')
         pass
+
+    def update_read_at_by_id(self, ids: list):
+        sql = update(
+            Notification
+        ).where(
+            and_(
+                Notification.id.in_(ids),
+                Notification.read_at == None
+            )
+        ).values(read_at=func.now())
+        # sql = update(BoardComment).where(BoardComment.id == comment.id).values(comment=comment.comment)
+        return self.session.execute(sql)

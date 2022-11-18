@@ -31,6 +31,7 @@ def get_notification():
         repo: NotificationRepository = NotificationRepository(db_session)
         notification_list: list = notification_service.get_notification_list(user_id, page_cursor, limit, repo)
         number_of_notifications: int = notification_service.get_count_of_the_notification(user_id, repo)
+        db_session.commit()
         clear_mappers()
 
         last_cursor: [str, None] = None if len(notification_list) <= 0 else notification_list[-1]['cursor']  # 배열 원소의 cursor string

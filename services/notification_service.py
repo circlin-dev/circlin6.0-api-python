@@ -12,8 +12,38 @@ def create_notification(new_notification: Notification, notification_repo: Abstr
 def get_notification_list(user_id: int, page_cursor: int, limit: int, notification_repo: AbstractNotificationRepository) -> list:
     notification_list: list = notification_repo.get_list(user_id, page_cursor, limit)
 
-    entries: list = [
-        dict(
+    read_notification_ids = []
+    entries: list = []
+    for notification in notification_list:
+        value_dict_for_link: dict = {
+                "target_id": notification.target_id,
+                "user_id": notification.user_id,
+                "feed_id": notification.feed_id,
+                "feed_comment_id": notification.feed_comment_id,
+                "mission_id": notification.mission_id,
+                "mission_comment_id": notification.mission_comment_id,
+                "is_ground": True if notification.is_ground == 1 else False,
+                "notice_id": notification.notice_id,
+                "notice_comment_id": notification.notice_comment_id,
+                "board_id": notification.board_id,
+                "board_comment_id": notification.board_comment_id,
+        }
+        value_dict_for_message: dict = {
+            'board_comment': notification.board_comment,
+            'count': notification.count,
+            'feed_comment': notification.feed_comment,
+            'mission_title': notification.mission_title,
+            'mission_comment': notification.mission_comment,
+            'nickname': notification.nickname,
+            'notice_comment': notification.notice_comment,
+            'point': None if notification.variables is None or 'point' not in notification.variables.keys()
+            else notification.variables['point'] * notification.count,
+            'point2': None if notification.variables is None or 'point2' not in notification.variables.keys()
+            else notification.variables['point2']
+        }
+
+        read_notification_ids.append(notification.id)  # 응답 속도 저하가 발생한다면 notification.read_at is None 인 것만 append하는 것으로 코드 변경하기.
+        entries.append(dict(
             id=notification.id,
             # ids=notification.ids,
             createdAt=notification.created_at,
@@ -22,34 +52,26 @@ def get_notification_list(user_id: int, page_cursor: int, limit: int, notificati
             isFollowing=True if notification.is_following == 1 else False,
             profileImage=notification.profile_image,
             type=notification.type,
-            message=replace_notification_message_variable(
-                notification['message'],
-                {
-                    'board_comment': notification.board_comment,
-                    'count': notification.count,
-                    'feed_comment': notification.feed_comment,
-                    'mission_title': notification.mission_title,
-                    'mission_comment': notification.mission_comment,
-                    'nickname': notification.nickname,
-                    'notice_comment': notification.notice_comment,
-                    'point': None if notification.variables is None or 'point' not in notification.variables.keys()
-                    else notification.variables['point'] * notification.count
-                }
-            ),
+            message=replace_notification_message_variable(notification['message'], value_dict_for_message),
             missionImage=notification.mission_image,
             feedImage=notification[-2],
             feedImageType=notification[-1],
             variables=notification.variables,
-            link=replace_notification_link_by_type(notification.type),
-            # link=notification.link,  # Must parse json to text
-            # linkLeft=notification.link_left,  # Must parse json to text
-            # linkRight=notification.link_right,  # Must parse json to text
+            link=replace_notification_link_by_type('center', notification.type, value_dict_for_link),
+            linkLeft=replace_notification_link_by_type('left', notification.type, value_dict_for_link),
+            linkRight=replace_notification_link_by_type('right', notification.type, value_dict_for_link),
             cursor=notification.cursor
-        ) for notification in notification_list
-    ]
+        ))
+
+    update_notification_as_read(read_notification_ids, notification_repo)
     return entries
 
 
-def get_count_of_the_notification(user_id: int, repo: AbstractNotificationRepository):
-    count: int = repo.count_number_of_notification(user_id)
+def get_count_of_the_notification(user_id: int, notification_repo: AbstractNotificationRepository):
+    count: int = notification_repo.count_number_of_notification(user_id)
     return count
+
+
+def update_notification_as_read(ids: list, notification_repo: AbstractNotificationRepository):
+    notification_repo.update_read_at_by_id(ids)
+    return True
