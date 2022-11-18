@@ -3,7 +3,9 @@ from adapter.database import db_session
 from adapter.orm import board_mappers, board_comment_mappers, board_like_mappers
 from adapter.repository.board import BoardRepository
 from adapter.repository.board_comment import BoardCommentRepository
+from adapter.repository.board_file import BoardFileRepository
 from adapter.repository.board_like import BoardLikeRepository
+from adapter.repository.file import FileRepository
 from adapter.repository.user import UserRepository
 from adapter.repository.push import PushHistoryRepository
 from adapter.repository.notification import NotificationRepository
@@ -51,8 +53,69 @@ def board_get_post():
         return json.dumps(result, ensure_ascii=False), 200
 
     elif request.method == 'POST':
-        pass
+        data = request.form.to_dict()
+        if data['boardCategoryId'] is None or data['boardCategoryId'].strip() == '':
+            db_session.close()
+            result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (boardCategoryId)'}
+            return json.dumps(result, ensure_ascii=False), 400
+        if data['body'] is None or data['body'].strip() == '':
+            db_session.close()
+            result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (body)'}
+            return json.dumps(result, ensure_ascii=False), 400
 
+        category_id = int(data['boardCategoryId'])
+        body = data['body']
+        is_show = int(data['isShow'])
+
+        new_board: Board = Board(
+            id=None,
+            board_category_id=category_id,
+            body=body,
+            is_show=True if is_show == 1 else False,
+            user_id=user_id,
+            deleted_at=None
+        )
+
+        board_mappers()
+        board_repo: BoardRepository = BoardRepository(db_session)
+        inserted_board_id: int = board_service.create_new_board(new_board, board_repo)
+
+        num_files = len(request.files.getlist('files[]'))
+        if num_files > 1:
+            files = request.files.getlist('files[]')  # request.files.getlist('files[]')
+            board_file_repo: BoardFileRepository = BoardFileRepository(db_session)
+            file_repo: FileRepository = FileRepository(db_session)
+            for index, file in enumerate(files):
+                board_service.create_board_image(index, file, file_repo, board_file_repo)  # (1) Upload to S3  (2) Add to BoardFile
+                # upload_result = upload_single_file_to_s3(file, f'board/{str(user_id)}')
+                #
+                # if type(upload_result['result']) == str:
+                #     connection.close()
+                #     result = {'result': False, 'error': f'{ERROR_RESPONSE[500]} ({upload_result["result"]})'}
+                #     return json.dumps(result, ensure_ascii=False), 500
+                #
+                # if upload_result['result'] is True:
+                #     sql = Query.into(
+                #         BoardFiles
+                #     ).columns(
+                #         BoardFiles.board_id,
+                #         BoardFiles.order,
+                #         BoardFiles.file_id
+                #     ).insert(
+                #         board_id,
+                #         index,
+                #         upload_result['original_file_id']
+                #     ).get_sql()
+                #     cursor.execute(sql)
+        else:
+            pass
+
+        clear_mappers()
+        db_session.commit()
+        db_session.close()
+
+        result = {'result': True, 'boardId': inserted_board_id}
+        return json.dumps(result, ensure_ascii=False), 200
     else:
         db_session.close()
         result: dict = {

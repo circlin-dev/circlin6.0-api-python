@@ -1,6 +1,8 @@
 from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.board_comment import AbstractBoardCommentRepository
+from adapter.repository.board_file import AbstractBoardFileRepository
 from adapter.repository.board_like import AbstractBoardLikeRepository
+from adapter.repository.file import AbstractFileRepository
 from adapter.repository.notification import NotificationRepository
 from adapter.repository.push import PushHistoryRepository
 from adapter.repository.user import AbstractUserRepository
@@ -12,7 +14,7 @@ from domain.user import User
 
 from helper.constant import PUSH_TITLE_BOARD
 
-from services import push_service, notification_service
+from services import file_service, push_service, notification_service
 
 import json
 
@@ -66,16 +68,15 @@ def get_board_list(user_id: int, page_cursor: int, limit: int, repo: AbstractBoa
     return entries
 
 
-def delete_board(board_id, request_user_id: int, repo: AbstractBoardRepository) -> dict:
-    target_board = repo.get_one(board_id)
+def create_new_board(new_board: Board, board_repo: AbstractBoardRepository) -> int:
+    new_board_id: int = board_repo.add(new_board)
+    return new_board_id
 
-    if check_if_user_is_the_owner_of_the_board(target_board.user_id, request_user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 게시글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
-    elif target_board is None or board_is_undeleted(target_board) is False:
-        return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
-    else:
-        repo.delete(target_board)
-        return {'result': True}
+
+def create_board_image(order: int, file, file_repo: AbstractFileRepository, board_file_repo: AbstractBoardFileRepository) -> dict:
+    object_path = ''
+    file_service.upload_single_file_to_s3(file, object_path)
+    pass
 
 
 def update_board(board: Board, request_user_id: int, repo: AbstractBoardRepository) -> dict:
@@ -87,6 +88,18 @@ def update_board(board: Board, request_user_id: int, repo: AbstractBoardReposito
         return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
     else:
         repo.update(board)
+        return {'result': True}
+
+
+def delete_board(board_id, request_user_id: int, repo: AbstractBoardRepository) -> dict:
+    target_board = repo.get_one(board_id)
+
+    if check_if_user_is_the_owner_of_the_board(target_board.user_id, request_user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 게시글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
+    elif target_board is None or board_is_undeleted(target_board) is False:
+        return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
+    else:
+        repo.delete(target_board)
         return {'result': True}
 # endregion
 

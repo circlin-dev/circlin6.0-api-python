@@ -48,3 +48,10 @@ class FeedImage:
         self.order = order
         self.type = type
         self.image = image
+
+
+class FeedMission:
+    def __init__(self, feed_id: int, mission_stat_id: int, mission_id: int):
+        self.feed_id = feed_id
+        self.mission_stat_id = mission_stat_id
+        self.mission_id = mission_id

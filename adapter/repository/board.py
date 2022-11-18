@@ -8,7 +8,7 @@ from sqlalchemy import select, update, insert, desc, and_, case, text, func
 
 class AbstractBoardRepository(abc.ABC):
     @abc.abstractmethod
-    def add(self, new_board: Board) -> Board:
+    def add(self, new_board: Board) -> int:
         pass
 
     @abc.abstractmethod
@@ -36,6 +36,19 @@ class BoardRepository(AbstractBoardRepository):
     def __init__(self, session):
         self.session = session
 
+    def add(self, new_board: Board) -> int:
+        sql = insert(
+            Board
+        ).values(
+            user_id=new_board.user_id,
+            board_category_id=new_board.board_category_id,
+            body=new_board.body,
+            is_show=new_board.is_show
+        )
+        result = self.session.execute(sql)  # =====> inserted row의 id값을 반환해야 한다.
+
+        return result.inserted_primary_key[0]
+
     def get_one(self, board_id: int) -> Board:
         sql = select(Board).where(Board.id == board_id)
         result = self.session.execute(sql).scalars().first()
@@ -44,8 +57,6 @@ class BoardRepository(AbstractBoardRepository):
 
         return result
 
-    def add(self, new_board: Board):
-        pass
 
     def get_list(self, user_id: int, page_cursor: int, limit: int) -> list:
         sql = select(

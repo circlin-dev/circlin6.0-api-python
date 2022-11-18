@@ -36,7 +36,7 @@ FFMPEG_PATH3 = "/usr/share/ffmpeg"
 
 # region Amazon
 AMAZON_URL = "https://circlin-app.s3.ap-northeast-2.amazonaws.com"
-S3_BUCKET = "circlin-app"
+S3_BUCKET_NAME = "circlin-app"
 BUCKET_IMAGE_PATH_FOOD = "food"  # food/{food_id}/{file_name}'
 BUCKET_IMAGE_PATH_WORKOUT = "workout"  # food/{workout_id}/{file_name}'
 # endregion

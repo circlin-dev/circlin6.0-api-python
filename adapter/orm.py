@@ -4,7 +4,7 @@ from sqlalchemy.orm import registry, relationship
 
 from domain.board import Board, BoardCategory, BoardComment, BoardFile, BoardLike
 from domain.common_code import CommonCode
-from domain.feed import Feed, FeedComment, FeedImage
+from domain.feed import Feed, FeedComment, FeedImage, FeedMission
 from domain.file import File
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.notice import Notice, NoticeComment
@@ -145,6 +145,18 @@ feed_images = Table(
     Column("type", VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)'),
     Column("image", VARCHAR(255), nullable=False, comment='원본 이미지'),
     Column("thumbnail_image", VARCHAR(255), comment='미리 작게 보여줄 이미지'),
+)
+
+
+feed_missions = Table(
+    "feed_missions",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), nullable=False, index=True),
+    Column("mission_stat_id", BIGINT(unsigned=True), ForeignKey('mission_stats.id'), index=True),
+    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
 )
 # endregion
 
@@ -537,6 +549,24 @@ def feed_image_mappers():
         feed_images,
         properties={"feeds": relationship(Feed)}
     )
+    return mapper
+
+
+def feed_mission_mappers():
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(Mission, missions)
+    mapper_registry.map_imperatively(MissionStat, mission_stats)
+    mapper = mapper_registry.map_imperatively(
+        FeedMission,
+        feed_missions,
+        properties={
+            "feeds": relationship(Feed),
+            "missions": relationship(Mission),
+            "mission_stats": relationship(MissionStat)
+        }
+    )
+    return mapper
+
 # endregion
 
 

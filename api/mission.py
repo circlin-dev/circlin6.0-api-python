@@ -1,6 +1,6 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import mission_category_mappers, mission_comment_mappers, user_favorite_category_mappers
+from adapter.orm import mission_category_mappers, mission_comment_mappers, feed_mission_mappers, user_favorite_category_mappers
 from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
@@ -96,3 +96,20 @@ def mission_feeds(mission_id: int):
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
         limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
         page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        mission_feed_mappers()
+        repo: MissionCommentRepository = MissionCommentRepository(db_session)
+        comments: list = mission_service.get_comments(mission_id, page_cursor, limit, user_id, repo)
+        number_of_comment: int = mission_service.get_comment_count_of_the_mission(mission_id, repo)
+        clear_mappers()
+
+        last_cursor: [str, None] = None if len(comments) <= 0 else comments[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': comments,
+            'cursor': last_cursor,
+            'totalCount': number_of_comment,
+        }
+        db_session.close()
+        return json.dumps(result, ensure_ascii=False), 200
