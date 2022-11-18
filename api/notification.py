@@ -2,6 +2,7 @@ from . import api
 from adapter.database import db_session
 
 from adapter.orm import notification_mappers
+from adapter.repository.common_code import CommonCodeRepository
 from adapter.repository.notification import NotificationRepository
 from domain.notification import Notification
 
@@ -28,9 +29,10 @@ def get_notification():
         page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
         notification_mappers()
-        repo: NotificationRepository = NotificationRepository(db_session)
-        notification_list: list = notification_service.get_notification_list(user_id, page_cursor, limit, repo)
-        number_of_notifications: int = notification_service.get_count_of_the_notification(user_id, repo)
+        notification_repo: NotificationRepository = NotificationRepository(db_session)
+        common_code_repo: CommonCodeRepository = CommonCodeRepository(db_session)
+        notification_list: list = notification_service.get_notification_list(user_id, page_cursor, limit, notification_repo, common_code_repo)
+        number_of_notifications: int = notification_service.get_count_of_the_notification(user_id, notification_repo)
         db_session.commit()
         clear_mappers()
 

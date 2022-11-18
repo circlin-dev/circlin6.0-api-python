@@ -77,10 +77,14 @@ def get_query_strings_from_request(request, param, init_value):
 def replace_notification_message_variable(message, value_dict: dict):
     values_to_replace = {
         '{%board_comment}': value_dict['board_comment'],
-        '{%count}': value_dict['count'],
+        '{%board_comment_multi}': value_dict['board_comment'],
+        '{%count}': str(value_dict['count'] - 1),
+        '{%feed_check}': str(value_dict['point']),
         '{%feed_comment}': value_dict['feed_comment'],
+        '{%feed_comment_multi}': value_dict['feed_comment'],
         '{%mission}': value_dict['mission_title'],
         '{%mission_comment}': value_dict['mission_comment'],
+        '{%mission_comment_multi}': value_dict['mission_comment'],
         '{%nickname}': value_dict['nickname'],
         '{%notice_comment}': value_dict['notice_comment'],
         '{%point}': str(value_dict['point']),

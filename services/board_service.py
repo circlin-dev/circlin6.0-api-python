@@ -201,8 +201,6 @@ def add_comment(new_board_comment: BoardComment,
                 "comment_id": inserted_board_comment_id
             }
         }
-        print(link_data)
-
         push_message: PushHistory = PushHistory(
             id=None,
             target_id=target_user.id,

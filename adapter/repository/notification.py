@@ -104,11 +104,10 @@ class NotificationRepository(AbstractNotificationRepository):
                 else_=0
             ).label('is_following'),
             func.IF(
-                and_(Notification.type in notification_type, text('count > 1')),
+                and_(Notification.type.in_(notification_type), func.count(distinct(func.ifnull(Notification.user_id, 0))) > 1),
                 func.concat(Notification.type, '_multi'),
                 Notification.type
             ).label('type'),
-            CommonCode.content_ko.label('message'),
             func.concat(
                 text(f"(SELECT mc.emoji FROM mission_categories mc WHERE mc.id=missions.mission_category_id)"),
                 Mission.title
@@ -153,14 +152,10 @@ class NotificationRepository(AbstractNotificationRepository):
             Notice, Notice.id == Notification.notice_id, isouter=True
         ).join(
             NoticeComment, NoticeComment.id == Notification.notice_comment_id, isouter=True
-        ).join(
-            CommonCode, CommonCode.ctg_sm == text('type'),
-            isouter=True
         ).where(
             and_(
                 Notification.target_id == user_id,
                 Notification.id < page_cursor,
-                CommonCode.ctg_lg == 'notifications'
             )
         ).group_by(
             func.date_format(Notification.created_at, '%Y/%m/%d'),
@@ -168,7 +163,7 @@ class NotificationRepository(AbstractNotificationRepository):
                 Notification.type == 'follow',
                 Notification.user_id,
                 func.IF(
-                    Notification.type in notification_type,
+                    and_(Notification.type.in_(notification_type)),
                     Notification.type,
                     Notification.id
                 )
@@ -180,13 +175,6 @@ class NotificationRepository(AbstractNotificationRepository):
         ).order_by(
             desc(func.max(Notification.id))
         ).limit(limit)
-
-        # where(
-        #     and_(
-        #         BoardLike.board_id == board_id,
-        #         BoardLike.id > page_cursor
-        #     )
-        # ).limit(limit)
 
         result = self.session.execute(sql)
 
