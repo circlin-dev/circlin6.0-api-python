@@ -2,7 +2,7 @@ from sqlalchemy import Table, Column, Integer, TIMESTAMP, text, Float, ForeignKe
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, INTEGER
 from sqlalchemy.orm import registry, relationship
 
-from domain.board import Board, BoardCategory, BoardComment, BoardFile, BoardLike
+from domain.board import Board, BoardCategory, BoardComment, BoardImage, BoardLike
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedComment, FeedImage, FeedMission
 from domain.file import File
@@ -67,6 +67,24 @@ board_files = Table(
     Column("order", TINYINT, server_default=text("'0'")),
     Column("type", VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)'),
     Column("file_id", ForeignKey('files.id'), nullable=False, index=True, comment='원본 이미지'),
+)
+
+
+board_images = Table(
+    "board_images",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("board_id", ForeignKey('boards.id'), nullable=False, index=True),
+    Column("order", TINYINT, server_default=text("'0'")),
+    Column("path", VARCHAR(255)),
+    Column("file_name", VARCHAR(255)),
+    Column("mime_type", VARCHAR(255)),
+    Column("size", Integer),
+    Column("width", Integer),
+    Column("height", Integer),
+    Column("original_file_id", BIGINT(unsigned=True), ForeignKey('board_images.id'), index=True)
 )
 
 
@@ -430,7 +448,7 @@ versions = Table(
 def board_mappers():
     mapper_registry.map_imperatively(BoardCategory, board_categories)
     mapper_registry.map_imperatively(BoardComment, board_comments)
-    mapper_registry.map_imperatively(BoardFile, board_files)
+    mapper_registry.map_imperatively(BoardImage, board_images)
     mapper_registry.map_imperatively(File, files)
     mapper_registry.map_imperatively(BoardLike, board_likes)
     mapper_registry.map_imperatively(User, users)
@@ -441,7 +459,7 @@ def board_mappers():
         properties={
             "board_categories": relationship(BoardCategory),
             "board_comments": relationship(BoardComment),
-            "board_files": relationship(BoardFile),
+            "board_images": relationship(BoardImage),
             "board_likes": relationship(BoardLike),
             "users": relationship(User)
         }
@@ -469,20 +487,32 @@ def board_comment_mappers():
     return mapper
 
 
+# def board_file_mappers():
+#     mapper_registry.map_imperatively(Board, boards)
+#     mapper_registry.map_imperatively(File, files)
+#
+#     mapper = mapper_registry.map_imperatively(
+#         BoardImage,
+#         board_files,
+#         properties={
+#             "boards": relationship(Board),
+#             "files": relationship(File)
+#         }
+#     )
+#     return mapper
 
-def board_file_mappers():
+
+def board_image_mappers():
     mapper_registry.map_imperatively(Board, boards)
-    mapper_registry.map_imperatively(File, files)
 
-    mapper = mapper_registry.map_imperatively(
-        BoardFile,
-        board_files,
+    mapepr = mapper_registry.map_imperatively(
+        BoardImage,
+        board_images,
         properties={
             "boards": relationship(Board),
-            "files": relationship(File)
+            "board_images": relationship(BoardImage)
         }
     )
-    return mapper
 
 
 def board_like_mappers():
@@ -571,16 +601,16 @@ def feed_mission_mappers():
 
 
 # region file
-def file_mappers():
-    mapper_registry.map_imperatively(BoardFile, board_files)
-    mapper = mapper_registry.map_imperatively(
-        File,
-        files,
-        properties={
-            "board_files": relationship(BoardFile),
-        }
-    )
-    return mapper
+# def file_mappers():
+#     mapper_registry.map_imperatively(BoardFile, board_files)
+#     mapper = mapper_registry.map_imperatively(
+#         File,
+#         files,
+#         properties={
+#             "board_files": relationship(BoardFile),
+#         }
+#     )
+#     return mapper
 
 # endregion
 

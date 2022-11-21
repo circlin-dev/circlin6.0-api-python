@@ -73,10 +73,11 @@ class BoardLike:
         self.board_id = board_id
 
 
-class BoardFile:
-    def __init__(self, id: int or None, board_id: int, order: int, type: str, file_id: int):
+class BoardImage:
+    def __init__(self, id: int or None, board_id: int, order: int, pathname: str, mime_type: str, original_file_id: int):
         self.id = id
         self.board_id = board_id
         self.order = order
-        self.type = type
-        self.file_id = file_id
+        self.pathname = pathname
+        self.mime_type = mime_type
+        self.original_file_id = original_file_id

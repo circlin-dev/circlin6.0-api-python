@@ -1,6 +1,6 @@
 from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.board_comment import AbstractBoardCommentRepository
-from adapter.repository.board_file import AbstractBoardFileRepository
+from adapter.repository.board_image import AbstractBoardImageRepository
 from adapter.repository.board_like import AbstractBoardLikeRepository
 from adapter.repository.file import AbstractFileRepository
 from adapter.repository.notification import NotificationRepository
@@ -47,7 +47,7 @@ def get_board_list(user_id: int, page_cursor: int, limit: int, repo: AbstractBoa
             id=board.id,
             body=board.body,
             createdAt=board.created_at,
-            images=json.loads(board[-5]) if json.loads(board[-5])[0]['file_id'] is not None else [],
+            images=json.loads(board.images) if json.loads(board.images)[0]['pathname'] is not None else [],
             user=dict(
                 id=board.user_id,
                 profile=board.profile_image,
@@ -73,7 +73,7 @@ def create_new_board(new_board: Board, board_repo: AbstractBoardRepository) -> i
     return new_board_id
 
 
-def create_board_image(order: int, file, file_repo: AbstractFileRepository, board_file_repo: AbstractBoardFileRepository) -> dict:
+def create_board_image(order: int, file, file_repo: AbstractFileRepository, board_image_repo: AbstractBoardImageRepository) -> dict:
     object_path = ''
     file_service.upload_single_file_to_s3(file, object_path)
     pass

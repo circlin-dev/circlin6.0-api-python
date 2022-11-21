@@ -865,6 +865,29 @@ class BoardFile(Base):
     file = relationship('File')
 
 
+class BoardImage(Base):
+    __tablename__ = 'board_images'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    board_id = Column(ForeignKey('boards.id'), nullable=False, index=True)
+    order = Column(TINYINT, server_default=text("'0'"))
+
+    path = Column(String(255, 'utf8mb4_unicode_ci'))
+    file_name = Column(String(255, 'utf8mb4_unicode_ci'))
+    mime_type = Column(String(255, 'utf8mb4_unicode_ci'))
+
+    size = Column(Integer)
+    width = Column(Integer)
+    height = Column(Integer)
+    original_file_id = Column(BIGINT(unsigned=True), ForeignKey('board_images.id'), index=True)
+
+    board = relationship('Board')
+    board_images = relationship('BoardImage')
+    # file = relationship('File')
+
+
 class BoardLike(Base):
     __tablename__ = 'board_likes'
 

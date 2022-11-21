@@ -3,7 +3,7 @@ from adapter.database import db_session
 from adapter.orm import board_mappers, board_comment_mappers, board_like_mappers
 from adapter.repository.board import BoardRepository
 from adapter.repository.board_comment import BoardCommentRepository
-from adapter.repository.board_file import BoardFileRepository
+from adapter.repository.board_image import BoardImageRepository
 from adapter.repository.board_like import BoardLikeRepository
 from adapter.repository.file import FileRepository
 from adapter.repository.user import UserRepository
@@ -83,10 +83,10 @@ def board_get_post():
         num_files = len(request.files.getlist('files[]'))
         if num_files > 1:
             files = request.files.getlist('files[]')  # request.files.getlist('files[]')
-            board_file_repo: BoardFileRepository = BoardFileRepository(db_session)
+            board_image_repo: BoardImageRepository = BoardImageRepository(db_session)
             file_repo: FileRepository = FileRepository(db_session)
             for index, file in enumerate(files):
-                board_service.create_board_image(index, file, file_repo, board_file_repo)  # (1) Upload to S3  (2) Add to BoardFile
+                board_service.create_board_image(index, file, file_repo, board_image_repo)  # (1) Upload to S3  (2) Add to BoardFile
                 # upload_result = upload_single_file_to_s3(file, f'board/{str(user_id)}')
                 #
                 # if type(upload_result['result']) == str:

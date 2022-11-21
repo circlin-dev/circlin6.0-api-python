@@ -1,9 +1,9 @@
-from domain.board import Board, BoardFile
+from domain.board import Board, BoardImage
 from domain.user import User
 from domain.file import File
 
 import abc
-from sqlalchemy import select, update, insert, desc, and_, case, text, func
+from sqlalchemy import alias, select, update, insert, desc, and_, case, text, func
 
 
 class AbstractBoardRepository(abc.ABC):
@@ -57,7 +57,6 @@ class BoardRepository(AbstractBoardRepository):
 
         return result
 
-
     def get_list(self, user_id: int, page_cursor: int, limit: int) -> list:
         sql = select(
             Board.id,
@@ -81,29 +80,21 @@ class BoardRepository(AbstractBoardRepository):
             ).label('liked'),
             Board.is_show,
             func.concat(func.lpad(Board.id, 15, '0')).label('cursor'),
-            text(f"""
-                IFNULL(
-                    JSON_ARRAYAGG(
-                        JSON_OBJECT(
-                            'order', board_files.order,
-                            'file_id', board_files.file_id,
-                            'mimeType', files.mime_type,
-                            'pathname', files.pathname,
-                            'resized', (
-                                SELECT IFNULL(
-                                    JSON_ARRAYAGG(
-                                        JSON_OBJECT(
-                                            'mimeType', ff.mime_type,
-                                            'pathname', ff.pathname,
-                                            'width', ff.width
-                                        )
-                                    ), JSON_ARRAY()
-                                ) FROM files ff WHERE files.id = ff.original_file_id
-                            )
-                        )
-                    ),
-                    JSON_ARRAY()
-                ) AS images"""),
+            func.ifnull(
+                func.json_arrayagg(
+                    func.json_object(
+                        'order', BoardImage.order,
+                        'mimeType', BoardImage.mime_type,
+                        'pathname', BoardImage.path,
+                        'resized', text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                                    'mimeType', bi.mime_type,
+                                    'pathname', bi.path,
+                                    'width', bi.width
+                                    )), JSON_ARRAY()) FROM board_images bi WHERE bi.original_file_id = board_images.id)""")
+                    )
+                ),
+                func.json_array()
+            ).label('images'),
             text(f"(SELECT COUNT(*) FROM follows f WHERE f.target_id = users.id) AS followers"),  # user.followers
             text(f"(SELECT a.name AS area FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1) AS area"),  # user.area
             text("(SELECT COUNT(*) AS likes_count FROM board_likes bl WHERE bl.board_id = boards.id) AS likes_count"),  # likesCount
@@ -113,18 +104,18 @@ class BoardRepository(AbstractBoardRepository):
         ).join(
             User, Board.user_id == User.id
         ).join(
-            BoardFile, Board.id == BoardFile.board_id, isouter=True
-        ).join(
-            File, BoardFile.file_id == File.id, isouter=True
+            BoardImage, Board.id == BoardImage.board_id, isouter=True
         ).where(
             and_(
                 Board.deleted_at == None,
-                Board.id < page_cursor
+                Board.id < page_cursor,
+                BoardImage.original_file_id == None
             )
         ).group_by(
             Board.id
         ).order_by(
-            desc(Board.id)
+            desc(Board.id),
+            desc(BoardImage.order)
         ).limit(limit)
         result = self.session.execute(sql)
 
