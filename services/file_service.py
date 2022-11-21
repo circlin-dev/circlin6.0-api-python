@@ -14,126 +14,175 @@ import shutil
 import string
 
 
-# region file processing
-def upload_single_file_to_s3(file, object_path):
-    # connection = db_connection()
-    # cursor = get_dict_cursor(connection)
-    random_string = ''.join(random.choices(string.ascii_uppercase + string.digits + string.ascii_lowercase, k=15))
-
-    s3_client = boto3.client('s3')
-
+def get_filename_and_secure_filename(file):
     # 1. Save request image first.
     if type(file) != bytes:
         request_file = file.filename
     else:
         request_file = file['uri'].split('/')[-1]  # file path form from react-native client.
 
-    filename = secure_filename(request_file)
-    if filename == '':
-        result = {
-            'result': f'filename: {filename}, file: {file}',
-        }
-        return result
+    filename_secure_version = secure_filename(request_file)
+    return request_file, filename_secure_version
 
-    file.save(filename)
 
-    request_path = os.path.join(os.getcwd(), 'temp', request_file)
+def set_temp_path_of_file(request_file):
+    return os.path.join(os.getcwd(), 'temp', request_file)
 
-    shutil.move(filename, request_path)
 
-    # 2. Check image mime type & change if invalid.
-    mime_type, request_ext = check_mimetype(request_path)['mime_type'].split('/')
-    # request_ext = check_mimetype(request_path)['mime_type'].split('/')[1]
+def save_secure_file_and_move_to_temp_path(file, secured_filename, temp_path):
+    file.save(secured_filename)
+    shutil.move(secured_filename, temp_path)
+
+
+def save_file_as_secure_filename_and_move_to_temp_folder(file):
+
+    request_file_name, secured_filename = get_filename_and_secure_filename(file)
+    temp_path = set_temp_path_of_file(request_file_name)
+    save_secure_file_and_move_to_temp_path(file, secured_filename, temp_path)
+
+    return temp_path
+
+
+def convert_temp_file_into_valid_extension(temp_path):
+    mime_type, request_ext = check_mimetype(temp_path)['mime_type'].split('/')
 
     if request_ext in INVALID_MIMES['image']:  # or video
-        original_file = heic_to_jpg(request_path)
+        valid_temp_file_path = heic_to_jpg(temp_path)
     elif request_ext in INVALID_MIMES['video']:
-        original_file = video_to_mp4(request_path)
+        valid_temp_file_path = video_to_mp4(temp_path)
     else:
-        original_file = request_path
+        valid_temp_file_path = temp_path
 
-    original_file_name = original_file.split('/')[-1]  # Insert to DB
-    hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
-    hashed_file = os.path.join(os.getcwd(), 'temp', hashed_file_name)
-    os.rename(original_file, hashed_file)
+    validated_mime_type, validated_extension = check_mimetype(valid_temp_file_path)['mime_type'].split('/')
+    return valid_temp_file_path, validated_mime_type, validated_extension
 
-    hashed_object_name = os.path.join(object_path, hashed_file_name)
-    hashed_mime_type = check_mimetype(hashed_file)['mime_type']
-    hashed_file_info = get_file_information(hashed_file, mime_type)
-    hashed_s3_pathname = os.path.join(AMAZON_URL, hashed_object_name)
 
-    s3_client.upload_file(hashed_file, S3_BUCKET_NAME, hashed_object_name, ExtraArgs={'ContentType': mime_type})
+def rename_validated_temp_file_as_hashed_name(valid_temp_file):
+    random_string = ''.join(random.choices(string.ascii_uppercase + string.digits + string.ascii_lowercase, k=15))
+    original_name = valid_temp_file.split('/')[-1]
+    hashed_file_name = f"{hashlib.sha256(original_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_name.split('.')[1]}"
+    hashed_file_path = os.path.join(os.getcwd(), 'temp', hashed_file_name)
+    os.rename(valid_temp_file, hashed_file_path)
 
-    sql = Query.into(
-        Files
-    ).columns(
-        Files.created_at,
-        Files.updated_at,
-        Files.pathname,
-        Files.original_name,
-        Files.mime_type,
-        Files.size,
-        Files.width,
-        Files.height
-    ).insert(
-        fn.Now(),
-        fn.Now(),
-        hashed_s3_pathname,
-        original_file_name,
-        hashed_mime_type,
-        hashed_file_info['size'],
-        hashed_file_info['width'],
-        hashed_file_info['height']
-    ).get_sql()
+    return hashed_file_name, hashed_file_path
 
-    cursor.execute(sql)
-    connection.commit()
-    original_file_id = cursor.lastrowid
+
+# region file processing
+def upload_single_file_to_s3(file, s3_object_path):
+    s3_client = boto3.client('s3')
+
+    temp_path = save_file_as_secure_filename_and_move_to_temp_folder(file)
+
+    # 2. Check image mime type & change if invalid.
+    validated_temp_file_path, validated_mime_type, validated_extension = convert_temp_file_into_valid_extension(temp_path)
+    # mime_type, request_ext = check_mimetype(temp_path)['mime_type'].split('/')
+    # # request_ext = check_mimetype(request_path)['mime_type'].split('/')[1]
+    #
+    # if request_ext in INVALID_MIMES['image']:  # or video
+    #     original_file = heic_to_jpg(temp_path)
+    # elif request_ext in INVALID_MIMES['video']:
+    #     original_file = video_to_mp4(temp_path)
+    # else:
+    #     original_file = temp_path
+
+    hashed_file_name, hashed_file_path = rename_validated_temp_file_as_hashed_name(validated_temp_file_path)
+    # original_file_name = vaild_temp_file.split('/')[-1]  # Insert to DB
+    # hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
+    # hashed_file = os.path.join(os.getcwd(), 'temp', hashed_file_name)
+    # os.rename(vaild_temp_file, hashed_file)
+
+    hashed_object_name = os.path.join(s3_object_path, hashed_file_name)
+    s3_client.upload_file(hashed_file_path, S3_BUCKET_NAME, hashed_object_name, ExtraArgs={'ContentType': validated_mime_type})
+
+    hashed_file_info = get_file_information(hashed_file_name, validated_mime_type)
+    saved_s3_url = os.path.join(AMAZON_URL, hashed_object_name)
+
+    # sql = Query.into(
+    #     Files
+    # ).columns(
+    #     Files.created_at,
+    #     Files.updated_at,
+    #     Files.pathname,
+    #     Files.original_name,
+    #     Files.mime_type,
+    #     Files.size,
+    #     Files.width,
+    #     Files.height
+    # ).insert(
+    #     fn.Now(),
+    #     fn.Now(),
+    #     hashed_s3_pathname,
+    #     original_file_name,
+    #     hashed_mime_type,
+    #     hashed_file_info['size'],
+    #     hashed_file_info['width'],
+    #     hashed_file_info['height']
+    # ).get_sql()
+
+    result = {
+        'original_file': {
+            'path': saved_s3_url,
+            'file_name': validated_temp_file_path.split('/')[-1],
+            'mime_type': f'{validated_mime_type}/{validated_extension}',
+            'size': hashed_file_info['size'],
+            'width': hashed_file_info['width'],
+            'height': hashed_file_info['height'],
+        },
+        'resized_file': None
+    }
 
     # 3. Generate resized image
-    if hashed_mime_type.split('/')[0] == 'image':
-        resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file, mime_type)
+    if validated_mime_type == 'image':
+        resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file_path, f'{validated_mime_type}/{validated_extension}')
 
+        resized_file_data = []
         for resized_path in resized_file_list:
-            object_name = os.path.join(object_path, resized_path.split('/')[-1])
+            object_name = os.path.join(s3_object_path, resized_path.split('/')[-1])
             resized_mime_type = check_mimetype(resized_path)['mime_type']
-            resized_file_info = get_file_information(resized_path, mime_type)
-            resized_s3_pathname = os.path.join(AMAZON_URL, object_name)
+            resized_file_info = get_file_information(resized_path, f'{validated_mime_type}/{validated_extension}')
+            resized_saved_s3_url = os.path.join(AMAZON_URL, object_name)
 
-            s3_client.upload_file(resized_path, S3_BUCKET, object_name, ExtraArgs={'ContentType': mime_type})
+            s3_client.upload_file(resized_path, S3_BUCKET_NAME, object_name, ExtraArgs={'ContentType': f'{validated_mime_type}/{validated_extension}'})
 
-            sql = Query.into(
-                Files
-            ).columns(
-                Files.created_at,
-                Files.updated_at,
-                Files.pathname,
-                Files.original_name,
-                Files.mime_type,
-                Files.size,
-                Files.width,
-                Files.height,
-                Files.original_file_id
-            ).insert(
-                fn.Now(),
-                fn.Now(),
-                resized_s3_pathname,
-                original_file_name,
-                resized_mime_type,
-                resized_file_info['size'],
-                resized_file_info['width'],
-                resized_file_info['height'],
-                original_file_id
-            ).get_sql()
+            # sql = Query.into(
+            #     Files
+            # ).columns(
+            #     Files.created_at,
+            #     Files.updated_at,
+            #     Files.pathname,
+            #     Files.original_name,
+            #     Files.mime_type,
+            #     Files.size,
+            #     Files.width,
+            #     Files.height,
+            #     Files.original_file_id
+            # ).insert(
+            #     fn.Now(),
+            #     fn.Now(),
+            #     resized_saved_s3_url,
+            #     validated_temp_file_path.split('/')[-1],
+            #     resized_mime_type,
+            #     resized_file_info['size'],
+            #     resized_file_info['width'],
+            #     resized_file_info['height'],
+            #     original_file_id
+            # ).get_sql()
 
-            cursor.execute(sql)
-            connection.commit()
             os.remove(resized_path)
 
-    os.remove(hashed_file)
-    connection.close()
+            resized_file_data.append({
+                'path': resized_saved_s3_url,
+                'original_name': validated_temp_file_path.split('/')[-1],
+                'mime_type': f'{validated_mime_type}/{validated_extension}',
+                'size': resized_file_info['size'],
+                'width': resized_file_info['width'],
+                'height': resized_file_info['height'],
+            })
 
-    result = {'result': True, 'original_file_id': original_file_id}
+        result['resized_file'] = resized_file_data
+
+    os.remove(hashed_file_path)
+    # result = {'result': True, 'original_file_id': original_file_id}
 
     return result
 

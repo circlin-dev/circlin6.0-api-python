@@ -66,6 +66,32 @@ class BoardComment:
         self.user_id = user_id
 
 
+class BoardImage:
+    def __init__(
+            self,
+            id: int or None,
+            board_id: int,
+            order: int,
+            path: str,
+            file_name: str,
+            mime_type: str,
+            size: int,
+            width: int,
+            height: int,
+            original_file_id: int or None
+    ):
+        self.id = id
+        self.board_id = board_id
+        self.order = order
+        self.path = path
+        self.file_name = file_name
+        self.mime_type = mime_type
+        self.size = size
+        self.width = width
+        self.height = height
+        self.original_file_id = original_file_id
+
+
 class BoardLike:
     def __init__(self, id: int or None, user_id: int, board_id: int):
         self.id = id
@@ -73,11 +99,3 @@ class BoardLike:
         self.board_id = board_id
 
 
-class BoardImage:
-    def __init__(self, id: int or None, board_id: int, order: int, pathname: str, mime_type: str, original_file_id: int):
-        self.id = id
-        self.board_id = board_id
-        self.order = order
-        self.pathname = pathname
-        self.mime_type = mime_type
-        self.original_file_id = original_file_id

@@ -2,12 +2,11 @@ from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.board_comment import AbstractBoardCommentRepository
 from adapter.repository.board_image import AbstractBoardImageRepository
 from adapter.repository.board_like import AbstractBoardLikeRepository
-from adapter.repository.file import AbstractFileRepository
 from adapter.repository.notification import NotificationRepository
 from adapter.repository.push import PushHistoryRepository
 from adapter.repository.user import AbstractUserRepository
 
-from domain.board import Board, BoardLike, BoardComment
+from domain.board import Board, BoardImage, BoardComment, BoardLike
 from domain.notification import Notification
 from domain.push import PushHistory
 from domain.user import User
@@ -73,10 +72,47 @@ def create_new_board(new_board: Board, board_repo: AbstractBoardRepository) -> i
     return new_board_id
 
 
-def create_board_image(order: int, file, file_repo: AbstractFileRepository, board_image_repo: AbstractBoardImageRepository) -> dict:
-    object_path = ''
-    file_service.upload_single_file_to_s3(file, object_path)
-    pass
+def create_board_image(board_id: int, order: int, file, s3_object_path: str, board_image_repo: AbstractBoardImageRepository) -> bool:
+    board_image_data: dict = file_service.upload_single_file_to_s3(file, s3_object_path)
+
+    original_board_image: dict = board_image_data['original_file']
+    resized_board_images: [dict, None] = board_image_data['resized_data']
+
+    new_original_board_image: BoardImage = BoardImage(
+        id=None,
+        board_id=board_id,
+        order=order,
+        path=original_board_image.path,
+        file_name=original_board_image.file_name,
+        mime_type=original_board_image.mime_type,
+        size=original_board_image.size,
+        width=original_board_image.width,
+        height=original_board_image.height,
+        original_file_id=None
+    )
+
+    original_file_id = board_image_repo.add(order, new_original_board_image)
+
+    if resized_board_images is None:
+        pass
+    else:
+        for resized_file in resized_board_images:
+            resized_board_image: BoardImage = BoardImage(
+                id=None,
+                board_id=board_id,
+                order=order,
+                path=resized_file.path,
+                file_name=resized_file.file_name,
+                mime_type=resized_file.mime_type,
+                size=resized_file.size,
+                width=resized_file.width,
+                height=resized_file.height,
+                original_file_id=original_file_id
+            )
+
+            board_image_repo.add(order, resized_board_image)
+
+    return True
 
 
 def update_board(board: Board, request_user_id: int, repo: AbstractBoardRepository) -> dict:

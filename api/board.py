@@ -84,9 +84,9 @@ def board_get_post():
         if num_files > 1:
             files = request.files.getlist('files[]')  # request.files.getlist('files[]')
             board_image_repo: BoardImageRepository = BoardImageRepository(db_session)
-            file_repo: FileRepository = FileRepository(db_session)
+            s3_object_path = f"board/{str(user_id)}"
             for index, file in enumerate(files):
-                board_service.create_board_image(index, file, file_repo, board_image_repo)  # (1) Upload to S3  (2) Add to BoardFile
+                board_service.create_board_image(inserted_board_id, index, file, s3_object_path, board_image_repo)  # (1) Upload to S3  (2) Add to BoardFile
                 # upload_result = upload_single_file_to_s3(file, f'board/{str(user_id)}')
                 #
                 # if type(upload_result['result']) == str:
