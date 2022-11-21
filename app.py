@@ -28,13 +28,13 @@ app.register_blueprint(api, url_prefix='/api')
 
 
 # Logging configuration    # Deactivate here at development environment
-# logging.basicConfig(filename='./' + 'execution_log.log', filemode='a+',
-#                     format=' [%(filename)s:%(lineno)s:%(funcName)s()]- %(asctime)s - %(levelname)s - %(message)s',
-#                     level=logging.INFO)
-#
-# gunicorn_logger = logging.getLogger('gunicorn.error')
-# app.logger.handlers = gunicorn_logger.handlers
-# app.logger.setLevel(gunicorn_logger.level)
+logging.basicConfig(filename='./' + 'execution_log.log', filemode='a+',
+                    format=' [%(filename)s:%(lineno)s:%(funcName)s()]- %(asctime)s - %(levelname)s - %(message)s',
+                    level=logging.INFO)
+
+gunicorn_logger = logging.getLogger('gunicorn.error')
+app.logger.handlers = gunicorn_logger.handlers
+app.logger.setLevel(gunicorn_logger.level)
 
 
 @app.route('/')
