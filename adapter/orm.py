@@ -24,8 +24,8 @@ boards = Table(
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("user_id", ForeignKey('users.id'), nullable=False, index=True),
-    Column("board_category_id", ForeignKey('board_categories.id'), nullable=False, index=True),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("board_category_id", BIGINT(unsigned=True), ForeignKey('board_categories.id'), nullable=False, index=True),
     Column("body", TEXT(collation='utf8mb4_unicode_ci'), nullable=False),
     Column("deleted_at", TIMESTAMP),
     Column("is_show", TINYINT, nullable=False, server_default=text("'1'"))
@@ -449,7 +449,6 @@ def board_mappers():
     mapper_registry.map_imperatively(BoardCategory, board_categories)
     mapper_registry.map_imperatively(BoardComment, board_comments)
     mapper_registry.map_imperatively(BoardImage, board_images)
-    mapper_registry.map_imperatively(File, files)
     mapper_registry.map_imperatively(BoardLike, board_likes)
     mapper_registry.map_imperatively(User, users)
 
