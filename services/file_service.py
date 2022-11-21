@@ -15,7 +15,6 @@ import string
 
 
 def get_filename_and_secure_filename(file):
-    # 1. Save request image first.
     if type(file) != bytes:
         request_file = file.filename
     else:
@@ -35,7 +34,6 @@ def save_secure_file_and_move_to_temp_path(file, secured_filename, temp_path):
 
 
 def save_file_as_secure_filename_and_move_to_temp_folder(file):
-
     request_file_name, secured_filename = get_filename_and_secure_filename(file)
     temp_path = set_temp_path_of_file(request_file_name)
     save_secure_file_and_move_to_temp_path(file, secured_filename, temp_path)
@@ -70,54 +68,15 @@ def rename_validated_temp_file_as_hashed_name(valid_temp_file):
 # region file processing
 def upload_single_file_to_s3(file, s3_object_path):
     s3_client = boto3.client('s3')
-
     temp_path = save_file_as_secure_filename_and_move_to_temp_folder(file)
 
-    # 2. Check image mime type & change if invalid.
     validated_temp_file_path, validated_mime_type, validated_extension = convert_temp_file_into_valid_extension(temp_path)
-    # mime_type, request_ext = check_mimetype(temp_path)['mime_type'].split('/')
-    # # request_ext = check_mimetype(request_path)['mime_type'].split('/')[1]
-    #
-    # if request_ext in INVALID_MIMES['image']:  # or video
-    #     original_file = heic_to_jpg(temp_path)
-    # elif request_ext in INVALID_MIMES['video']:
-    #     original_file = video_to_mp4(temp_path)
-    # else:
-    #     original_file = temp_path
-
     hashed_file_name, hashed_file_path = rename_validated_temp_file_as_hashed_name(validated_temp_file_path)
-    # original_file_name = vaild_temp_file.split('/')[-1]  # Insert to DB
-    # hashed_file_name = f"{hashlib.sha256(original_file_name.split('.')[0].encode()).hexdigest()}_{random_string}.{original_file_name.split('.')[1]}"
-    # hashed_file = os.path.join(os.getcwd(), 'temp', hashed_file_name)
-    # os.rename(vaild_temp_file, hashed_file)
-
     hashed_object_name = os.path.join(s3_object_path, hashed_file_name)
+    hashed_file_info = get_file_information(hashed_file_path, validated_mime_type)
+
     s3_client.upload_file(hashed_file_path, S3_BUCKET_NAME, hashed_object_name, ExtraArgs={'ContentType': validated_mime_type})
-
-    hashed_file_info = get_file_information(hashed_file_name, validated_mime_type)
     saved_s3_url = os.path.join(AMAZON_URL, hashed_object_name)
-
-    # sql = Query.into(
-    #     Files
-    # ).columns(
-    #     Files.created_at,
-    #     Files.updated_at,
-    #     Files.pathname,
-    #     Files.original_name,
-    #     Files.mime_type,
-    #     Files.size,
-    #     Files.width,
-    #     Files.height
-    # ).insert(
-    #     fn.Now(),
-    #     fn.Now(),
-    #     hashed_s3_pathname,
-    #     original_file_name,
-    #     hashed_mime_type,
-    #     hashed_file_info['size'],
-    #     hashed_file_info['width'],
-    #     hashed_file_info['height']
-    # ).get_sql()
 
     result = {
         'original_file': {
@@ -128,61 +87,32 @@ def upload_single_file_to_s3(file, s3_object_path):
             'width': hashed_file_info['width'],
             'height': hashed_file_info['height'],
         },
-        'resized_file': None
+        'resized_file': []
     }
 
     # 3. Generate resized image
     if validated_mime_type == 'image':
-        resized_file_list = generate_resized_file(hashed_file_name.split('.')[1], hashed_file_path, f'{validated_mime_type}/{validated_extension}')
+        resized_files = generate_resized_file(hashed_file_name.split('.')[1], hashed_file_path, validated_mime_type)
 
-        resized_file_data = []
-        for resized_path in resized_file_list:
+        for resized_path in resized_files:
             object_name = os.path.join(s3_object_path, resized_path.split('/')[-1])
-            resized_mime_type = check_mimetype(resized_path)['mime_type']
-            resized_file_info = get_file_information(resized_path, f'{validated_mime_type}/{validated_extension}')
+            # resized_mime_type = check_mimetype(resized_path)['mime_type']
+            resized_file_info = get_file_information(resized_path, validated_mime_type)
             resized_saved_s3_url = os.path.join(AMAZON_URL, object_name)
 
             s3_client.upload_file(resized_path, S3_BUCKET_NAME, object_name, ExtraArgs={'ContentType': f'{validated_mime_type}/{validated_extension}'})
 
-            # sql = Query.into(
-            #     Files
-            # ).columns(
-            #     Files.created_at,
-            #     Files.updated_at,
-            #     Files.pathname,
-            #     Files.original_name,
-            #     Files.mime_type,
-            #     Files.size,
-            #     Files.width,
-            #     Files.height,
-            #     Files.original_file_id
-            # ).insert(
-            #     fn.Now(),
-            #     fn.Now(),
-            #     resized_saved_s3_url,
-            #     validated_temp_file_path.split('/')[-1],
-            #     resized_mime_type,
-            #     resized_file_info['size'],
-            #     resized_file_info['width'],
-            #     resized_file_info['height'],
-            #     original_file_id
-            # ).get_sql()
-
             os.remove(resized_path)
 
-            resized_file_data.append({
+            result['resized_file'].append({
                 'path': resized_saved_s3_url,
-                'original_name': validated_temp_file_path.split('/')[-1],
+                'file_name': validated_temp_file_path.split('/')[-1],
                 'mime_type': f'{validated_mime_type}/{validated_extension}',
                 'size': resized_file_info['size'],
                 'width': resized_file_info['width'],
                 'height': resized_file_info['height'],
             })
-
-        result['resized_file'] = resized_file_data
-
     os.remove(hashed_file_path)
-    # result = {'result': True, 'original_file_id': original_file_id}
 
     return result
 
@@ -229,10 +159,14 @@ def video_to_mp4(path):
 
     new_path = os.path.join(os.getcwd(), 'temp', f"{path.split('/')[-1].split('.')[0]}.mp4")
     original_clip = VideoFileClip(path)
-    original_clip.resize((width, height)).write_videofile(new_path,
-                                                          codec='libx264',
-                                                          audio_codec='aac',  # Super important for sound
-                                                          remove_temp=True)
+    original_clip.resize(
+        (width, height)
+    ).write_videofile(
+        new_path,
+        codec='libx264',
+        audio_codec='aac',  # Super important for sound
+        remove_temp=True
+    )
     original_clip.close()
     if os.path.exists(path):
         os.remove(path)
@@ -246,7 +180,7 @@ def check_mimetype(path):
 
 
 def get_file_information(path, file_type):
-    if file_type == 'image':
+    if file_type.__contains__('image'):
         image = cv2.imread(path, cv2.IMREAD_COLOR)
         height, width, channel = image.shape
     else:
@@ -265,22 +199,19 @@ def get_file_information(path, file_type):
 
 def generate_resized_file(extension, original_file_path, file_type):
     resized_file_list = []
-    if file_type == 'image':
+    if file_type.__contains__('image'):
         original_file = cv2.imread(original_file_path, cv2.IMREAD_COLOR)
         height, width, channel = original_file.shape
 
         for new_width in RESIZE_WIDTHS_IMAGE:
             new_height = int(new_width * height / width)
-            resized_file = cv2.resize(original_file,
-                                      dsize=(new_width, new_height),
-                                      interpolation=cv2.INTER_LINEAR)
+            resized_file = cv2.resize(original_file, dsize=(new_width, new_height), interpolation=cv2.INTER_LINEAR)
             temp_path = './temp'
             original_file_name = original_file_path.split('/')[-1]
             resized_file_name = f"{original_file_name.split('.')[0]}_w{str(new_width)}.{extension}"
             resized_file_path = os.path.join(temp_path, resized_file_name)
             cv2.imwrite(resized_file_path, resized_file)
             resized_file_list.append(resized_file_path)
-        # return resized_image_list
     else:
         pass
         # original_file = cv2.VideoCapture(original_file_path)
