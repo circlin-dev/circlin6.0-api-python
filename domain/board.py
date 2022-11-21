@@ -1,45 +1,19 @@
-from dataclasses import dataclass
-
-
-@dataclass(unsafe_hash=True)
-class BoardWriter:
-    id: int
-    profile: str
-    followed: bool
-    nickname: str
-    followers: int
-    isBlocked: bool
-    area: str
-
-
 class Board:
     def __init__(
             self,
             id: int or None,
             body: str,
-            # created_at: str,
-            # images: list,
-            user_id: int, #BoardWriter,
-            # comments_count: int,
-            # likes_count: int,
-            # liked: bool,
+            user_id: int,
             board_category_id: int,
             is_show: bool,
-            deleted_at: str or None,
-            # cursor: str
+            deleted_at: str or None
     ):
         self.id = id
         self.body = body
-        # self.created_at = created_at
-        # self.images = images
         self.user_id = user_id
-        # self.comments_count = comments_count
-        # self.likes_count = likes_count
-        # self.liked = liked
         self.board_category_id = board_category_id
         self.is_show = is_show
         self.deleted_at = deleted_at
-        # self.cursor = cursor
 
 
 class BoardCategory:

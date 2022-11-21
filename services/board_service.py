@@ -76,24 +76,23 @@ def create_board_image(board_id: int, order: int, file, s3_object_path: str, boa
     board_image_data: dict = file_service.upload_single_file_to_s3(file, s3_object_path)
 
     original_board_image: dict = board_image_data['original_file']
-    resized_board_images: [dict, None] = board_image_data['resized_data']
-
+    resized_board_images: [dict, None] = board_image_data['resized_file']
     new_original_board_image: BoardImage = BoardImage(
         id=None,
         board_id=board_id,
         order=order,
-        path=original_board_image.path,
-        file_name=original_board_image.file_name,
-        mime_type=original_board_image.mime_type,
-        size=original_board_image.size,
-        width=original_board_image.width,
-        height=original_board_image.height,
+        path=original_board_image['path'],
+        file_name=original_board_image['file_name'],
+        mime_type=original_board_image['mime_type'],
+        size=original_board_image['size'],
+        width=original_board_image['width'],
+        height=original_board_image['height'],
         original_file_id=None
     )
 
     original_file_id = board_image_repo.add(order, new_original_board_image)
 
-    if resized_board_images is None:
+    if resized_board_images is []:
         pass
     else:
         for resized_file in resized_board_images:
@@ -101,15 +100,14 @@ def create_board_image(board_id: int, order: int, file, s3_object_path: str, boa
                 id=None,
                 board_id=board_id,
                 order=order,
-                path=resized_file.path,
-                file_name=resized_file.file_name,
-                mime_type=resized_file.mime_type,
-                size=resized_file.size,
-                width=resized_file.width,
-                height=resized_file.height,
+                path=resized_file['path'],
+                file_name=resized_file['file_name'],
+                mime_type=resized_file['mime_type'],
+                size=resized_file['size'],
+                width=resized_file['width'],
+                height=resized_file['height'],
                 original_file_id=original_file_id
             )
-
             board_image_repo.add(order, resized_board_image)
 
     return True

@@ -1,9 +1,9 @@
+from adapter.orm import board_images
 from domain.board import Board, BoardImage
 from domain.user import User
-from domain.file import File
 
 import abc
-from sqlalchemy import alias, select, update, insert, desc, and_, case, text, func
+from sqlalchemy import select, update, insert, desc, and_, case, text, func
 
 
 class AbstractBoardRepository(abc.ABC):

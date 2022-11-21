@@ -2,11 +2,6 @@ from adapter.orm import user_mappers
 from adapter.repository.user import UserRepository
 from helper.constant import JWT_AUDIENCE
 
-
-import hashlib
-import base64
-import subprocess
-from moviepy.editor import VideoFileClip
 import jwt
 import re
 from sqlalchemy.orm import clear_mappers
@@ -25,7 +20,7 @@ def authenticate(request, session):
     if user is None:
         return None
     else:
-        return user.id
+        return int(user.id)
 # endregion
 
 

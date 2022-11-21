@@ -1,5 +1,7 @@
-import abc
+from adapter.orm import board_images
 from domain.board import BoardImage
+
+import abc
 from sqlalchemy import insert
 
 
@@ -16,7 +18,7 @@ class BoardImageRepository(AbstractBoardImageRepository):
     def add(self, order: int, new_board_image: BoardImage):
         if new_board_image.original_file_id is None:
             sql = insert(
-                BoardImage
+                board_images
             ).values(
                 board_id=new_board_image.board_id,
                 order=new_board_image.order,
@@ -29,7 +31,7 @@ class BoardImageRepository(AbstractBoardImageRepository):
             )
         else:
             sql = insert(
-                BoardImage
+                board_images
             ).values(
                 board_id=new_board_image.board_id,
                 order=new_board_image.order,

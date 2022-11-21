@@ -5,7 +5,6 @@ from sqlalchemy.orm import registry, relationship
 from domain.board import Board, BoardCategory, BoardComment, BoardImage, BoardLike
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedComment, FeedImage, FeedMission
-from domain.file import File
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.notice import Notice, NoticeComment
 from domain.notification import Notification
@@ -54,19 +53,6 @@ board_comments = Table(
     Column("depth", TINYINT, nullable=False, server_default=text("'0'")),
     Column("comment", TEXT(collation='utf8mb4_unicode_ci'), nullable=False),
     Column("deleted_at", TIMESTAMP),
-)
-
-
-board_files = Table(
-    "board_files",
-    mapper_registry.metadata,
-    Column("id", BIGINT(unsigned=True), primary_key=True),
-    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("board_id", ForeignKey('boards.id'), nullable=False, index=True),
-    Column("order", TINYINT, server_default=text("'0'")),
-    Column("type", VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)'),
-    Column("file_id", ForeignKey('files.id'), nullable=False, index=True, comment='원본 이미지'),
 )
 
 
@@ -175,24 +161,6 @@ feed_missions = Table(
     Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), nullable=False, index=True),
     Column("mission_stat_id", BIGINT(unsigned=True), ForeignKey('mission_stats.id'), index=True),
     Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
-)
-# endregion
-
-
-# region file
-files = Table(
-    "files",
-    mapper_registry.metadata,
-    Column("id", BIGINT(unsigned=True), primary_key=True),
-    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("pathname", VARCHAR(255), nullable=False),
-    Column("original_name", VARCHAR(255), nullable=False),
-    Column("mime_type", VARCHAR(255), nullable=False),
-    Column("size", INTEGER(unsigned=True)),
-    Column("width", INTEGER(unsigned=True)),
-    Column("height", INTEGER(unsigned=True)),
-    Column("original_file_id", BIGINT(unsigned=True)),
 )
 # endregion
 
@@ -438,7 +406,6 @@ versions = Table(
 )
 # endregion
 
-
 # endregion
 
 
@@ -484,21 +451,6 @@ def board_comment_mappers():
         }
     )
     return mapper
-
-
-# def board_file_mappers():
-#     mapper_registry.map_imperatively(Board, boards)
-#     mapper_registry.map_imperatively(File, files)
-#
-#     mapper = mapper_registry.map_imperatively(
-#         BoardImage,
-#         board_files,
-#         properties={
-#             "boards": relationship(Board),
-#             "files": relationship(File)
-#         }
-#     )
-#     return mapper
 
 
 def board_image_mappers():
@@ -595,21 +547,6 @@ def feed_mission_mappers():
         }
     )
     return mapper
-
-# endregion
-
-
-# region file
-# def file_mappers():
-#     mapper_registry.map_imperatively(BoardFile, board_files)
-#     mapper = mapper_registry.map_imperatively(
-#         File,
-#         files,
-#         properties={
-#             "board_files": relationship(BoardFile),
-#         }
-#     )
-#     return mapper
 
 # endregion
 
