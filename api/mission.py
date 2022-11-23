@@ -97,7 +97,6 @@ def mission_feeds(mission_id: int):
         limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
         page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
-        mission_feed_mappers()
         repo: MissionCommentRepository = MissionCommentRepository(db_session)
         comments: list = mission_service.get_comments(mission_id, page_cursor, limit, user_id, repo)
         number_of_comment: int = mission_service.get_comment_count_of_the_mission(mission_id, repo)

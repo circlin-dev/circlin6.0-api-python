@@ -1,6 +1,7 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import feed_comment_mappers
+from adapter.orm import feed_mappers, feed_comment_mappers
+from adapter.repository.feed import FeedRepository
 from adapter.repository.feed_comment import FeedCommentRepository
 from helper.constant import ERROR_RESPONSE, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 from helper.function import authenticate, get_query_strings_from_request
@@ -46,6 +47,37 @@ def feed_comment(feed_id: int):
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
 
+
+@api.route("/newsfeed", methods=['GET'])
+def get_newsfeed():
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
+        return json.dumps(result, ensure_ascii=False), 401
+
+    page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+    limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+    page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+    feed_mappers()
+    feed_repo: FeedRepository = FeedRepository(db_session)
+    newsfeeds: list = feed_service.get_newsfeeds(user_id, page_cursor, limit, feed_repo)
+    number_of_newsfeeds: int = feed_service.get_count_of_newsfeeds(user_id, feed_repo)
+    clear_mappers()
+
+    last_cursor: [str, None] = None if len(newsfeeds) <= 0 else newsfeeds[-1]['cursor']  # 배열 원소의 cursor string
+
+    result: dict = {
+        'result': True,
+        'data': newsfeeds,
+        'cursor': last_cursor,
+        'totalCount': number_of_newsfeeds,
+    }
+    db_session.close()
+    return json.dumps(result, ensure_ascii=False), 200
+
+
 # from api import api
 # from helper.function import authenticate, get_query_strings_from_request
 # from helper.constant import API_ROOT, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT, INITIAL_PAGE
@@ -57,7 +89,6 @@ def feed_comment(feed_id: int):
 # def get_newsfeed():
 # 	connection = db_connection()
 # 	cursor = get_dict_cursor(connection)
-# 	endpoint = API_ROOT + url_for('api.get_newsfeed')
 # 	authentication = authenticate(request, cursor)
 #
 # 	if authentication is None:

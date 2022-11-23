@@ -1,3 +1,9 @@
+class Follow:
+    def __init__(self, user_id: int, target_id: int):
+        self.user_id = user_id
+        self.target_id = target_id
+
+
 class User:
     def __init__(
             self,

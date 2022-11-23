@@ -22,6 +22,20 @@ class Feed:
         self.laptime_origin = laptime_origin
 
 
+class FeedCheck:
+    def __init__(self, user_id: int, feed_id: int, deleted_at: str or None):
+        self.id = id
+        self.user_id = user_id
+        self.feed_id = feed_id
+        self.deleted_at = deleted_at
+
+    def checkable(self):
+        pass
+
+    def already_checked(self):
+        pass
+
+
 class FeedComment:
     def __init__(
             self,
@@ -55,3 +69,11 @@ class FeedMission:
         self.feed_id = feed_id
         self.mission_stat_id = mission_stat_id
         self.mission_id = mission_id
+
+
+class FeedProduct:
+    def __init__(self, feed_id: int, type: str, product_id: int, outside_product_id: int):
+        self.feed_id = feed_id
+        self.type = type
+        self.product_id = product_id
+        self.outside_product_id = outside_product_id

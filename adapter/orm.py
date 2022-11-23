@@ -3,13 +3,15 @@ from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, IN
 from sqlalchemy.orm import registry, relationship
 
 from domain.board import Board, BoardCategory, BoardComment, BoardImage, BoardLike
+from domain.brand import Brand
 from domain.common_code import CommonCode
-from domain.feed import Feed, FeedComment, FeedImage, FeedMission
+from domain.feed import Feed, FeedCheck, FeedComment, FeedImage, FeedMission, FeedProduct
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.notice import Notice, NoticeComment
 from domain.notification import Notification
+from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
-from domain.user import User, UserFavoriteCategory
+from domain.user import Follow, User, UserFavoriteCategory
 from domain.version import Version
 
 mapper_registry = registry()
@@ -86,6 +88,22 @@ board_likes = Table(
 # endregion
 
 
+# region brand
+brands = Table(
+    "brands",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", ForeignKey('users.id'), index=True, comment='브랜드 소유자'),
+    Column("name_ko", VARCHAR(255), nullable=False, unique=True, server_default=text("''"), comment='브랜드명'),
+    Column("name_en", VARCHAR(255), comment='브랜드명'),
+    Column("image", VARCHAR(255)),
+)
+
+# endregion
+
+
 # region common_code
 common_codes = Table(
     "common_codes",
@@ -120,6 +138,19 @@ feeds = Table(
     Column("laptime", Integer, comment='달린 시간'),
     Column("distance_origin", Float(8, True), comment='인식된 달린 거리'),
     Column("laptime_origin", Integer, comment='인식된 달린 시간'),
+)
+
+
+feed_likes = Table(
+    "feed_likes",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), nullable=False, index=True),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("point", Integer, nullable=False, server_default=text("'0'"), comment='대상에게 포인트 지급 여부'),
+    Column("deleted_at", TIMESTAMP)
 )
 
 
@@ -161,6 +192,33 @@ feed_missions = Table(
     Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), nullable=False, index=True),
     Column("mission_stat_id", BIGINT(unsigned=True), ForeignKey('mission_stats.id'), index=True),
     Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
+)
+
+
+feed_products = Table(
+    "feed_products",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), nullable=False, index=True),
+    Column("type", VARCHAR(255), nullable=False, comment='내부상품인지 외부상품인지 (inside|outside)'),
+    Column("product_id", BIGINT(unsigned=True), ForeignKey('products.id'), index=True),
+    Column("outside_product_id", BIGINT(unsigned=True), ForeignKey('outside_products.id'), index=True),
+)
+# endregion
+
+
+# region follow
+follows = Table(
+    "follows",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("target_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("feed_notify", TINYINT(1), nullable=False, server_default=text("'0'")),
 )
 # endregion
 
@@ -304,6 +362,55 @@ notifications = Table(
     Column("board_comment_id", BIGINT(unsigned=True), ForeignKey('board_comments.id'), index=True),
     Column("read_at", TIMESTAMP, comment='읽은 일시'),
     Column("variables", JSON)
+)
+# endregion
+
+
+# region product
+outside_products = Table(
+    "outside_products",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("product_id", BIGINT(unsigned=True), comment='상품 고유 ID'),
+    Column("brand", VARCHAR(255)),
+    Column("title", VARCHAR(255), nullable=False),
+    Column("image", VARCHAR(255)),
+    Column("url", VARCHAR(255), nullable=False, unique=True),
+    Column("price", Integer, nullable=False),
+)
+
+
+products = Table(
+    "products",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("code", VARCHAR(255), nullable=False, unique=True),
+    Column("name_ko", VARCHAR(255), nullable=False),
+    Column("name_en", VARCHAR(255)),
+    Column("thumbnail_image", VARCHAR(255), nullable=False),
+    Column("brand_id", BIGINT(unsigned=True), ForeignKey('brands.id'), nullable=False, index=True),
+    Column("product_category_id", BIGINT(unsigned=True), ForeignKey('product_categories.id'), index=True),
+    Column("is_show", TINYINT(1), nullable=False, server_default=text("'1'")),
+    Column("status", VARCHAR(255), nullable=False, server_default=text("'sale'"), comment='현재 상태 (sale / soldout)'),
+    Column("order", Integer, nullable=False, server_default=text("'0'"), comment='정렬 (높을수록 우선)'),
+    Column("price", Integer, nullable=False, comment='정상가'),
+    Column("sale_price", Integer, nullable=False, server_default=text("'0'"), comment='판매가'),
+    Column("shipping_fee", Integer, nullable=False, comment='배송비'),
+    Column("deleted_at", TIMESTAMP),
+)
+
+product_categories = Table(
+    "product_categories",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("title", VARCHAR(255), nullable=False),
+    Column("deleted_at", TIMESTAMP),
 )
 # endregion
 
@@ -482,7 +589,15 @@ def board_like_mappers():
 # endregion
 
 
-# region common_coe
+# region brand
+def brand_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper = mapper_registry.map_imperatively(Brand, brands, properties={"users": relationship(User)})
+    return mapper
+# endregion
+
+
+# region common_code
 def common_code_mappers():
     mapper = mapper_registry.map_imperatively(
         CommonCode,
@@ -497,12 +612,20 @@ def common_code_mappers():
 def feed_mappers():
     mapper_registry.map_imperatively(User, users)
     mapper_registry.map_imperatively(FeedImage, feed_images)
+    mapper_registry.map_imperatively(FeedComment, feed_comments)
+    mapper_registry.map_imperatively(FeedCheck, feed_likes)
+    mapper_registry.map_imperatively(FeedMission, feed_missions)
+    mapper_registry.map_imperatively(FeedProduct, feed_products)
     mapper = mapper_registry.map_imperatively(
         Feed,
         feeds,
         properties={
             "users": relationship(User),
-            "feed_images": relationship(FeedImage)
+            "feed_images": relationship(FeedImage),
+            "feed_comments": relationship(FeedComment),
+            "feed_likes": relationship(FeedCheck),
+            "feed_missions": relationship(FeedMission),
+            "feed_products": relationship(FeedProduct),
         }
     )
     return mapper
@@ -533,6 +656,20 @@ def feed_image_mappers():
     return mapper
 
 
+def feed_check_mappers():
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(User, users)
+    mapper = mapper_registry.map_imperatively(
+        FeedCheck,
+        feed_likes,
+        properties={
+            "feeds": relationship(Feed),
+            "users": relationship(User)
+        }
+    )
+    return mapper
+
+
 def feed_mission_mappers():
     mapper_registry.map_imperatively(Feed, feeds)
     mapper_registry.map_imperatively(Mission, missions)
@@ -548,6 +685,29 @@ def feed_mission_mappers():
     )
     return mapper
 
+
+def feed_product_mappers():
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(OutsideProduct, outside_products)
+    mapper_registry.map_imperatively(Product, products)
+    mapper = mapper_registry.map_imperatively(
+        FeedProduct,
+        feed_products,
+        properties={
+            relationship('Feed'),
+            relationship('OutsideProduct'),
+            relationship('Product')
+        }
+    )
+    return mapper
+# endregion
+
+
+# region follow
+def follow_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper = mapper_registry.map_imperatively(Follow, follows, properties={"users": relationship(User)})
+    return mapper
 # endregion
 
 
@@ -666,6 +826,32 @@ def notification_mappers():
 # endregion
 
 
+# region product
+def outside_product_mappers():
+    mapper = mapper_registry.map_imperatively(OutsideProduct, outside_products)
+    return mapper
+
+
+def product_mappers():
+    mapper_registry.map_imperatively(Brand, brands)
+    mapper_registry.map_imperatively(ProductCategory, product_categories)
+    mapper = mapper_registry.map_imperatively(
+        Product,
+        products,
+        properties={
+            "brands": relationship(Brand),
+            "product_categories": relationship(ProductCategory)
+        }
+    )
+    return mapper
+
+
+def product_category_mappers():
+    mapper = mapper_registry.map_imperatively(ProductCategory, product_categories)
+    return mapper
+# endregion
+
+
 # region push
 def push_history_mappers():
     mapper_registry.map_imperatively(User, users)
@@ -682,8 +868,8 @@ def push_history_mappers():
 
 # region users
 def user_mappers():
-    user_mapper = mapper_registry.map_imperatively(User, users)
-    return user_mapper
+    mapper = mapper_registry.map_imperatively(User, users)
+    return mapper
 
 
 def user_favorite_category_mappers():
