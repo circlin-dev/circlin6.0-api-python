@@ -93,7 +93,6 @@ class NotificationRepository(AbstractNotificationRepository):
             func.max(Notification.id).label('id'),
             func.date_format(Notification.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             func.count(distinct(func.ifnull(Notification.user_id, 0))).label('count'),
-            # func.concat(func.year(Notification.created_at), '|', func.month(Notification.created_at), '|', func.day(Notification.created_at)).label('what'),
             Notification.target_id,
             Notification.user_id,
             User.nickname,

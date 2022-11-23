@@ -34,7 +34,7 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
             bookmarked=True if mission['bookmarked'] == 1 else False,
-        ) for mission in json.loads(feed.mission)],
+        ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product),
         cursor=feed.cursor,
     ) for feed in newsfeeds]
@@ -47,8 +47,40 @@ def get_count_of_newsfeeds(user_id: int, feed_repo: AbstractFeedRepository):
     return total_count
 
 
-def get_recently_most_checked_feeds(feed_repo: AbstractFeedRepository):
-    pass
+def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedRepository) -> list:
+    recommendation = feed_repo.get_recently_most_checked_feeds(user_id)
+    entries: list = [dict(
+        id=feed.id,
+        createdAt=feed.created_at,
+        body=feed.body,
+        images=json.loads(feed.images),
+        user=dict(
+            id=feed.user_id,
+            nickname=feed.nickname,
+            profile=feed.profile_image,
+            followed=True if feed.followed == 1 else False,
+            area=json.loads(feed.user_additional_information)["area"],
+            followers=json.loads(feed.user_additional_information)["followers"],
+            gender=feed.gender,
+            isBlocked=True if feed.is_blocked == 1 else False,
+            isChatBlocked=True if feed.is_chat_blocked == 1 else False
+        ),
+        commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
+        checksCount=json.loads(feed.feed_additional_information)["checks_count"],
+        checked=True if feed.checked == 1 else False,
+        missions=[dict(
+            id=mission['id'],
+            title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
+            isEvent=True if mission['is_event'] == 1 else False,
+            isOldEvent=True if mission['is_old_event'] == 1 else False,
+            isGround=True if mission['is_ground'] == 1 else False,
+            eventType=mission['event_type'],
+            thumbnail=mission['thumbnail'],
+            bookmarked=True if mission['bookmarked'] == 1 else False,
+        ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
+        product=json.loads(feed.product)
+    ) for feed in recommendation]
+    return entries
 
 
 def get_feeds_by_mission(mission_id: int, feed_repo: AbstractFeedRepository):
