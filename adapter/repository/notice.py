@@ -53,6 +53,8 @@ class NoticeRepository(AbstractNoticeRepository):
             Notice.content,
             Notice.link_text,
             Notice.link_url,
+            Notice.is_show,
+            Notice.deleted_at,
             case(
                 (func.TIMESTAMPDIFF(text("DAY"), Notice.created_at, func.now()) <= 7, 1),
                 else_=0
@@ -75,7 +77,6 @@ class NoticeRepository(AbstractNoticeRepository):
         ).group_by(Notice.id)
 
         notice = self.session.execute(sql).first()
-        print('type of notice: ', type(notice))
         return notice
 
     def get_list(self, page_cursor: int, limit: int) -> list:

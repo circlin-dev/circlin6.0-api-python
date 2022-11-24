@@ -180,7 +180,7 @@ def add_comment(new_board_comment: BoardComment,
                 ) -> dict:
     target_board: Board = board_repo.get_one(new_board_comment.board_id)
 
-    # 1. 게시물에 할 수 있는 상태인지 확인한다.
+    # 1. 게시물에 댓글을 작성할할 수 있는 상태인지 확인한다.
     if target_board is None:
         return {'result': False, 'error': '존재하지 않는 게시글입니다.', 'status_code': 400}
     elif target_board is not None and not board_is_available_to_other(target_board) and not check_if_user_is_the_owner_of_the_board(target_board.user_id, new_board_comment.user_id):
@@ -216,7 +216,7 @@ def add_comment(new_board_comment: BoardComment,
     # 댓글: 게시글 주인이 나일 경우는 아무것도 하지 않고, 아닐 경우에만 게시글 주인에게 "댓글" 알림, 푸쉬를 보낸다.
     # 답글: 같은 댓글 group에 속한 댓글/답글 작성자 리스트를 구하고, 그 중 본인을 제외하고 "답글" 알림, 푸쉬를 보낸다. 단, 중복을 제거한다.
     # 답글: 같은 댓글 group에 속한 댓글/답글 작성자 리스트에 게시글 작성자가 속해있지 않는 한, 게시글 작성자에게 보내지 않는다(To Be Determined).
-    ####################################################################################################################
+    ##################################################################################################################
     # (1) Push 발송 함수
     # (2) Notification 생성 함수
     if depth <= 0:

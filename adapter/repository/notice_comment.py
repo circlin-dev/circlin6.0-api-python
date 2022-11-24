@@ -10,6 +10,10 @@ class AbstractNoticeCommentRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_one(self, notice_comment_id: int) -> NoticeComment:
+        pass
+
+    @abc.abstractmethod
     def get_list(self,  notice_id: int, page_cursor: int, limit: int, user_id: int) -> list:
         pass
 
@@ -51,6 +55,19 @@ class NoticeCommentRepository(AbstractNoticeCommentRepository):
         result = self.session.execute(sql)  # =====> inserted row의 id값을 반환해야 한다.
 
         return result.inserted_primary_key[0]
+
+    def get_one(self, notice_comment_id: int) -> NoticeComment:
+        sql = select(
+            NoticeComment.id,
+            NoticeComment.notice_id,
+            NoticeComment.user_id,
+            NoticeComment.group,
+            NoticeComment.depth,
+            NoticeComment.comment,
+            NoticeComment.deleted_at
+        ).where(NoticeComment.id == notice_comment_id)
+        result = self.session.execute(sql).first()
+        return result
 
     def get_list(self, notice_id: int, page_cursor: int, limit: int, user_id: int) -> list:
         sql = select(

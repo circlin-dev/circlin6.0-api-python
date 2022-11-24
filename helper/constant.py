@@ -61,7 +61,7 @@ INITIAL_PAGE: int = 1
 
 # region push
 PUSH_TITLE_BOARD: str = "써클인 커뮤니티"
-
+PUSH_TITLE_NOTICE: str = "써클인 공지사항"
 
 # Error message
 ERROR_RESPONSE: dict = {

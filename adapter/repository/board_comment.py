@@ -63,6 +63,7 @@ class BoardCommentRepository(AbstractBoardCommentRepository):
             BoardComment.user_id,
             BoardComment.group,
             BoardComment.depth,
+            BoardComment.comment,
             BoardComment.deleted_at
         ).where(BoardComment.id == board_comment_id)
         result = self.session.execute(sql).first()

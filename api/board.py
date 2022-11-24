@@ -268,7 +268,7 @@ def board_like(board_id: int):
 
 
 @api.route('/board/<int:board_id>/comment', methods=['GET', 'POST'])
-def board_comment(board_id: int):
+def get_post_board_comment(board_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()

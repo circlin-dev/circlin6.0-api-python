@@ -42,6 +42,13 @@ def mission_category():
         }
 
         return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        result: dict = {
+            'result': False,
+            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
+        }
+        return json.dumps(result), 405
 
 
 @api.route('/mission/<int:mission_id>/comment', methods=['GET', 'POST'])
@@ -78,6 +85,15 @@ def mission_comment(mission_id: int):
         }
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
+    elif request.method == 'POST':
+        pass
+    else:
+        db_session.close()
+        result: dict = {
+            'result': False,
+            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
+        }
+        return json.dumps(result), 405
 
 
 @api.route('/mission/<int:mission_id>/feed', methods=['GET'])

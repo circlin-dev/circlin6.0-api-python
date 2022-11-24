@@ -21,6 +21,7 @@ class Notice:
 class NoticeComment:
     def __init__(
             self,
+            id: int or None,
             notice_id: int,
             user_id: int,
             group: int,
@@ -28,6 +29,7 @@ class NoticeComment:
             comment: str,
             deleted_at: [str, None]
     ):
+        self.id = id
         self.notice_id = notice_id
         self.user_id = user_id
         self.group = group
