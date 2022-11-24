@@ -19,7 +19,7 @@ import json
 
 
 # region board
-def get_count_of_the_board(repo: AbstractBoardRepository) -> int:
+def get_count_of_boards(repo: AbstractBoardRepository) -> int:
     return repo.count_number_of_board()
 
 

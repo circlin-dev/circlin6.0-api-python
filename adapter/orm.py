@@ -7,7 +7,7 @@ from domain.brand import Brand
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedImage, FeedMission, FeedProduct
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
-from domain.notice import Notice, NoticeComment
+from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
 from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
@@ -337,6 +337,19 @@ notice_comments = Table(
     Column("depth", TINYINT, nullable=False, server_default=text("'0'")),
     Column("comment", TEXT, nullable=False),
     Column("deleted_at", TIMESTAMP),
+)
+
+
+notice_images = Table(
+    "notice_images",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("notice_id", BIGINT(unsigned=True), ForeignKey('notices.id'), nullable=False, index=True),
+    Column("order", INTEGER, server_default=text("'0'")),
+    Column("type", VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)'),
+    Column("image", VARCHAR(255), nullable=False),
 )
 # endregion
 
@@ -768,9 +781,15 @@ def mission_stat_mappers():
 
 # region notice
 def notice_mappers():
+    mapper_registry.map_imperatively(NoticeImage, notice_images)
+    mapper_registry.map_imperatively(NoticeComment, notice_comments)
     mapper = mapper_registry.map_imperatively(
         Notice,
-        notices
+        notices,
+        properties={
+            "notice_images": relationship(NoticeImage),
+            "notice_comments": relationship(NoticeComment)
+        }
     )
     return mapper
 
@@ -787,6 +806,12 @@ def notice_comment_mappers():
             "users": relationship(User)
         }
     )
+    return mapper
+
+
+def notice_image_mappers():
+    mapper_registry.map_imperatively(Notice, notices)
+    mapper = mapper_registry.map_imperatively(NoticeImage, notice_images, properties={"notices": relationship(Notice)})
     return mapper
 # endregion
 

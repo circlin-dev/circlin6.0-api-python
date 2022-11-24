@@ -69,7 +69,7 @@ def get_notification_list(user_id: int, page_cursor: int, limit: int, notificati
     return entries
 
 
-def get_count_of_the_notification(user_id: int, notification_repo: AbstractNotificationRepository):
+def get_count_of_notifications(user_id: int, notification_repo: AbstractNotificationRepository):
     count: int = notification_repo.count_number_of_notification(user_id)
     return count
 

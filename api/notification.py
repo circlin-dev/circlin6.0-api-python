@@ -32,7 +32,7 @@ def get_notification():
         notification_repo: NotificationRepository = NotificationRepository(db_session)
         common_code_repo: CommonCodeRepository = CommonCodeRepository(db_session)
         notification_list: list = notification_service.get_notification_list(user_id, page_cursor, limit, notification_repo, common_code_repo)
-        number_of_notifications: int = notification_service.get_count_of_the_notification(user_id, notification_repo)
+        number_of_notifications: int = notification_service.get_count_of_notifications(user_id, notification_repo)
         db_session.commit()
         clear_mappers()
 

@@ -34,3 +34,11 @@ class NoticeComment:
         self.depth = depth
         self.comment = comment
         self.deleted_at = deleted_at
+
+
+class NoticeImage:
+    def __init__(self, notice_id: int, order: int, type: str, image: str):
+        self.notice_id = notice_id
+        self.order = order
+        self.type = type
+        self.image = image
