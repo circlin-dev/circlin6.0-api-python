@@ -37,7 +37,7 @@ def board_get_post():
         board_mappers()
         repo: BoardRepository = BoardRepository(db_session)
         board_list: list = board_service.get_board_list(user_id, page_cursor, limit, repo)
-        number_of_boards: int = board_service.get_count_of_the_board(repo)
+        number_of_boards: int = board_service.get_count_of_boards(repo)
         clear_mappers()
 
         last_cursor: [str, None] = None if len(board_list) <= 0 else board_list[-1]['cursor']  # 배열 원소의 cursor string
@@ -268,7 +268,7 @@ def board_like(board_id: int):
 
 
 @api.route('/board/<int:board_id>/comment', methods=['GET', 'POST'])
-def board_comment(board_id: int):
+def get_post_board_comment(board_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()

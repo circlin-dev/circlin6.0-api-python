@@ -1,5 +1,6 @@
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_comment import AbstractFeedCommentRepository
+from domain.feed import Feed
 
 import json
 
@@ -83,10 +84,6 @@ def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedReposit
     return entries
 
 
-def get_feeds_by_mission(mission_id: int, feed_repo: AbstractFeedRepository):
-    pass
-
-
 def get_comment_count_of_the_feed(board_id, repo: AbstractFeedCommentRepository) -> int:
     return repo.count_number_of_comment(board_id)
 
@@ -109,3 +106,20 @@ def get_comments(board_id: int, page_cursor: int, limit: int, user_id: int, repo
         ) for comment in comments
     ]
     return entries
+
+
+def get_a_feed(feed_id, feed_repo: AbstractFeedRepository) -> Feed:
+    # deleted_at == None && is_hidden != 1
+
+
+    pass
+
+
+def update_a_feed(feed_id: int, feed_repo: AbstractFeedRepository) -> bool:
+    # check_if_user_is_the_owner_of_the_feed is True && feed is not None && feed_is_undeleted is True
+    pass
+
+
+def delete_a_feed(feed_id: int, feed_repo: AbstractFeedRepository) -> bool:
+    # check_if_user_is_the_owner_of_the_feed is True && feed is not None && feed_is_undeleted is True
+    pass

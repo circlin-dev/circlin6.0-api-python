@@ -1,6 +1,7 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import mission_category_mappers, mission_comment_mappers, feed_mission_mappers, user_favorite_category_mappers
+from adapter.orm import feed_mappers, feed_mission_mappers, mission_category_mappers, mission_comment_mappers, user_favorite_category_mappers
+from adapter.repository.feed import FeedRepository
 from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
@@ -41,6 +42,13 @@ def mission_category():
         }
 
         return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        result: dict = {
+            'result': False,
+            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
+        }
+        return json.dumps(result), 405
 
 
 @api.route('/mission/<int:mission_id>/comment', methods=['GET', 'POST'])
@@ -77,6 +85,15 @@ def mission_comment(mission_id: int):
         }
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
+    elif request.method == 'POST':
+        pass
+    else:
+        db_session.close()
+        result: dict = {
+            'result': False,
+            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
+        }
+        return json.dumps(result), 405
 
 
 @api.route('/mission/<int:mission_id>/feed', methods=['GET'])
@@ -97,18 +114,19 @@ def mission_feeds(mission_id: int):
         limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
         page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
-        repo: MissionCommentRepository = MissionCommentRepository(db_session)
-        comments: list = mission_service.get_comments(mission_id, page_cursor, limit, user_id, repo)
-        number_of_comment: int = mission_service.get_comment_count_of_the_mission(mission_id, repo)
+        feed_mappers()
+        repo: FeedRepository = FeedRepository(db_session)
+        feeds: list = mission_service.get_feeds_by_mission(mission_id, page_cursor, limit, user_id, repo)
+        number_of_feeds: int = mission_service.get_feed_count_of_the_mission(mission_id, repo)
         clear_mappers()
 
-        last_cursor: [str, None] = None if len(comments) <= 0 else comments[-1]['cursor']  # 배열 원소의 cursor string
+        last_cursor: [str, None] = None if len(feeds) <= 0 else feeds[-1]['cursor']  # 배열 원소의 cursor string
 
         result: dict = {
             'result': True,
-            'data': comments,
+            'data': feeds,
             'cursor': last_cursor,
-            'totalCount': number_of_comment,
+            'totalCount': number_of_feeds,
         }
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
