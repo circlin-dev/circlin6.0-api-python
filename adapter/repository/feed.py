@@ -44,11 +44,15 @@ class AbstractFeedRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def update(self, feed: Feed) -> Feed:
+    def get_simple_one(self, feed_id: int) -> Feed:
         pass
 
     @abc.abstractmethod
-    def delete(self, feed: Feed) -> Feed:
+    def update(self, feed: Feed):
+        pass
+
+    @abc.abstractmethod
+    def delete(self, feed: Feed):
         pass
 
 
@@ -628,8 +632,26 @@ class FeedRepository(AbstractFeedRepository):
         total_count = self.session.execute(sql).scalar()
         return total_count
 
-    def update(self, feed: Feed) -> Feed:
-        pass
+    def get_simple_one(self, feed_id: int) -> Feed:
+        sql = select(Feed).where(Feed.id == feed_id)
+        result = self.session.execute(sql).scalars().first()
 
-    def delete(self, feed: Feed) -> Feed:
-        pass
+        if result is not None:
+            result.is_hidden = True if result.is_hidden == 1 else False
+
+        return result
+
+    def update(self, feed: Feed):
+        sql = update(
+            Feed
+        ).where(
+            Feed.id == feed.id
+        ).values(
+            content=feed.content,
+            is_hidden=feed.is_hidden
+        )
+        return self.session.execute(sql)
+
+    def delete(self, feed: Feed):
+        sql = update(Feed).where(Feed.id == feed.id).values(deleted_at=func.now())
+        return self.session.execute(sql)

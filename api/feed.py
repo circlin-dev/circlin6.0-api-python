@@ -40,9 +40,72 @@ def feed(feed_id: int):
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
     elif request.method == 'PATCH':
-        pass
+        data: dict = json.loads(request.get_data())
+        new_body: [str, None] = data['body'] if data['body'] is not None or data['body'].strip() != '' else None
+        new_is_hidden: [int, None] = int(data['isHidden']) if data['isHidden'] is not None else None
+
+        if new_body is None or new_body.strip() == '':
+            db_session.close()
+            result: dict = {
+                'result': False,
+                'error': f'{ERROR_RESPONSE[400]} (body).'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        elif new_is_hidden is None:
+            db_session.close()
+            result: dict = {
+                'result': False,
+                'error': f'{ERROR_RESPONSE[400]} (isHidden).'
+            }
+            return json.dumps(result, ensure_ascii=False), 400
+        else:
+            feed_mappers()
+            repo: FeedRepository = FeedRepository(db_session)
+            new_feed = Feed(
+                id=feed_id,
+                user_id=user_id,
+                content=new_body,
+                is_hidden=True if new_is_hidden == 1 else False,
+                deleted_at=None,
+                distance=None,
+                distance_origin=None,
+                laptime=None,
+                laptime_origin=None
+            )
+            update_feed: dict = feed_service.update_feed(new_feed, user_id, repo)
+            clear_mappers()
+
+            if update_feed['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(update_feed, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in update_feed.items() if key != 'status_code'}, ensure_ascii=False), update_feed['status_code']
     elif request.method == 'DELETE':
-        pass
+        feed_mappers()
+        repo: FeedRepository = FeedRepository(db_session)
+        target_feed = Feed(
+            id=feed_id,
+            user_id=user_id,
+            content='',
+            is_hidden=None,
+            deleted_at=None,
+            distance=None,
+            distance_origin=None,
+            laptime=None,
+            laptime_origin=None
+        )
+        delete_feed: dict = feed_service.delete_feed(target_feed, user_id, repo)
+        clear_mappers()
+
+        if delete_feed['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(delete_feed, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in delete_feed.items() if key != 'status_code'}, ensure_ascii=False), delete_feed['status_code']
     else:
         db_session.close()
         result: dict = {

@@ -53,7 +53,8 @@ class BoardRepository(AbstractBoardRepository):
         sql = select(Board).where(Board.id == board_id)
         result = self.session.execute(sql).scalars().first()
 
-        result.is_show = True if result.is_show == 1 else False
+        if result is not None:
+            result.is_show = True if result.is_show == 1 else False
 
         return result
 

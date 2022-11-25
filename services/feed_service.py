@@ -49,6 +49,22 @@ def get_count_of_newsfeeds(user_id: int, feed_repo: AbstractFeedRepository):
     return total_count
 
 
+def check_if_user_is_the_owner_of_the_feed(feed_owner_id: int, request_user_id: int) -> bool:
+    return feed_owner_id == request_user_id
+
+
+def feed_is_undeleted(feed: Feed) -> bool:
+    return True if feed.deleted_at is None else False
+
+
+def feed_is_visible(feed: Feed) -> bool:
+    return True if feed.is_hidden == 0 else False
+
+
+def feed_is_available_to_other(feed: Feed) -> bool:
+    return feed_is_visible(feed) is True and feed_is_undeleted(feed) is True
+
+
 def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedRepository) -> list:
     recommendation = feed_repo.get_recently_most_checked_feeds(user_id)
     entries: list = [dict(
@@ -165,11 +181,25 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
     return feed_dict
 
 
-def update_a_feed(feed_id: int, feed_repo: AbstractFeedRepository) -> bool:
-    # check_if_user_is_the_owner_of_the_feed is True && feed is not None && feed_is_undeleted is True
-    pass
+def update_feed(new_feed: Feed, request_user_id: int, feed_repo: AbstractFeedRepository) -> dict:
+    target_feed: Feed = feed_repo.get_simple_one(new_feed.id)
+
+    if target_feed is None or feed_is_undeleted(target_feed) is False:
+        return {'result': False, 'error': '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.', 'status_code': 400}
+    elif check_if_user_is_the_owner_of_the_feed(target_feed.user_id, request_user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 피드이므로 수정할 권한이 없습니다.', 'status_code': 403}
+    else:
+        feed_repo.update(new_feed)
+        return {'result': True}
 
 
-def delete_a_feed(feed_id: int, feed_repo: AbstractFeedRepository) -> bool:
-    # check_if_user_is_the_owner_of_the_feed is True && feed is not None && feed_is_undeleted is True
-    pass
+def delete_feed(feed: Feed, request_user_id: int, feed_repo: AbstractFeedRepository) -> dict:
+    target_feed: Feed = feed_repo.get_simple_one(feed.id)
+
+    if target_feed is None or feed_is_undeleted(target_feed) is False:
+        return {'result': False, 'error': '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.', 'status_code': 400}
+    elif check_if_user_is_the_owner_of_the_feed(target_feed.user_id, request_user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 피드이므로 수정할 권한이 없습니다.', 'status_code': 403}
+    else:
+        feed_repo.delete(target_feed)
+        return {'result': True}
