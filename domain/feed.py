@@ -64,6 +64,14 @@ class FeedImage:
         self.image = image
 
 
+class FeedLike:
+    def __init__(self, feed_id: int, user_id: int):
+        self.feed_id = feed_id
+        self.user_id = user_id
+        # self.point = point
+        # self.deleted_at = deleted_at
+
+
 class FeedMission:
     def __init__(self, feed_id: int, mission_stat_id: int, mission_id: int):
         self.feed_id = feed_id

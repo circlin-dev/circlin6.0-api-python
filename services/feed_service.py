@@ -1,4 +1,5 @@
 from adapter.repository.feed import AbstractFeedRepository
+from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.feed_comment import AbstractFeedCommentRepository
 from domain.feed import Feed
 
@@ -108,11 +109,60 @@ def get_comments(board_id: int, page_cursor: int, limit: int, user_id: int, repo
     return entries
 
 
-def get_a_feed(feed_id, feed_repo: AbstractFeedRepository) -> Feed:
-    # deleted_at == None && is_hidden != 1
+def get_like_count_of_the_feed(feed_id: int, repo: AbstractFeedCheckRepository) -> int:
+    return repo.count_number_of_like(feed_id)
 
 
-    pass
+def get_user_list_who_like_this_feed(feed_id: int, page_cursor: int, limit: int, repo: AbstractFeedCheckRepository) -> list:
+    liked_users: list = repo.get_liked_user_list(feed_id, page_cursor, limit)
+    entries: list = [dict(
+        id=user.id,
+        nickname=user.nickname,
+        greeting=user.greeting,
+        profileImage=user.profile_image,
+        cursor=user.cursor
+    ) for user in liked_users]
+
+    return entries
+
+
+def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) -> dict:
+    feed: Feed = feed_repo.get_one(feed_id, user_id)
+
+    feed_dict = dict(
+        id=feed.id,
+        createdAt=feed.created_at,
+        body=feed.body,
+        images=[] if feed.images is None else json.loads(feed.images),
+        checked=feed.checked,
+        commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
+        checksCount=json.loads(feed.feed_additional_information)["checks_count"],
+        # checkedUsers = json.loads(feed.feed_additional_information["checked_users"]),
+        user=dict(
+            id=feed.user_id,
+            nickname=feed.nickname,
+            profile=feed.profile_image,
+            gender=feed.gender,
+            followed=True if feed.followed == 1 else False,
+            isBlocked=True if feed.is_blocked == 1 else False,
+            isChatBlocked=True if feed.is_chat_blocked == 1 else False,
+            area=json.loads(feed.user_additional_information)["area"],
+            followers=json.loads(feed.user_additional_information)["followers"],
+        ),
+        missions=[dict(
+            id=mission['id'],
+            title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
+            isEvent=True if mission['is_event'] == 1 else False,
+            isOldEvent=True if mission['is_old_event'] == 1 else False,
+            isGround=True if mission['is_ground'] == 1 else False,
+            eventType=mission['event_type'],
+            thumbnail=mission['thumbnail'],
+            bookmarked=True if mission['bookmarked'] == 1 else False,
+        ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
+        product=json.loads(feed.product)
+    ) if feed is not None else None
+
+    return feed_dict
 
 
 def update_a_feed(feed_id: int, feed_repo: AbstractFeedRepository) -> bool:
