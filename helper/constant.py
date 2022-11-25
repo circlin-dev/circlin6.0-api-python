@@ -59,9 +59,10 @@ INITIAL_ASCENDING_PAGE_CURSOR: int = 00000000000000
 INITIAL_PAGE_LIMIT: int = 20
 INITIAL_PAGE: int = 1
 
-# region push
+# push
 PUSH_TITLE_BOARD: str = "써클인 커뮤니티"
 PUSH_TITLE_NOTICE: str = "써클인 공지사항"
+PUSH_TITLE_FEED: str = "써클인 피드 알림"
 
 # Error message
 ERROR_RESPONSE: dict = {
@@ -71,5 +72,7 @@ ERROR_RESPONSE: dict = {
     500: '서버 오류로 요청을 수행할 수 없습니다. 계속 발생할 경우 카카오톡 채널 "써클인"으로 문의해 주세요.'
 }
 
+# Point reward logic
+REASONS_FOR_POINT_REWARD_RESTRICTION: list = ["feed_check", "feed_check_reward", "feed_comment_reward", "feed_comment_delete"]
 # endregion
 

@@ -186,87 +186,6 @@ def board_patch_delete(board_id: int):
         return json.dumps(result), 405
 
 
-@api.route('/board/<int:board_id>/like', methods=['GET', 'POST', 'DELETE'])
-def board_like(board_id: int):
-    user_id: [int, None] = authenticate(request, db_session)
-    if user_id is None:
-        db_session.close()
-        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
-
-    if board_id is None:
-        db_session.close()
-        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
-
-    if request.method == 'GET':
-        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
-        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
-        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
-
-        board_like_mappers()
-        repo: BoardLikeRepository = BoardLikeRepository(db_session)
-        liked_users: list = board_service.get_user_list_who_like_this_board(board_id, page_cursor, limit, repo)
-        number_of_like: int = board_service.get_like_count_of_the_board(board_id, repo)
-        clear_mappers()
-
-        last_cursor: [str, None] = None if len(liked_users) <= 0 else liked_users[-1]['cursor']  # 배열 원소의 cursor string
-
-        result: dict = {
-            'result': True,
-            'data': liked_users,
-            'cursor': last_cursor,
-            'totalCount': number_of_like,
-        }
-        db_session.close()
-        return json.dumps(result, ensure_ascii=False), 200
-
-    elif request.method == 'POST':
-        board_like_mappers()
-        board_like_repo: BoardLikeRepository = BoardLikeRepository(db_session)
-        board_repo: BoardRepository = BoardRepository(db_session)
-        user_repo: UserRepository = UserRepository(db_session)
-        push_hisotry_repo: PushHistoryRepository = PushHistoryRepository(db_session)
-        notification_repo: NotificationRepository = NotificationRepository(db_session)
-
-        new_like: BoardLike = BoardLike(id=None, user_id=user_id, board_id=board_id)
-        like: dict = board_service.increase_like(new_like, board_like_repo, board_repo, user_repo, push_hisotry_repo, notification_repo)
-        clear_mappers()
-
-        if like['result']:
-            db_session.commit()
-            db_session.close()
-            return json.dumps(like, ensure_ascii=False), 200
-        else:
-            db_session.close()
-            return json.dumps(like, ensure_ascii=False), 400
-
-    elif request.method == 'DELETE':
-        board_like_mappers()
-        board_like_repo: BoardLikeRepository = BoardLikeRepository(db_session)
-        board_repo: BoardRepository = BoardRepository(db_session)
-
-        like_record: BoardLike = BoardLike(id=None, user_id=user_id, board_id=board_id)
-        cancel_like: dict = board_service.decrease_like(like_record, board_like_repo, board_repo)
-        clear_mappers()
-
-        if cancel_like['result']:
-            db_session.commit()
-            db_session.close()
-            return json.dumps(cancel_like, ensure_ascii=False), 200
-        else:
-            db_session.close()
-            return json.dumps(cancel_like, ensure_ascii=False), 400
-
-    else:
-        db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
-
-
 @api.route('/board/<int:board_id>/comment', methods=['GET', 'POST'])
 def get_post_board_comment(board_id: int):
     user_id: [int, None] = authenticate(request, db_session)
@@ -427,6 +346,87 @@ def board_comment_manipulate(board_id: int, board_comment_id: int):
         else:
             db_session.close()
             return json.dumps({key: value for key, value in delete_comment.items() if key != 'status_code'}, ensure_ascii=False), delete_comment['status_code']
+    else:
+        db_session.close()
+        result: dict = {
+            'result': False,
+            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
+        }
+        return json.dumps(result), 405
+
+
+@api.route('/board/<int:board_id>/like', methods=['GET', 'POST', 'DELETE'])
+def board_like(board_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
+        return json.dumps(result, ensure_ascii=False), 401
+
+    if board_id is None:
+        db_session.close()
+        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
+        return json.dumps(result, ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
+        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        board_like_mappers()
+        repo: BoardLikeRepository = BoardLikeRepository(db_session)
+        liked_users: list = board_service.get_user_list_who_like_this_board(board_id, page_cursor, limit, repo)
+        number_of_like: int = board_service.get_like_count_of_the_board(board_id, repo)
+        clear_mappers()
+
+        last_cursor: [str, None] = None if len(liked_users) <= 0 else liked_users[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': liked_users,
+            'cursor': last_cursor,
+            'totalCount': number_of_like,
+        }
+        db_session.close()
+        return json.dumps(result, ensure_ascii=False), 200
+
+    elif request.method == 'POST':
+        board_like_mappers()
+        board_like_repo: BoardLikeRepository = BoardLikeRepository(db_session)
+        board_repo: BoardRepository = BoardRepository(db_session)
+        user_repo: UserRepository = UserRepository(db_session)
+        push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
+        notification_repo: NotificationRepository = NotificationRepository(db_session)
+
+        new_like: BoardLike = BoardLike(id=None, user_id=user_id, board_id=board_id)
+        like: dict = board_service.increase_like(new_like, board_like_repo, board_repo, user_repo, push_history_repo, notification_repo)
+        clear_mappers()
+
+        if like['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(like, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps(like, ensure_ascii=False), 400
+
+    elif request.method == 'DELETE':
+        board_like_mappers()
+        board_like_repo: BoardLikeRepository = BoardLikeRepository(db_session)
+        board_repo: BoardRepository = BoardRepository(db_session)
+
+        like_record: BoardLike = BoardLike(id=None, user_id=user_id, board_id=board_id)
+        cancel_like: dict = board_service.decrease_like(like_record, board_like_repo, board_repo)
+        clear_mappers()
+
+        if cancel_like['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(cancel_like, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps(cancel_like, ensure_ascii=False), 400
+
     else:
         db_session.close()
         result: dict = {

@@ -10,6 +10,10 @@ class AbstractFeedCommentRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_one(self, feed_comment_id: int) -> FeedComment:
+        pass
+
+    @abc.abstractmethod
     def get_list(self, feed_id: int, page_cursor: int, limit: int, user_id: int) -> list:
         pass
 
@@ -51,6 +55,9 @@ class FeedCommentRepository(AbstractFeedCommentRepository):
         result = self.session.execute(sql)  # =====> inserted row의 id값을 반환해야 한다.
 
         return result.inserted_primary_key[0]
+
+    def get_one(self, feed_comment_id: int) -> FeedComment:
+        pass
 
     def get_list(self, feed_id: int, page_cursor: int, limit: int, user_id: int) -> list:
         sql = select(

@@ -174,9 +174,9 @@ def get_comments(board_id: int, page_cursor: int, limit: int, user_id: int, repo
 def add_comment(new_board_comment: BoardComment,
                 board_comment_repo: AbstractBoardCommentRepository,
                 board_repo: AbstractBoardRepository,
-                user_repo: AbstractUserRepository,
+                notification_repo: NotificationRepository,
                 push_history_repo: PushHistoryRepository,
-                notification_repo: NotificationRepository
+                user_repo: AbstractUserRepository
                 ) -> dict:
     target_board: Board = board_repo.get_one(new_board_comment.board_id)
 
@@ -280,10 +280,10 @@ def add_comment(new_board_comment: BoardComment,
 def update_comment(board_comment: BoardComment, repo: AbstractBoardCommentRepository) -> dict:
     target_comment: BoardComment = repo.get_one(board_comment.id)
 
-    if check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
-    elif target_comment is None or board_comment_is_undeleted(target_comment) is False:
+    if target_comment is None or board_comment_is_undeleted(target_comment) is False:
         return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+    elif check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
     else:
         repo.update(board_comment)
         return {'result': True}
@@ -292,10 +292,10 @@ def update_comment(board_comment: BoardComment, repo: AbstractBoardCommentReposi
 def delete_comment(board_comment: BoardComment, repo: AbstractBoardCommentRepository) -> dict:
     target_comment: BoardComment = repo.get_one(board_comment.id)
 
-    if check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
-    elif target_comment is None or board_comment_is_undeleted(target_comment) is False:
+    if target_comment is None or board_comment_is_undeleted(target_comment) is False:
         return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+    elif check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
     else:
         repo.delete(target_comment)
         return {'result': True}

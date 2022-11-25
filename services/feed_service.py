@@ -1,7 +1,17 @@
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.feed_comment import AbstractFeedCommentRepository
-from domain.feed import Feed
+from adapter.repository.notification import AbstractNotificationRepository
+from adapter.repository.point_history import AbstractPointHistoryRepository
+from adapter.repository.push import AbstractPushHistoryRepository
+from adapter.repository.user import AbstractUserRepository
+from domain.feed import Feed, FeedComment
+from domain.notification import Notification
+from domain.point_history import PointHistory
+from domain.push import PushHistory
+from domain.user import User
+from helper.constant import PUSH_TITLE_FEED, REASONS_FOR_POINT_REWARD_RESTRICTION
+from services import notification_service, point_service, push_service
 
 import json
 
@@ -101,30 +111,6 @@ def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedReposit
     return entries
 
 
-def get_comment_count_of_the_feed(board_id, repo: AbstractFeedCommentRepository) -> int:
-    return repo.count_number_of_comment(board_id)
-
-
-def get_comments(board_id: int, page_cursor: int, limit: int, user_id: int, repo: AbstractFeedCommentRepository) -> list:
-    comments: list = repo.get_list(board_id, page_cursor, limit, user_id)
-    entries: list = [
-        dict(
-            id=comment.id,
-            createdAt=comment.created_at,
-            group=comment.group,
-            depth=comment.depth,
-            comment=comment.comment,
-            userId=comment.user_id,
-            isBlocked=True if comment.is_blocked == 1 else False,
-            nickname=comment.nickname,
-            profile=comment.profile_image,
-            gender=comment.gender,
-            cursor=comment.cursor
-        ) for comment in comments
-    ]
-    return entries
-
-
 def get_like_count_of_the_feed(feed_id: int, repo: AbstractFeedCheckRepository) -> int:
     return repo.count_number_of_like(feed_id)
 
@@ -203,3 +189,175 @@ def delete_feed(feed: Feed, request_user_id: int, feed_repo: AbstractFeedReposit
     else:
         feed_repo.delete(target_feed)
         return {'result': True}
+
+
+# region feed comment
+def check_if_user_is_the_owner_of_the_feed_comment(feed_comment_owner_id: int, request_user_id: int) -> bool:
+    return feed_comment_owner_id == request_user_id
+
+
+def feed_comment_is_undeleted(feed_comment: FeedComment) -> bool:
+    return True if feed_comment.deleted_at is None else False
+
+
+def get_comment_count_of_the_feed(feed_id: int, repo: AbstractFeedCommentRepository) -> int:
+    return repo.count_number_of_comment(feed_id)
+
+
+def get_comments(feed_id: int, page_cursor: int, limit: int, user_id: int, repo: AbstractFeedCommentRepository) -> list:
+    comments: list = repo.get_list(feed_id, page_cursor, limit, user_id)
+    entries: list = [
+        dict(
+            id=comment.id,
+            createdAt=comment.created_at,
+            group=comment.group,
+            depth=comment.depth,
+            comment=comment.comment,
+            userId=comment.user_id,
+            isBlocked=True if comment.is_blocked == 1 else False,
+            nickname=comment.nickname,
+            profile=comment.profile_image,
+            gender=comment.gender,
+            cursor=comment.cursor
+        ) for comment in comments
+    ]
+    return entries
+
+
+def add_comment(new_feed_comment: FeedComment,
+                feed_comment_repo: AbstractFeedCommentRepository,
+                feed_repo: AbstractFeedRepository,
+                notification_repo: AbstractNotificationRepository,
+                point_history_repo: AbstractPointHistoryRepository,
+                push_history_repo: AbstractPushHistoryRepository,
+                user_repo: AbstractUserRepository
+                ) -> dict:
+    target_feed: Feed = feed_repo.get_one(new_feed_comment.feed_id, new_feed_comment.user_id)
+
+    # 1. 게시물에 댓글을 작성할할 수 있는 상태인지 확인한다.
+    if target_feed is None:
+        return {'result': False, 'error': '존재하지 않는 피드입니다.', 'status_code': 400}
+    elif target_feed is not None and not feed_is_available_to_other(target_feed) and not check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
+        # 1-1. 숨김 처리되었거나, 삭제된 게시물에는 게시글 주인 외에는 댓글 작성 불가능
+        return {'result': False, 'error': '작성자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 게시글에는 댓글을 작성할 수 없습니다.', 'status_code': 400}
+    elif target_feed is not None and not feed_is_available_to_other(target_feed) and check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
+        # 작성 가능
+        pass
+    else:
+        # 작성 가능
+        pass
+
+    # 2. 댓글 혹은 답글을 판단하여 등록한다.
+    # 2-1.해당 게시글의 댓글 comment_group값 중 최대값을 가져온다(max_group).
+    max_comment_group_value: [int, None] = feed_comment_repo.get_maximum_comment_group_value(new_feed_comment.feed_id)
+    if max_comment_group_value is None:
+        # 2-2. max_comment_group_value가 Null인 경우, 첫 댓글이므로 group, depth에 초기값을 적용한다(각각 1, 0).
+        comment_group = 1
+        depth = 0
+    else:
+        # 2-3. max_comment_group_value이 Null이 아닌 경우, group으로 새 댓글인지 대댓글인지 판단하고 comment_group값과 max_comment_group_value이 + 1을 비교하여 depth를 결정한다.
+        comment_group = new_feed_comment.group if new_feed_comment.group >= 1 else max_comment_group_value + 1  # 인자로 전달된 group value가 -1보다 크다면 답글이다. 댓글이라면, 현재의 comment group 최대값보다 1만큼 큰 새로운 댓글을 단다.
+        depth = 0 if comment_group >= max_comment_group_value + 1 else 1  # comment_group과
+    new_feed_comment.group = comment_group
+    new_feed_comment.depth = depth
+
+    inserted_feed_comment_id: int = feed_comment_repo.add(new_feed_comment)
+    commented_user: User = user_repo.get_one(new_feed_comment.user_id)
+    commented_user_nickname: str = commented_user.nickname
+
+    # 3. 알림, 푸쉬
+    # depth로 댓글이인지, 대댓글인지 판단한다.
+    # 댓글: 게시글 주인이 나일 경우는 아무것도 하지 않고, 아닐 경우에만 게시글 주인에게 "댓글" 알림, 푸쉬를 보낸다.
+    # 답글: 같은 댓글 group에 속한 댓글/답글 작성자 리스트를 구하고, 그 중 본인을 제외하고 "답글" 알림, 푸쉬를 보낸다. 단, 중복을 제거한다.
+    # 답글: 같은 댓글 group에 속한 댓글/답글 작성자 리스트에 게시글 작성자가 속해있지 않는 한, 게시글 작성자에게 보내지 않는다(To Be Determined).
+    ##################################################################################################################
+    # (1) Push 발송 함수
+    # (2) Notification 생성 함수
+    if depth <= 0:
+        push_type: str = f"feed_comment.{str(new_feed_comment.feed_id)}"
+        push_body = f'{commented_user_nickname}님이 내 피드에 댓글을 남겼습니다.\r\n\\"{new_feed_comment.comment}\\"'
+        notification_type: str = 'board_comment'
+        if not check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
+            push_target: list = user_repo.get_push_target([target_feed.user_id])
+        else:
+            push_target: list = []
+    else:
+        push_type = f"feed_reply.{str(new_feed_comment.feed_id)}"
+        push_body = f'{commented_user_nickname}님이 피드의 내 댓글에 답글을 남겼습니다.\r\n\\"{new_feed_comment.comment}\\"'
+        notification_type: str = 'board_reply'
+
+        users_who_belonged_to_same_comment_group: list = list(set(feed_comment_repo.get_users_who_belonged_to_same_comment_group(new_feed_comment.feed_id, comment_group)))
+        users_who_belonged_to_same_comment_group.remove(new_feed_comment.user_id) if new_feed_comment.user_id in users_who_belonged_to_same_comment_group else None
+        push_target: list = user_repo.get_push_target(users_who_belonged_to_same_comment_group)
+
+    for index, target_user in enumerate(push_target):
+        device_token = target_user.device_token
+        device_type = target_user.device_type
+
+        link_data: dict = {
+            "route": "Sub",
+            "screen": "Feed",
+            "params": {
+                "id": new_feed_comment.feed_id,
+                "comment_id": inserted_feed_comment_id
+            }
+        }
+        push_message: PushHistory = PushHistory(
+            id=None,
+            target_id=target_user.id,
+            device_token=device_token,
+            title=PUSH_TITLE_FEED,
+            message=push_body,
+            type=push_type,
+            result=0,
+            json=link_data,
+            result_json=dict()
+        )
+        push_service.send_fcm_push(device_type, push_message, push_history_repo)
+
+        # 알림: 좋아요, 취소, 좋아요, 취소 시 반복적으로 알림 생성되는 것을 방지하기 위해 이전에 좋아요 누른 기록 있으면 다시  알림 생성하지 않음.
+        notification: Notification = Notification(
+            id=None,
+            target_id=target_user.id,
+            type=notification_type,
+            user_id=new_feed_comment.user_id,
+            read_at=None,
+            variables={f'{notification_type}': new_feed_comment.comment},
+            feed_id=new_feed_comment.feed_id,
+            feed_comment_id=inserted_feed_comment_id
+        )
+        notification_service.create_notification(notification, notification_repo)
+
+    # 포인트 지급 로직 구현
+    # available_point: int = point_service.points_available_for_the_rest_of_the_day(feed_comment.user_id, REASONS_FOR_POINT_REWARD_RESTRICTION, point_history_repo)
+
+    return {'result': True}
+
+
+def update_comment(feed_comment: FeedComment, repo: AbstractFeedCommentRepository) -> dict:
+    target_comment: FeedComment = repo.get_one(feed_comment.id)
+
+    if check_if_user_is_the_owner_of_the_feed_comment(target_comment.user_id, feed_comment.user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
+    elif target_comment is None or feed_comment_is_undeleted(target_comment) is False:
+        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+    else:
+        repo.update(feed_comment)
+        return {'result': True}
+
+
+def delete_comment(feed_comment: FeedComment, repo: AbstractFeedCommentRepository) -> dict:
+    target_comment: FeedComment = repo.get_one(feed_comment.id)
+
+    if target_comment is None or feed_comment_is_undeleted(target_comment) is False:
+        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+    elif check_if_user_is_the_owner_of_the_feed_comment(target_comment.user_id, feed_comment.user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
+    else:
+        repo.delete(target_comment)
+        return {'result': True}
+
+
+# region feed check(like)
+
+# endregion
