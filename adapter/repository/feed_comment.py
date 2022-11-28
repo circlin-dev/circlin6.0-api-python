@@ -10,6 +10,10 @@ class AbstractFeedCommentRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_one(self, feed_comment_id: int) -> FeedComment:
+        pass
+
+    @abc.abstractmethod
     def get_list(self, feed_id: int, page_cursor: int, limit: int, user_id: int) -> list:
         pass
 
@@ -33,6 +37,10 @@ class AbstractFeedCommentRepository(abc.ABC):
     def get_users_who_belonged_to_same_comment_group(self, feed_id: int, group: int) -> int or None:
         pass
 
+    @abc.abstractmethod
+    def get_a_root_comment_by_feed_and_comment_group(self, feed_id: int, group: int) -> int:
+        pass
+
 
 class FeedCommentRepository(AbstractFeedCommentRepository):
     def __init__(self, session):
@@ -51,6 +59,11 @@ class FeedCommentRepository(AbstractFeedCommentRepository):
         result = self.session.execute(sql)  # =====> inserted row의 id값을 반환해야 한다.
 
         return result.inserted_primary_key[0]
+
+    def get_one(self, feed_comment_id: int) -> FeedComment:
+        sql = select(FeedComment).where(FeedComment.id == feed_comment_id)
+        result = self.session.execute(sql).scalars().first()
+        return result
 
     def get_list(self, feed_id: int, page_cursor: int, limit: int, user_id: int) -> list:
         sql = select(
@@ -125,3 +138,16 @@ class FeedCommentRepository(AbstractFeedCommentRepository):
         )
         commented_users: list = self.session.execute(sql).scalars().all()
         return commented_users
+
+    def get_a_root_comment_by_feed_and_comment_group(self, feed_id: int, group: int) -> int or None:
+        sql = select(
+            FeedComment.user_id
+        ).where(
+            and_(
+                FeedComment.feed_id == feed_id,
+                FeedComment.group == group,
+                FeedComment.depth == 0
+            )
+        )
+        commented_user: int or None = self.session.execute(sql).scalars().first()
+        return commented_user

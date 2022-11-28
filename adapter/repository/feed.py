@@ -1,4 +1,4 @@
-from adapter.orm import brands, feed_likes, follows, missions, mission_categories, outside_products, products
+from adapter.orm import brands, feed_images, feed_likes, follows, missions, mission_categories, outside_products, products
 from domain.feed import Feed, FeedCheck, FeedComment, FeedImage, FeedMission, FeedProduct
 from domain.user import User
 
@@ -70,12 +70,14 @@ class FeedRepository(AbstractFeedRepository):
             Feed.content.label('body'),
             select(func.json_arrayagg(
                 func.json_object(
-                    "order", FeedImage.order,
-                    "mimeType", FeedImage.type,
-                    "pathname", FeedImage.image,
+                    "order", feed_images.c.order,
+                    "mimeType", feed_images.c.type,
+                    "pathname", feed_images.c.image,
                     "resized", func.json_array()
                 )
-            )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
+            )).select_from(feed_images).where(feed_images.c.feed_id == Feed.id).label("images"),
+            Feed.is_hidden,
+            func.date_format(Feed.deleted_at, '%Y/%m/%d %H:%i:%s').label('deleted_at'),
             case(
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
@@ -436,7 +438,6 @@ class FeedRepository(AbstractFeedRepository):
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             Feed.content.label('body'),
-            Feed.is_hidden,
             select(func.json_arrayagg(
                 func.json_object(
                     "order", FeedImage.order,
@@ -445,6 +446,8 @@ class FeedRepository(AbstractFeedRepository):
                     "resized", func.json_array()
                 )
             )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
+            Feed.is_hidden,
+            func.date_format(Feed.deleted_at, '%Y/%m/%d %H:%i:%s').label('deleted_at'),
             case(
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0

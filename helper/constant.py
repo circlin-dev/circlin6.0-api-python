@@ -59,9 +59,10 @@ INITIAL_ASCENDING_PAGE_CURSOR: int = 00000000000000
 INITIAL_PAGE_LIMIT: int = 20
 INITIAL_PAGE: int = 1
 
-# region push
+# push
 PUSH_TITLE_BOARD: str = "써클인 커뮤니티"
 PUSH_TITLE_NOTICE: str = "써클인 공지사항"
+PUSH_TITLE_FEED: str = "써클인 피드 알림"
 
 # Error message
 ERROR_RESPONSE: dict = {
@@ -71,5 +72,25 @@ ERROR_RESPONSE: dict = {
     500: '서버 오류로 요청을 수행할 수 없습니다. 계속 발생할 경우 카카오톡 채널 "써클인"으로 문의해 주세요.'
 }
 
+# Point reward logic
+BASIC_COMPENSATION_AMOUNT_PER_REASON: dict = {
+    'feed_check': 10,
+    'feed_check_reward': 10,
+    'feed_comment_reward': 1,
+    'feed_comment_delete': -1,
+    'feed_upload_product': 50,
+    'feed_upload_place': 50,
+
+    'invite_reward': 500,
+    'recommended_reward': 500,
+
+    'review_food': 5
+}
+
+DAILY_POINT_LIMIT_FOR_FEED_CHECK_FEED_COMMENT: int = 500
+
+# 아래 지급 사유는 일일 최대 지급 한도(500p)에 따라 지급액이 줄어야 할 수도 있다.
+# 예를 들어, 현재까지 아래 4가지 이유로 496p를 획득한 상태에서 feed_check_reward를 받으면, 기본 지급액인 10p 대신 500p-496p = 4p 를 받는다.
+REASONS_HAVE_DAILY_REWARD_RESTRICTION: list = ["feed_check", "feed_check_reward", "feed_comment_reward", "feed_comment_delete"]
 # endregion
 

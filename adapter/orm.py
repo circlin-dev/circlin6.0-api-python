@@ -9,6 +9,7 @@ from domain.feed import Feed, FeedCheck, FeedComment, FeedImage, FeedMission, Fe
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
+from domain.point_history import PointHistory
 from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
 from domain.user import Follow, User, UserFavoriteCategory
@@ -375,6 +376,26 @@ notifications = Table(
     Column("board_comment_id", BIGINT(unsigned=True), ForeignKey('board_comments.id'), index=True),
     Column("read_at", TIMESTAMP, comment='읽은 일시'),
     Column("variables", JSON)
+)
+# endregion
+
+
+# region point history
+point_histories = Table(
+    "point_histories",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("point", Integer, nullable=False, comment='변경된 포인트'),
+    Column("result", Integer, comment='잔여 포인트'),
+    Column("reason", VARCHAR(255), nullable=False, comment='지급차감 사유 (like,mission 등) 출력될 내용은 common_codes'),
+    Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), index=True),
+    Column("order_id", BIGINT(unsigned=True), ForeignKey('orders.id'), index=True),
+    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), index=True),
+    Column("food_rating_id", BIGINT(unsigned=True), ForeignKey('food_ratings.id'), index=True),
+    Column("feed_comment_id", BIGINT(unsigned=True), ForeignKey('feed_comments.id'), index=True),
 )
 # endregion
 
@@ -818,10 +839,10 @@ def notice_image_mappers():
 
 # region notification
 def notification_mappers():
-    mapper_registry.map_imperatively(BoardComment, board_comments)
     mapper_registry.map_imperatively(Board, boards)
-    mapper_registry.map_imperatively(FeedComment, feed_comments)
+    mapper_registry.map_imperatively(BoardComment, board_comments)
     mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(FeedComment, feed_comments)
     mapper_registry.map_imperatively(Notice, notices)
     mapper_registry.map_imperatively(NoticeComment, notice_comments)
     mapper_registry.map_imperatively(Mission, missions)
@@ -849,6 +870,29 @@ def notification_mappers():
     )
     return mapper
 # endregion
+
+
+# region point histories
+def point_history_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(Feed, feeds)
+    # mapper_registry.map_imperatively(Order, orders)
+    mapper_registry.map_imperatively(Mission, missions)
+    # mapper_registry.map_imperatively(FoodRating, food_ratings)
+    mapper_registry.map_imperatively(FeedComment, feed_comments)
+    mapper = mapper_registry.map_imperatively(
+        PointHistory,
+        point_histories,
+        properties={
+            "users": relationship(User),
+            "feeds": relationship(Feed),
+            # "orders": relationship(Order),
+            "missions": relationship(Mission),
+            # "food_ratings": relationship(FoodRating),
+            "feed_comments": relationship(FeedComment)
+        }
+    )
+    return mapper
 
 
 # region product

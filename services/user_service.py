@@ -2,7 +2,6 @@ from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from adapter.repository.user import AbstractUserRepository
 from domain.user import UserFavoriteCategory, User
-
 import json
 
 
@@ -82,3 +81,9 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
 def get_feed_count_of_the_user(user_id, feed_repo: AbstractFeedRepository) -> int:
     count = feed_repo.count_number_of_feed_of_user(user_id)
     return count
+
+
+def update_users_current_point(user_id, point: int, user_repo: AbstractUserRepository):
+    target_user = user_repo.get_one(user_id)
+    user_repo.update_current_point(target_user, int(point))
+    return True

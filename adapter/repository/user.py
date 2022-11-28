@@ -1,7 +1,7 @@
 import abc
 from domain.user import User, UserFavoriteCategory
 from sqlalchemy.sql import func
-from sqlalchemy import select, and_
+from sqlalchemy import select, and_, update
 
 
 class AbstractUserRepository(abc.ABC):
@@ -19,6 +19,10 @@ class AbstractUserRepository(abc.ABC):
 
     @abc.abstractmethod
     def update(self, target_user, nickname) -> User:
+        pass
+
+    @abc.abstractmethod
+    def update_current_point(self, target_user: User, point: int):
         pass
 
     @abc.abstractmethod
@@ -61,6 +65,16 @@ class UserRepository(AbstractUserRepository):
             },
             synchronize_session="fetch"
         )
+
+    def update_current_point(self, target_user: User, point: int):
+        sql = update(
+            User
+        ).where(
+            User.id == target_user.id
+        ).values(
+            point=point
+        )
+        return self.session.execute(sql)
 
     def delete(self, target_user):
         return self.session.query(User).filter_by(id=target_user.id).update(
