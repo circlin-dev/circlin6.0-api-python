@@ -72,7 +72,7 @@ class UserRepository(AbstractUserRepository):
         ).where(
             User.id == target_user.id
         ).values(
-            point=target_user.point + point
+            point=point
         )
         return self.session.execute(sql)
 

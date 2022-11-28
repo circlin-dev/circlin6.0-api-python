@@ -385,8 +385,8 @@ point_histories = Table(
     "point_histories",
     mapper_registry.metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
-    Column("created_at", TIMESTAMP),
-    Column("updated_at", TIMESTAMP),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("point", Integer, nullable=False, comment='변경된 포인트'),
     Column("result", Integer, comment='잔여 포인트'),
@@ -839,10 +839,10 @@ def notice_image_mappers():
 
 # region notification
 def notification_mappers():
-    mapper_registry.map_imperatively(BoardComment, board_comments)
     mapper_registry.map_imperatively(Board, boards)
-    mapper_registry.map_imperatively(FeedComment, feed_comments)
+    mapper_registry.map_imperatively(BoardComment, board_comments)
     mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(FeedComment, feed_comments)
     mapper_registry.map_imperatively(Notice, notices)
     mapper_registry.map_imperatively(NoticeComment, notice_comments)
     mapper_registry.map_imperatively(Mission, missions)

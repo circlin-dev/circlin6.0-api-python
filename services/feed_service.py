@@ -2,7 +2,7 @@ from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.feed_comment import AbstractFeedCommentRepository
 from adapter.repository.notification import AbstractNotificationRepository
-from adapter.repository.point_history import AbstractPointHistoryRepository
+from adapter.repository.point_history import AbstractPointHistoryRepository, PointHistoryRepository
 from adapter.repository.push import AbstractPushHistoryRepository
 from adapter.repository.user import AbstractUserRepository
 from domain.feed import Feed, FeedComment
@@ -10,7 +10,7 @@ from domain.notification import Notification
 from domain.point_history import PointHistory
 from domain.push import PushHistory
 from domain.user import User
-from helper.constant import PUSH_TITLE_FEED, REASONS_FOR_POINT_REWARD_RESTRICTION
+from helper.constant import BASIC_COMPENSATION_AMOUNT_PER_REASON, PUSH_TITLE_FEED
 from services import notification_service, point_service, push_service
 
 import json
@@ -131,40 +131,43 @@ def get_user_list_who_like_this_feed(feed_id: int, page_cursor: int, limit: int,
 def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) -> dict:
     feed: Feed = feed_repo.get_one(feed_id, user_id)
 
-    feed_dict = dict(
-        id=feed.id,
-        createdAt=feed.created_at,
-        body=feed.body,
-        images=[] if feed.images is None else json.loads(feed.images),
-        checked=feed.checked,
-        commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
-        checksCount=json.loads(feed.feed_additional_information)["checks_count"],
-        # checkedUsers = json.loads(feed.feed_additional_information["checked_users"]),
-        user=dict(
-            id=feed.user_id,
-            nickname=feed.nickname,
-            profile=feed.profile_image,
-            gender=feed.gender,
-            followed=True if feed.followed == 1 else False,
-            isBlocked=True if feed.is_blocked == 1 else False,
-            isChatBlocked=True if feed.is_chat_blocked == 1 else False,
-            area=json.loads(feed.user_additional_information)["area"],
-            followers=json.loads(feed.user_additional_information)["followers"],
-        ),
-        missions=[dict(
-            id=mission['id'],
-            title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
-            isEvent=True if mission['is_event'] == 1 else False,
-            isOldEvent=True if mission['is_old_event'] == 1 else False,
-            isGround=True if mission['is_ground'] == 1 else False,
-            eventType=mission['event_type'],
-            thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False,
-        ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
-        product=json.loads(feed.product)
-    ) if feed is not None else None
+    if feed.id is None or feed_is_undeleted(feed) is False:
+        return {'result': False, 'error': '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.', 'status_code': 400}
+    else:
+        feed_dict = dict(
+            id=feed.id,
+            createdAt=feed.created_at,
+            body=feed.body,
+            images=[] if feed.images is None else json.loads(feed.images),
+            checked=feed.checked,
+            commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
+            checksCount=json.loads(feed.feed_additional_information)["checks_count"],
+            # checkedUsers = json.loads(feed.feed_additional_information["checked_users"]),
+            user=dict(
+                id=feed.user_id,
+                nickname=feed.nickname,
+                profile=feed.profile_image,
+                gender=feed.gender,
+                followed=True if feed.followed == 1 else False,
+                isBlocked=True if feed.is_blocked == 1 else False,
+                isChatBlocked=True if feed.is_chat_blocked == 1 else False,
+                area=json.loads(feed.user_additional_information)["area"],
+                followers=json.loads(feed.user_additional_information)["followers"],
+            ),
+            missions=[dict(
+                id=mission['id'],
+                title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
+                isEvent=True if mission['is_event'] == 1 else False,
+                isOldEvent=True if mission['is_old_event'] == 1 else False,
+                isGround=True if mission['is_ground'] == 1 else False,
+                eventType=mission['event_type'],
+                thumbnail=mission['thumbnail'],
+                bookmarked=True if mission['bookmarked'] == 1 else False,
+            ) for mission in json.loads(feed.mission)],
+            product=json.loads(feed.product)
+        ) if feed is not None else None
 
-    return feed_dict
+        return {'result': True, 'data': feed_dict}
 
 
 def update_feed(new_feed: Feed, request_user_id: int, feed_repo: AbstractFeedRepository) -> dict:
@@ -192,6 +195,17 @@ def delete_feed(feed: Feed, request_user_id: int, feed_repo: AbstractFeedReposit
 
 
 # region feed comment
+def can_the_user_get_feed_comment_point(feed_id: int, user_id: int, point_history_repo: PointHistoryRepository) -> int:
+    amount = point_history_repo.calculate_feed_comment_point_by_feed_id_and_user_id(feed_id, user_id)
+    return True if int(amount) <= 0 else False
+
+
+def is_this_comment_a_reply_to_other_user(target_comment_writer_id: int, new_feed_comment: FeedComment) -> bool:
+    is_reply = new_feed_comment.depth > 0
+    new_comment_writer_is_not_the_target_comment_writer = new_feed_comment.user_id != target_comment_writer_id
+    return is_reply is True and new_comment_writer_is_not_the_target_comment_writer is True
+
+
 def check_if_user_is_the_owner_of_the_feed_comment(feed_comment_owner_id: int, request_user_id: int) -> bool:
     return feed_comment_owner_id == request_user_id
 
@@ -276,7 +290,7 @@ def add_comment(new_feed_comment: FeedComment,
     if depth <= 0:
         push_type: str = f"feed_comment.{str(new_feed_comment.feed_id)}"
         push_body = f'{commented_user_nickname}님이 내 피드에 댓글을 남겼습니다.\r\n\\"{new_feed_comment.comment}\\"'
-        notification_type: str = 'board_comment'
+        notification_type: str = 'feed_comment'
         if not check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
             push_target: list = user_repo.get_push_target([target_feed.user_id])
         else:
@@ -284,7 +298,7 @@ def add_comment(new_feed_comment: FeedComment,
     else:
         push_type = f"feed_reply.{str(new_feed_comment.feed_id)}"
         push_body = f'{commented_user_nickname}님이 피드의 내 댓글에 답글을 남겼습니다.\r\n\\"{new_feed_comment.comment}\\"'
-        notification_type: str = 'board_reply'
+        notification_type: str = 'feed_reply'
 
         users_who_belonged_to_same_comment_group: list = list(set(feed_comment_repo.get_users_who_belonged_to_same_comment_group(new_feed_comment.feed_id, comment_group)))
         users_who_belonged_to_same_comment_group.remove(new_feed_comment.user_id) if new_feed_comment.user_id in users_who_belonged_to_same_comment_group else None
@@ -329,7 +343,30 @@ def add_comment(new_feed_comment: FeedComment,
         notification_service.create_notification(notification, notification_repo)
 
     # 포인트 지급 로직 구현
-    # available_point: int = point_service.points_available_for_the_rest_of_the_day(feed_comment.user_id, REASONS_FOR_POINT_REWARD_RESTRICTION, point_history_repo)
+    reason_for_point = "feed_comment_reward"
+    foreign_key_value_of_point_history = {'feed_comment_id': inserted_feed_comment_id, 'feed_id': target_feed.id}
+    if check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
+        user_of_comment_root = feed_comment_repo.get_a_root_comment_by_feed_and_comment_group(target_feed.id, comment_group)
+        if is_this_comment_a_reply_to_other_user(user_of_comment_root, new_feed_comment):
+            if can_the_user_get_feed_comment_point(target_feed.id, new_feed_comment.user_id, point_history_repo):
+                point_service.give_point(
+                    commented_user,
+                    reason_for_point,
+                    BASIC_COMPENSATION_AMOUNT_PER_REASON[reason_for_point],
+                    foreign_key_value_of_point_history,
+                    point_history_repo,
+                    user_repo
+                )
+    else:
+        if can_the_user_get_feed_comment_point(target_feed.id, new_feed_comment.user_id, point_history_repo):
+            point_service.give_point(
+                commented_user,
+                reason_for_point,
+                BASIC_COMPENSATION_AMOUNT_PER_REASON[reason_for_point],
+                foreign_key_value_of_point_history,
+                point_history_repo,
+                user_repo
+            )
 
     return {'result': True}
 
@@ -337,24 +374,53 @@ def add_comment(new_feed_comment: FeedComment,
 def update_comment(feed_comment: FeedComment, repo: AbstractFeedCommentRepository) -> dict:
     target_comment: FeedComment = repo.get_one(feed_comment.id)
 
-    if check_if_user_is_the_owner_of_the_feed_comment(target_comment.user_id, feed_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
-    elif target_comment is None or feed_comment_is_undeleted(target_comment) is False:
+    if target_comment is None or feed_comment_is_undeleted(target_comment) is False:
         return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+    elif check_if_user_is_the_owner_of_the_feed_comment(target_comment.user_id, feed_comment.user_id) is False:
+        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
     else:
         repo.update(feed_comment)
         return {'result': True}
 
 
-def delete_comment(feed_comment: FeedComment, repo: AbstractFeedCommentRepository) -> dict:
-    target_comment: FeedComment = repo.get_one(feed_comment.id)
+def delete_comment(feed_comment: FeedComment, feed_comment_repo: AbstractFeedCommentRepository, point_history_repo: AbstractPointHistoryRepository, user_repo: AbstractUserRepository) -> dict:
+    target_comment: FeedComment = feed_comment_repo.get_one(feed_comment.id)
 
     if target_comment is None or feed_comment_is_undeleted(target_comment) is False:
         return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
     elif check_if_user_is_the_owner_of_the_feed_comment(target_comment.user_id, feed_comment.user_id) is False:
         return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
     else:
-        repo.delete(target_comment)
+        point_history: PointHistory = PointHistory(
+            id=None,
+            user_id=feed_comment.user_id,
+            feed_id=feed_comment.feed_id,
+            feed_comment_id=feed_comment.id,
+            reason='feed_comment_reward',
+            result=0,
+            point=0
+        )
+        point_reward_history = point_service.get_a_point_history(point_history, point_history_repo)
+
+        if point_reward_history is None:
+            pass
+        else:
+            # 포인트 차감 로직 구현
+            reason_for_point = "feed_comment_delete"
+            foreign_key_value_of_point_history = {
+                'feed_comment_id': point_reward_history.feed_comment_id,
+                'feed_id': point_reward_history.feed_id
+            }
+            point_service.deduct_point(
+                user_repo.get_one(feed_comment.user_id),
+                reason_for_point,
+                BASIC_COMPENSATION_AMOUNT_PER_REASON[reason_for_point],
+                foreign_key_value_of_point_history,
+                point_history_repo,
+                user_repo
+            )
+
+        feed_comment_repo.delete(target_comment)
         return {'result': True}
 
 

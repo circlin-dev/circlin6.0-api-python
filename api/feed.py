@@ -1,6 +1,6 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import feed_mappers, feed_check_mappers, feed_comment_mappers
+from adapter.orm import feed_mappers, feed_check_mappers, feed_comment_mappers, point_history_mappers
 from adapter.repository.feed import FeedRepository
 from adapter.repository.feed_like import FeedCheckRepository
 from adapter.repository.feed_comment import FeedCommentRepository
@@ -11,7 +11,7 @@ from adapter.repository.user import UserRepository
 from domain.feed import Feed, FeedComment
 from helper.constant import ERROR_RESPONSE, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 from helper.function import authenticate, get_query_strings_from_request
-from services import feed_service
+from services import feed_service, point_service
 
 from flask import request
 import json
@@ -36,13 +36,17 @@ def feed(feed_id: int):
         repo: FeedRepository = FeedRepository(db_session)
         data: dict = feed_service.get_a_feed(feed_id, user_id, repo)
         clear_mappers()
-
-        result: dict = {
-            'result': True,
-            'data': data
-        }
         db_session.close()
-        return json.dumps(result, ensure_ascii=False), 200
+
+        if data['result']:
+            result: dict = {
+                'result': True,
+                'data': data
+            }
+            return json.dumps(result, ensure_ascii=False), 200
+        else:
+            return json.dumps({key: value for key, value in data.items() if key != 'status_code'}, ensure_ascii=False), data['status_code']
+
     elif request.method == 'PATCH':
         data: dict = json.loads(request.get_data())
         new_body: [str, None] = data['body'] if data['body'] is not None or data['body'].strip() != '' else None
@@ -192,16 +196,24 @@ def feed_comment(feed_id: int):
             }
             return json.dumps(result, ensure_ascii=False), 400
 
-        feed_comment_mappers()
+        # feed_comment_mappers()
+        feed_mappers()
         feed_repo: FeedRepository = FeedRepository(db_session)
         feed_comment_repo: FeedCommentRepository = FeedCommentRepository(db_session)
+
         notification_repo: NotificationRepository = NotificationRepository(db_session)
         point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
         push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
 
         new_feed_comment: FeedComment = FeedComment(
-
+            id=None,
+            comment=comment,
+            feed_id=feed_id,
+            user_id=user_id,
+            group=group,
+            depth=0,
+            deleted_at=None
         )
 
         add_comment: dict = feed_service.add_comment(new_feed_comment, feed_comment_repo, feed_repo, notification_repo, point_history_repo, push_history_repo, user_repo)
@@ -221,6 +233,18 @@ def feed_comment(feed_id: int):
             'error': f'{ERROR_RESPONSE[405]} ({request.method})'
         }
         return json.dumps(result), 405
+
+
+@api.route('/feed/<int:feed_id>/point', methods=['GET'])
+def test_feed_comment_point_calculate(feed_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    point_history_mappers()
+    repo = PointHistoryRepository(db_session)
+    result = feed_service.can_the_user_get_feed_comment_point(feed_id, user_id, repo)
+    clear_mappers()
+    db_session.close()
+
+    return json.dumps({'result': result}, ensure_ascii=False), 200
 
 
 @api.route('/feed/<int:feed_id>/comment/<int:feed_comment_id>', methods=['PATCH', 'DELETE'])
@@ -275,7 +299,10 @@ def feed_comment_manipulate(feed_id: int, feed_comment_id: int):
             return json.dumps({key: value for key, value in update_comment.items() if key != 'status_code'}, ensure_ascii=False), update_comment['status_code']
     elif request.method == 'DELETE':
         feed_comment_mappers()
-        repo: FeedCommentRepository = FeedCommentRepository(db_session)
+        # feed_mappers()
+        feed_comment_repo: FeedCommentRepository = FeedCommentRepository(db_session)
+        point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
+        user_repo: UserRepository = UserRepository(db_session)
         comment_record: FeedComment = FeedComment(
             id=feed_comment_id,
             user_id=user_id,
@@ -285,7 +312,7 @@ def feed_comment_manipulate(feed_id: int, feed_comment_id: int):
             group=0,
             deleted_at=None
         )
-        delete_comment: dict = feed_service.delete_comment(comment_record, repo)
+        delete_comment: dict = feed_service.delete_comment(comment_record, feed_comment_repo, point_history_repo, user_repo)
         clear_mappers()
 
         if delete_comment['result']:

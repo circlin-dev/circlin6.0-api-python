@@ -73,6 +73,24 @@ ERROR_RESPONSE: dict = {
 }
 
 # Point reward logic
-REASONS_FOR_POINT_REWARD_RESTRICTION: list = ["feed_check", "feed_check_reward", "feed_comment_reward", "feed_comment_delete"]
+BASIC_COMPENSATION_AMOUNT_PER_REASON: dict = {
+    'feed_check': 10,
+    'feed_check_reward': 10,
+    'feed_comment_reward': 1,
+    'feed_comment_delete': -1,
+    'feed_upload_product': 50,
+    'feed_upload_place': 50,
+
+    'invite_reward': 500,
+    'recommended_reward': 500,
+
+    'review_food': 5
+}
+
+DAILY_POINT_LIMIT_FOR_FEED_CHECK_FEED_COMMENT: int = 500
+
+# 아래 지급 사유는 일일 최대 지급 한도(500p)에 따라 지급액이 줄어야 할 수도 있다.
+# 예를 들어, 현재까지 아래 4가지 이유로 496p를 획득한 상태에서 feed_check_reward를 받으면, 기본 지급액인 10p 대신 500p-496p = 4p 를 받는다.
+REASONS_HAVE_DAILY_REWARD_RESTRICTION: list = ["feed_check", "feed_check_reward", "feed_comment_reward", "feed_comment_delete"]
 # endregion
 
