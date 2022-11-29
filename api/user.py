@@ -161,6 +161,7 @@ def get_user_feeds(user_id: int):
         number_of_feeds: int = user_service.get_feed_count_of_the_user(user_id, repo)
         clear_mappers()
 
+        db_session.close()
         last_cursor: [str, None] = None if len(feeds) <= 0 else feeds[-1]['cursor']  # 배열 원소의 cursor string
 
         result: dict = {
@@ -169,5 +170,4 @@ def get_user_feeds(user_id: int):
             'cursor': last_cursor,
             'totalCount': number_of_feeds,
         }
-        db_session.close()
         return json.dumps(result, ensure_ascii=False), 200

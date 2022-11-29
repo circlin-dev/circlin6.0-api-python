@@ -4,7 +4,7 @@ class Notification:
             id: [int, None],
             target_id: int,
             type: [str, None],
-            user_id: int,
+            user_id: int or None,
             read_at: [str, None],
             variables: dict or None,
             **kwargs

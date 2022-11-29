@@ -23,10 +23,11 @@ class Feed:
 
 
 class FeedCheck:
-    def __init__(self, user_id: int, feed_id: int, deleted_at: str or None):
+    def __init__(self, user_id: int, feed_id: int, point: int, deleted_at: str or None):
         self.id = id
         self.user_id = user_id
         self.feed_id = feed_id
+        self.point = point
         self.deleted_at = deleted_at
 
     def checkable(self):

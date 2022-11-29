@@ -112,9 +112,14 @@ def give_point(target_user: User, reason: str, request_point: int or None, forei
     else:
         amount = request_point
 
-    data = determine_foreign_key_by_reason(target_user, reason, amount, foreign_key_value)
-    point_history_repo.add(data)
-    user_repo.update_current_point(target_user, data.result)
+    if amount > 0:
+        data = determine_foreign_key_by_reason(target_user, reason, amount, foreign_key_value)
+        point_history_repo.add(data)
+        user_repo.update_current_point(target_user, data.result)
+    else:
+        pass
+
+    return amount
 
 
 def deduct_point(target_user: User, reason: str, request_point: int or None, foreign_key_value: dict, point_history_repo: AbstractPointHistoryRepository, user_repo: AbstractUserRepository):
