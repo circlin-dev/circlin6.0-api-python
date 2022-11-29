@@ -94,7 +94,6 @@ class FeedCheckRepository(AbstractFeedCheckRepository):
             )
         )
         result = self.session.execute(exists(sql).select()).scalar()
-        # result = self.session.execute(sql)
         return result
 
     def get_liked_user_list(self, feed_id: int, page_cursor: int, limit: int) -> list:

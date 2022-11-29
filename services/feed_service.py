@@ -427,6 +427,7 @@ def delete_comment(feed_comment: FeedComment, feed_comment_repo: AbstractFeedCom
 
 # region feed check(like)
 def no_check_record_for_this_feed(checked_history: FeedCheck) -> bool:
+    print('here0-1: ', True if checked_history is None else False)
     return True if checked_history is None else False
 
 
@@ -444,13 +445,14 @@ def feed_was_written_within_latest_24_hour(created_at: str):
 
     created_datetime: datetime = datetime(year, month, day, hour, minute, second)
     datetime_before_24hours_than_now: datetime = datetime.now() - timedelta(1)  # 1일 뺀 시간
-
+    print('here0-2: ', True if created_datetime >= datetime_before_24hours_than_now else False)
     return True if created_datetime >= datetime_before_24hours_than_now else False
 
 
 def never_gave_point_to_feed_writer_by_feed_check_today(feed: Feed, user_who_likes_the_feed: User, feed_like_repo: AbstractFeedCheckRepository):
     exists = feed_like_repo.record_of_like_with_points_that_were_awarded_to_writer_exists(feed, user_who_likes_the_feed)
-    return exists
+    print('here0-3: ', exists)
+    return False if exists else True
 
 
 def increase_like(
@@ -493,11 +495,12 @@ def increase_like(
             )
 
             checked_history = feed_like_repo.get_one_including_deleted_record(feed_like)
-
+            print('here0-4: ', available_point_for_feed_writer > 0)
             if no_check_record_for_this_feed(checked_history) \
-                    and feed_was_written_within_latest_24_hour(target_feed.created_at) \
                     and never_gave_point_to_feed_writer_by_feed_check_today(target_feed, user_who_likes_this_feed, feed_like_repo) \
+                    and feed_was_written_within_latest_24_hour(target_feed.created_at) \
                     and available_point_for_feed_writer > 0:
+                print('here1')
                 # 피드 작성자에게 규칙에 따라 feed_check 포인트를 지급 => feed_like.point 수정
                 reason_for_point = "feed_check"
                 foreign_key_value_of_point_history = {'feed_id': target_feed.id}
@@ -580,6 +583,7 @@ def increase_like(
                         pass
                     my_current_like_count += 1
             else:
+                print('here2')
                 # 이미 좋아요 했다가 해제했다가 다시 좋아요 한 경우. 재지급 되지 말아야 하며, 알림 및 푸시도 중복 실행되지 않아야 함.
                 pass
 
