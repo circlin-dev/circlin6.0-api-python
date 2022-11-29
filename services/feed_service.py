@@ -5,14 +5,15 @@ from adapter.repository.notification import AbstractNotificationRepository
 from adapter.repository.point_history import AbstractPointHistoryRepository, PointHistoryRepository
 from adapter.repository.push import AbstractPushHistoryRepository
 from adapter.repository.user import AbstractUserRepository
-from domain.feed import Feed, FeedComment
+from domain.feed import Feed, FeedCheck, FeedComment
 from domain.notification import Notification
 from domain.point_history import PointHistory
 from domain.push import PushHistory
 from domain.user import User
-from helper.constant import BASIC_COMPENSATION_AMOUNT_PER_REASON, PUSH_TITLE_FEED
+from helper.constant import BASIC_COMPENSATION_AMOUNT_PER_REASON, PUSH_TITLE_FEED, REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from services import notification_service, point_service, push_service
 
+from datetime import datetime, timedelta
 import json
 
 
@@ -425,5 +426,177 @@ def delete_comment(feed_comment: FeedComment, feed_comment_repo: AbstractFeedCom
 
 
 # region feed check(like)
+def no_check_record_for_this_feed(checked_history: FeedCheck) -> bool:
+    print('here0-1: ', True if checked_history is None else False)
+    return True if checked_history is None else False
 
+
+def feed_was_written_within_latest_24_hour(created_at: str):
+    date = created_at.split(' ')[0]
+    time = created_at.split(' ')[1]
+
+    year = int(date.split('/')[0])
+    month = int(date.split('/')[1])
+    day = int(date.split('/')[2])
+
+    hour = int(time.split(':')[0])
+    minute = int(time.split(':')[1])
+    second = int(time.split(':')[2])
+
+    created_datetime: datetime = datetime(year, month, day, hour, minute, second)
+    datetime_before_24hours_than_now: datetime = datetime.now() - timedelta(1)  # 1일 뺀 시간
+    print('here0-2: ', True if created_datetime >= datetime_before_24hours_than_now else False)
+    return True if created_datetime >= datetime_before_24hours_than_now else False
+
+
+def never_gave_point_to_feed_writer_by_feed_check_today(feed: Feed, user_who_likes_the_feed: User, feed_like_repo: AbstractFeedCheckRepository):
+    exists = feed_like_repo.record_of_like_with_points_that_were_awarded_to_writer_exists(feed, user_who_likes_the_feed)
+    print('here0-3: ', exists)
+    return False if exists else True
+
+
+def increase_like(
+        feed_like: FeedCheck,
+        feed_like_repo: AbstractFeedCheckRepository,
+        feed_repo: AbstractFeedRepository,
+        notification_repo: AbstractNotificationRepository,
+        point_history_repo: AbstractPointHistoryRepository,
+        push_history_repo: AbstractPushHistoryRepository,
+        user_repo: AbstractUserRepository
+) -> dict:
+    target_feed: Feed = feed_repo.get_one(feed_like.feed_id, feed_like.user_id)
+    paid_point: bool = False  # 대상에게 포인트 줬는지
+
+    feed_writer: User = user_repo.get_one(target_feed.user_id)
+    user_who_likes_this_feed: User = user_repo.get_one(feed_like.user_id)
+    checked_status: FeedCheck = feed_like_repo.get_one_excluding_deleted_record(feed_like)
+    my_current_like_count: int = feed_like_repo.get_current_like_count_of_user(user_who_likes_this_feed)
+
+    if target_feed is None or feed_is_available_to_other(target_feed) is False:
+        return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.', 'status_code': 400}
+    elif checked_status is not None:  # 현재 이 피드를 내가 좋아요 눌러 둔 '상태'인지, 아닌지 확인
+        # 이미 좋아요 한 상태인 피드
+        return {'result': False, 'error': '이미 좋아한 피드에 중복하여 좋아요를 누를 수 없습니다.', 'status_code': 400}
+    else:
+        if check_if_user_is_the_owner_of_the_feed(target_feed.user_id, feed_like.user_id):
+            pass
+        else:
+            # 알림, 푸시, 포인트 지급 로직
+            # 좋아요 한 유저에게 규칙에 따라 feed_check 포인트를 지급
+            available_point_for_me, current_gathered_point_for_me = point_service.points_available_to_receive_for_the_rest_of_the_day(
+                user_who_likes_this_feed.id,
+                REASONS_HAVE_DAILY_REWARD_RESTRICTION,
+                point_history_repo
+            )
+            available_point_for_feed_writer, current_gathered_point_for_feed_writer = point_service.points_available_to_receive_for_the_rest_of_the_day(
+                target_feed.user_id,
+                REASONS_HAVE_DAILY_REWARD_RESTRICTION,
+                point_history_repo
+            )
+
+            checked_history = feed_like_repo.get_one_including_deleted_record(feed_like)
+            print('here0-4: ', available_point_for_feed_writer > 0)
+            if no_check_record_for_this_feed(checked_history) \
+                    and never_gave_point_to_feed_writer_by_feed_check_today(target_feed, user_who_likes_this_feed, feed_like_repo) \
+                    and feed_was_written_within_latest_24_hour(target_feed.created_at) \
+                    and available_point_for_feed_writer > 0:
+                print('here1')
+                # 피드 작성자에게 규칙에 따라 feed_check 포인트를 지급 => feed_like.point 수정
+                reason_for_point = "feed_check"
+                foreign_key_value_of_point_history = {'feed_id': target_feed.id}
+                amount_of_point_given_to_feed_writer = point_service.give_point(
+                    feed_writer,
+                    reason_for_point,
+                    BASIC_COMPENSATION_AMOUNT_PER_REASON[reason_for_point],
+                    foreign_key_value_of_point_history,
+                    point_history_repo,
+                    user_repo
+                )
+                # feed_like에 데이터 저장 전 FeedCheck 객체의 데이터 초기값 변경하기
+                feed_like.point = amount_of_point_given_to_feed_writer
+                paid_point = True if amount_of_point_given_to_feed_writer > 0 else False
+
+                # 알림 내역 생성
+                notification: Notification = Notification(
+                    id=None,
+                    target_id=feed_writer.id,
+                    type=reason_for_point,
+                    user_id=user_who_likes_this_feed.id,
+                    read_at=None,
+                    variables={'point': amount_of_point_given_to_feed_writer},
+                    feed_id=feed_like.feed_id
+                )
+                notification_service.create_notification(notification, notification_repo)
+
+                # 푸시 발송
+                push_type = f"feed_check.{str(feed_like.feed_id)}"
+                push_body = f'{user_who_likes_this_feed.nickname}님이 내 피드를 체크해 {feed_like.point} 포인트를 받았습니다.'
+                push_target: list = user_repo.get_push_target([feed_writer.id])
+
+                for index, target_user in enumerate(push_target):
+                    device_token = target_user.device_token
+                    device_type = target_user.device_type
+
+                    link_data: dict = {
+                        "route": "Sub",
+                        "screen": "Feed",
+                        "params": {"id": feed_like.feed_id, "comment_id": None}
+                    }
+
+                    push_message: PushHistory = PushHistory(
+                        id=None,
+                        target_id=target_user.id,
+                        device_token=device_token,
+                        title=PUSH_TITLE_FEED,
+                        message=push_body,
+                        type=push_type,
+                        result=0,
+                        json=link_data,
+                        result_json=dict()
+                    )
+                    push_service.send_fcm_push(device_type, push_message, push_history_repo)
+
+                    # 나의 기록
+                    if my_current_like_count % 10 == 9 and available_point_for_me > 0:
+                        reason_for_point = "feed_check_reward"
+                        foreign_key_value_of_point_history = {'feed_id': target_feed.id}
+
+                        amount_of_point_given_to_me = point_service.give_point(
+                            user_who_likes_this_feed,
+                            reason_for_point,
+                            BASIC_COMPENSATION_AMOUNT_PER_REASON[reason_for_point],
+                            foreign_key_value_of_point_history,
+                            point_history_repo,
+                            user_repo
+                        )
+
+                        notification: Notification = Notification(
+                            id=None,
+                            target_id=user_who_likes_this_feed.id,
+                            type=reason_for_point,
+                            user_id=None,
+                            read_at=None,
+                            variables={'point': amount_of_point_given_to_me, 'point2': available_point_for_me - amount_of_point_given_to_me},
+                        )
+                        notification_service.create_notification(notification, notification_repo)
+                    else:
+                        pass
+                    my_current_like_count += 1
+            else:
+                print('here2')
+                # 이미 좋아요 했다가 해제했다가 다시 좋아요 한 경우. 재지급 되지 말아야 하며, 알림 및 푸시도 중복 실행되지 않아야 함.
+                pass
+
+        feed_like_repo.add(feed_like)
+
+        available_point, current_gathered_point = point_service.points_available_to_receive_for_the_rest_of_the_day(
+            user_who_likes_this_feed.id, REASONS_HAVE_DAILY_REWARD_RESTRICTION, point_history_repo)
+
+        result = {
+            'result': True,
+            'paidCount': 0 if my_current_like_count is None else my_current_like_count,
+            'paidPoint': paid_point,
+            'todayGatheredPoint': 0 if current_gathered_point is None else current_gathered_point
+        }
+        return result
 # endregion

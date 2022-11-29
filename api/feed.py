@@ -8,7 +8,7 @@ from adapter.repository.notification import NotificationRepository
 from adapter.repository.point_history import PointHistoryRepository
 from adapter.repository.push import PushHistoryRepository
 from adapter.repository.user import UserRepository
-from domain.feed import Feed, FeedComment
+from domain.feed import Feed, FeedCheck, FeedComment
 from helper.constant import ERROR_RESPONSE, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 from helper.function import authenticate, get_query_strings_from_request
 from services import feed_service, point_service
@@ -366,7 +366,34 @@ def feed_check(feed_id: int):
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
     elif request.method == 'POST':
-        pass
+        # feed_check_mappers()
+        feed_mappers()
+        feed_check_repo: FeedCheckRepository = FeedCheckRepository(db_session)
+        feed_repo: FeedRepository = FeedRepository(db_session)
+        notification_repo: NotificationRepository = NotificationRepository(db_session)
+        point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
+        push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
+        user_repo: UserRepository = UserRepository(db_session)
+
+        new_feed_check: FeedCheck = FeedCheck(user_id=user_id, feed_id=feed_id, point=0, deleted_at=None)
+        like_feed = feed_service.increase_like(
+            new_feed_check,
+            feed_check_repo,
+            feed_repo,
+            notification_repo,
+            point_history_repo,
+            push_history_repo,
+            user_repo
+        )
+        clear_mappers()
+
+        if like_feed['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(like_feed, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in like_feed.items() if key != 'status_code'}, ensure_ascii=False), like_feed['status_code']
     elif request.method == 'DELETE':
         pass
     else:
