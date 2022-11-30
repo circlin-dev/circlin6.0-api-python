@@ -368,7 +368,7 @@ def feed_check(feed_id: int):
     elif request.method == 'POST':
         # feed_check_mappers()
         feed_mappers()
-        feed_check_repo: FeedCheckRepository = FeedCheckRepository(db_session)
+        feed_like_repo: FeedCheckRepository = FeedCheckRepository(db_session)
         feed_repo: FeedRepository = FeedRepository(db_session)
         notification_repo: NotificationRepository = NotificationRepository(db_session)
         point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
@@ -378,7 +378,7 @@ def feed_check(feed_id: int):
         new_feed_check: FeedCheck = FeedCheck(user_id=user_id, feed_id=feed_id, point=0, deleted_at=None)
         like_feed = feed_service.increase_like(
             new_feed_check,
-            feed_check_repo,
+            feed_like_repo,
             feed_repo,
             notification_repo,
             point_history_repo,
@@ -395,7 +395,22 @@ def feed_check(feed_id: int):
             db_session.close()
             return json.dumps({key: value for key, value in like_feed.items() if key != 'status_code'}, ensure_ascii=False), like_feed['status_code']
     elif request.method == 'DELETE':
-        pass
+        feed_mappers()
+        feed_like_repo: FeedCheckRepository = FeedCheckRepository(db_session)
+        feed_repo: FeedRepository = FeedRepository(db_session)
+        feed_like: FeedCheck = FeedCheck(user_id=user_id, feed_id=feed_id, point=0, deleted_at=None)
+
+        cancel_like = feed_service.decrease_like(feed_like, feed_like_repo, feed_repo)
+        clear_mappers()
+
+        if cancel_like['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(cancel_like, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in cancel_like.items() if key != 'status_code'}, ensure_ascii=False), cancel_like['status_code']
+
     else:
         db_session.close()
         result: dict = {

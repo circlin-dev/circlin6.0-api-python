@@ -189,7 +189,7 @@ def delete_feed(feed: Feed, request_user_id: int, feed_repo: AbstractFeedReposit
     if target_feed is None or feed_is_undeleted(target_feed) is False:
         return {'result': False, 'error': '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.', 'status_code': 400}
     elif check_if_user_is_the_owner_of_the_feed(target_feed.user_id, request_user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 피드이므로 수정할 권한이 없습니다.', 'status_code': 403}
+        return {'result': False, 'error': '타인이 쓴 피드이므로 삭제할 권한이 없습니다.', 'status_code': 403}
     else:
         feed_repo.delete(target_feed)
         return {'result': True}
@@ -599,4 +599,18 @@ def increase_like(
             'todayGatheredPoint': 0 if current_gathered_point is None else current_gathered_point
         }
         return result
+
+
+def decrease_like(feed_like: FeedCheck, feed_like_repo: AbstractFeedCheckRepository, feed_repo: AbstractFeedRepository) -> dict:
+    target_feed: Feed = feed_repo.get_one(feed_like.feed_id, feed_like.user_id)
+
+    if target_feed is None or feed_is_available_to_other(target_feed) is False:
+        return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.', 'status_code': 400}
+    else:
+        liked_record: FeedCheck = feed_like_repo.get_one_excluding_deleted_record(feed_like)
+        if liked_record is None:
+            return {'result': False, 'error': '해당 피드에 좋아요 한 기록이 없습니다.',  'status_code': 400}
+        else:
+            feed_like_repo.delete(feed_like)
+            return {'result': True}
 # endregion
