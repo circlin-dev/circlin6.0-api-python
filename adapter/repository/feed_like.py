@@ -141,10 +141,10 @@ class FeedCheckRepository(AbstractFeedCheckRepository):
     def delete(self, feed_like: FeedCheck):
         sql = update(
             FeedCheck
-        ).values(FeedCheck.deleted_at, func.now()).where(
+        ).where(
             and_(
                 FeedCheck.feed_id == feed_like.feed_id,
                 FeedCheck.user_id == feed_like.user_id
             )
-        )
+        ).values(deleted_at=func.now())
         self.session.execute(sql)
