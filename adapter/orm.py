@@ -1,11 +1,8 @@
-from sqlalchemy import Table, Column, Integer, TIMESTAMP, text, Float, ForeignKey, JSON
-from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, INTEGER
-from sqlalchemy.orm import registry, relationship
-
 from domain.board import Board, BoardCategory, BoardComment, BoardImage, BoardLike
 from domain.brand import Brand
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedImage, FeedMission, FeedProduct
+from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
@@ -14,6 +11,10 @@ from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
 from domain.user import Follow, User, UserFavoriteCategory
 from domain.version import Version
+
+from sqlalchemy import Table, Column, Integer, TIMESTAMP, text, Float, ForeignKey, JSON
+from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, INTEGER
+from sqlalchemy.orm import registry, relationship
 
 mapper_registry = registry()
 
@@ -132,7 +133,7 @@ feeds = Table(
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
-    Column("content", TEXT, nullable=False),
+    Column("content",  TEXT(collation='utf8mb4_unicode_ci'), nullable=False),
     Column("is_hidden", TINYINT, nullable=False, server_default=text("'0'"), comment='비밀글 여부'),
     Column("deleted_at", TIMESTAMP),
     Column("distance", Float(8, True), comment='달린 거리'),
@@ -165,7 +166,7 @@ feed_comments = Table(
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("group", Integer, nullable=False, server_default=text("'0'")),
     Column("depth", TINYINT, nullable=False, server_default=text("'0'")),
-    Column("comment", TEXT, nullable=False),
+    Column("comment",  TEXT(collation='utf8mb4_unicode_ci'), nullable=False),
     Column("deleted_at", TIMESTAMP),
 )
 
@@ -220,6 +221,172 @@ follows = Table(
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("target_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("feed_notify", TINYINT(1), nullable=False, server_default=text("'0'")),
+)
+# endregion
+
+
+# region foods
+foods = Table(
+    "foods",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("brand_id", BIGINT(unsigned=True), ForeignKey('food_brands.id'), index=True),
+    Column("large_category_title", VARCHAR(64)),
+    Column("title", VARCHAR(255,), nullable=False, comment='메뉴명, 재료명, 제품명'),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True, comment='최초 작성자 id'),
+    Column("type", VARCHAR(32), comment='original(원물) | menu(대표메뉴), recipe(레시피), product(제품) => (원물의 조합)'),
+    Column("barcode", VARCHAR(50), comment='null이면 원물(재료) 또는 food_category=내 요리'),
+    Column("container", VARCHAR(255), comment='제공 용기 1단위: 1회제공량, 인분, 개, 컵, 조각, 접시, 봉지, 팩, 병, 캔, 그릇, 포\\n1용기당 제공량을 구한 후 쓴다.'),
+    Column("amount_per_serving", Float, comment='1container 당 제공량'),
+    Column("total_amount", Float, comment='총 제공량(중량, 포장 표기를 따름)'),
+    Column("unit", VARCHAR(10), comment='제공 단위: 그램(g) | 밀리리터(ml)'),
+    Column("servings_per_container", Float, server_default=text("'1'"), comment='1팩(번들) 당 제품 개수'),
+    Column("price", Float, comment='원본 판매처 정상가'),
+    Column("calorie", Float, comment='칼로리(총 내용량 기준, 포장 표기를 따름)'),
+    Column("carbohydrate", Float, comment='탄수화물 함유량(g)(포장 표기를 따름)'),
+    Column("protein", Float, comment='단백질 함유량(g)(포장 표기를 따름)'),
+    Column("fat", Float, comment='지방 함유량(g)(포장 표기를 따름)'),
+    Column("sodium", Float, comment='나트륨 함유량(mg)(포장 표기를 따름)'),
+    Column("sugar", Float, comment='당류 함유량(g)(포장 표기를 따름)'),
+    Column("trans_fat", Float, comment='트랜스 지방 함유량(g)(포장 표기를 따름)'),
+    Column("saturated_fat", Float, comment='포화 지방 함유량(g)(포장 표기를 따름)'),
+    Column("cholesterol", Float, comment='콜레스테롤 함유량(mg) (포장 표기를 따름)'),
+    Column("url", TEXT(collation='utf8mb4_unicode_ci'), comment='구매처 URL'),
+    Column("approved_at", TIMESTAMP, comment='관리자 승인 & 포인트 지급 일시'),
+    Column("original_data", JSON, comment='공공 API의 원본 데이터 값'),
+    Column("deleted_at", TIMESTAMP),
+)
+
+
+food_brands = Table(
+    "food_brands",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("type", VARCHAR(255), nullable=False, comment='4 Types: 레스토랑, 체인점 | 슈퍼마켓, 마트 | 인기 브랜드 | 내 요리'),
+    Column("title", VARCHAR(255), nullable=False, comment='type이 내 요리일 때는 기본값 적용, 그 외 세 가지 type일 때는 업체명을 입력 받음.'),
+)
+
+
+food_categories = Table(
+    "food_categories",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("large", VARCHAR(255), comment='식단 대분류'),
+    Column("medium", VARCHAR(255), comment='식단 중분류'),
+    Column("small", VARCHAR(255), comment='식단 소분류'),
+)
+
+
+food_flavors = Table(
+    "food_flavors",
+    mapper_registry.metadata,
+    Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), nullable=False),
+    Column("flavors", VARCHAR(255))
+)
+
+
+food_food_categories = Table(
+    "food_food_categories",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), nullable=False, unique=True),
+    Column("food_category_id", BIGINT(unsigned=True), ForeignKey('food_categories.id'), nullable=False, index=True),
+)
+
+
+food_images = Table(
+    "food_images",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), nullable=False, index=True),
+    Column("type", VARCHAR(32)),
+    Column("path", VARCHAR(255)),
+    Column("file_name", VARCHAR(255)),
+    Column("mime_type", VARCHAR(255)),
+    Column("size", Integer),
+    Column("width", Integer),
+    Column("height", Integer),
+    Column("original_file_id", BIGINT(unsigned=True), ForeignKey('food_images.id'), index=True),
+)
+
+
+food_ratings = Table(
+    "food_ratings",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), nullable=False, index=True),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("rating", BIGINT(unsigned=True), nullable=False, comment='1~5점(클수록 높은 평점)의 범위 내에서 평점 부여하며 1점 단위'),
+    Column("body", TEXT(collation='utf8mb4_unicode_ci')),
+    Column("deleted_at", TIMESTAMP),
+)
+
+
+food_rating_images = Table(
+    "food_rating_images",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("food_rating_id", BIGINT(unsigned=True), ForeignKey('food_ratings.id'), nullable=False, index=True),
+    Column("path", VARCHAR(255)),
+    Column("file_name", VARCHAR(255)),
+    Column("mime_type", VARCHAR(255)),
+    Column("size", Integer),
+    Column("width", Integer),
+    Column("height", Integer),
+    Column("original_file_id", BIGINT(unsigned=True), ForeignKey('food_rating_images.id'), index=True),
+)
+
+
+food_rating_reviews = Table(
+    "food_rating_reviews",
+    mapper_registry.metadata,
+    Column("food_rating_id", BIGINT(unsigned=True), ForeignKey('food_ratings.id'), nullable=False, index=True),
+    Column("food_review_id", BIGINT(unsigned=True), ForeignKey('food_reviews.id'), nullable=False, index=True),
+)
+
+
+food_reviews = Table(
+    "food_reviews",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("value", VARCHAR(255,), nullable=False, comment='식품 카테고리별 후기 태그값'),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), index=True),
+)
+
+
+food_ingredients = Table(
+    "food_ingredients",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("value", VARCHAR(255), nullable=False, unique=True)
+)
+
+
+ingredients = Table(
+    "ingredients",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("value", VARCHAR(255), nullable=False, unique=True),
 )
 # endregion
 
@@ -287,7 +454,7 @@ mission_comments = Table(
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("group", INTEGER, nullable=False, server_default=text("'0'")),
     Column("depth", TINYINT, nullable=False, server_default=text("'0'")),
-    Column("comment", TEXT, nullable=False),
+    Column("comment",  TEXT(collation='utf8mb4_unicode_ci'), nullable=False),
     Column("deleted_at", TIMESTAMP)
 )
 
@@ -336,7 +503,7 @@ notice_comments = Table(
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("group", Integer, nullable=False, server_default=text("'0'")),
     Column("depth", TINYINT, nullable=False, server_default=text("'0'")),
-    Column("comment", TEXT, nullable=False),
+    Column("comment",  TEXT(collation='utf8mb4_unicode_ci'), nullable=False),
     Column("deleted_at", TIMESTAMP),
 )
 
@@ -596,8 +763,7 @@ def board_comment_mappers():
 
 def board_image_mappers():
     mapper_registry.map_imperatively(Board, boards)
-
-    mapepr = mapper_registry.map_imperatively(
+    mapper = mapper_registry.map_imperatively(
         BoardImage,
         board_images,
         properties={
@@ -605,6 +771,7 @@ def board_image_mappers():
             "board_images": relationship(BoardImage)
         }
     )
+    return mapper
 
 
 def board_like_mappers():
@@ -741,6 +908,137 @@ def feed_product_mappers():
 def follow_mappers():
     mapper_registry.map_imperatively(User, users)
     mapper = mapper_registry.map_imperatively(Follow, follows, properties={"users": relationship(User)})
+    return mapper
+# endregion
+
+
+# region food
+def food_flavor_mappers():
+    mapper_registry.map_imperatively(Food, foods)
+    mapper = mapper_registry.map_imperatively(FoodFlavor, food_flavors, properties={"foods": relationship(Food)})
+    return mapper
+
+
+def food_mappers():
+    mapper_registry.map_imperatively(FoodBrand, food_brands)
+    mapper_registry.map_imperatively(FoodIngredient, food_ingredients)
+    mapper_registry.map_imperatively(User, users)
+
+    mapper = mapper_registry.map_imperatively(
+        Food,
+        foods,
+        properties={
+            "food_brands": relationship(FoodBrand, food_brands),
+            "food_ingredients": relationship(FoodIngredient, food_ingredients),
+            "users": relationship(User, users)
+        }
+    )
+    return mapper
+
+
+def food_brand_mappers():
+    mapper = mapper_registry.map_imperatively(
+        FoodBrand,
+        food_brands,
+    )
+    return mapper
+
+
+def food_category_mappers():
+    mapper = mapper_registry.map_imperatively(FoodCategory, food_categories)
+
+
+def food_food_category_mappers():
+    mapper_registry.map_imperatively(FoodCategory, food_categories)
+    mapper_registry.map_imperatively(Food, foods)
+    mapper = mapper_registry.map_imperatively(
+        FoodFoodCategory,
+        food_food_categories,
+        properties={
+            "food_categories": relationship(FoodCategory),
+            "foods": relationship(Food)
+        }
+    )
+    return mapper
+
+
+def food_image_mappers():
+    mapper_registry.map_imperatively(Food, foods)
+    mapper = mapper_registry.map_imperatively(
+        FoodImage,
+        food_images,
+        properties={
+            "foods": relationship(Food),
+            "food_images": relationship(FoodImage)
+        }
+    )
+    return mapper
+
+
+def food_ingredient_mappers():
+    mapper_registry.map_imperatively(Food, foods)
+    mapper = mapper_registry.map_imperatively(
+        FoodIngredient,
+        food_ingredients,
+        properties={"foods": relationship(Food)}
+    )
+    return mapper
+
+
+def food_rating_mappers():
+    mapper_registry.map_imperatively(Food, foods)
+    mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(FoodReview, food_reviews)
+    mapper = mapper_registry.map_imperatively(
+        FoodRating,
+        food_ratings,
+        properties={
+            "foods": relationship(Food),
+            "users": relationship(User),
+            "food_reviews": relationship(FoodReview)
+        }
+    )
+    return mapper
+
+
+def food_rating_image_mappers():
+    mapper_registry.map_imperatively(FoodRating, food_ratings)
+    mapper = mapper_registry.map_imperatively(
+        FoodRatingImage,
+        food_rating_images,
+        properties={
+            "food_ratings": relationship(FoodRating),
+            "food_rating_images": relationship(FoodRatingImage)
+        }
+    )
+    return mapper
+
+
+def food_rating_review_mappers():
+    mapper_registry.map_imperatively(FoodRating, food_ratings)
+    mapper_registry.map_imperatively(FoodReview, food_reviews)
+    mapper = mapper_registry.map_imperatively(
+        FoodRatingReview,
+        food_rating_reviews,
+        properties={
+            "food_ratings": relationship(FoodRating),
+            "food_reviews": relationship(FoodReview)
+        }
+    )
+    return mapper
+
+
+def food_review_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper = mapper_registry.map_imperatively(
+        FoodReview,
+        food_reviews,
+        properties={"users": relationship(User)}
+    )
+
+
+def ingredient_mappers():
+    mapper = mapper_registry.map_imperatively(Ingredient, ingredients)
     return mapper
 # endregion
 
