@@ -26,7 +26,7 @@ class AbstractFeedRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def count_number_of_newsfeed(self, user_id: int) -> int:
+    def count_number_of_newsfeed(self, user_id: int, page_cursor: int) -> int:
         pass
 
     @abc.abstractmethod
@@ -437,7 +437,7 @@ class FeedRepository(AbstractFeedRepository):
         result = [data for data in candidate if data.cursor < page_cursor][:limit]
         return result
 
-    def count_number_of_newsfeed(self, page_cursor: int, user_id: int) -> int:
+    def count_number_of_newsfeed(self, user_id: int, page_cursor: int) -> int:
         if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR:
             # first API call or refreshing
             customized_sort_query = select(
