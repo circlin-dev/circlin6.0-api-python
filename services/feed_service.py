@@ -55,8 +55,8 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
     return entries
 
 
-def get_count_of_newsfeeds(user_id: int, feed_repo: AbstractFeedRepository):
-    total_count = feed_repo.count_number_of_newsfeed(user_id)
+def get_count_of_newsfeeds(user_id: int, page_cursor, feed_repo: AbstractFeedRepository):
+    total_count = feed_repo.count_number_of_newsfeed(user_id, page_cursor)
     return total_count
 
 
