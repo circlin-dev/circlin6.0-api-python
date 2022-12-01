@@ -101,7 +101,7 @@ class NotificationRepository(AbstractNotificationRepository):
             case(
                 (text(f"users.id IN (SELECT target_id FROM follows WHERE user_id = {user_id})"), 1),
                 else_=0
-            ).label('is_following'),
+            ).label('followed'),
             func.IF(
                 and_(Notification.type.in_(notification_type), func.count(distinct(func.ifnull(Notification.user_id, 0))) > 1),
                 func.concat(Notification.type, '_multi'),
