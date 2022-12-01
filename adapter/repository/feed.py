@@ -437,46 +437,51 @@ class FeedRepository(AbstractFeedRepository):
         result = [data for data in candidate if data.cursor < page_cursor][:limit]
         return result
 
-    def count_number_of_newsfeed(self, user_id: int) -> int:
-        customized_sort_query = select(
-            Feed.id,
-            func.ifnull(
-                select(True).where(
-                    and_(
-                        feed_likes.c.feed_id == Feed.id,
-                        feed_likes.c.user_id == user_id
-                    )
-                ),
-                False
-            ).label('checked'),
-            func.row_number().over(
-                order_by=[
-                    desc(func.ifnull(
-                        select(True).where(
-                            and_(
-                                feed_likes.c.feed_id == Feed.id,
-                                feed_likes.c.user_id == user_id
-                            )
-                        ),
-                        False
-                    )),
-                    Feed.created_at
-                ]
-            ).label('cursor')
-        ).join(
-            User, Feed.user_id == User.id
-        ).where(
-            and_(
-                Feed.user_id.in_(select(follows.c.target_id).where(follows.c.user_id == user_id)),
-                func.TIMESTAMPDIFF(text("HOUR"), Feed.created_at, func.now()) <= 24,
-                Feed.is_hidden == 0,
-                Feed.deleted_at == None,
-            )
-        ).order_by('checked', desc('cursor')).alias("custom_sorted_data")
+    def count_number_of_newsfeed(self, page_cursor: int, user_id: int) -> int:
+        if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR:
+            # first API call or refreshing
+            customized_sort_query = select(
+                Feed.id,
+                func.ifnull(
+                    select(True).where(
+                        and_(
+                            feed_likes.c.feed_id == Feed.id,
+                            feed_likes.c.user_id == user_id
+                        )
+                    ),
+                    False
+                ).label('checked'),
+                func.row_number().over(
+                    order_by=[
+                        desc(func.ifnull(
+                            select(True).where(
+                                and_(
+                                    feed_likes.c.feed_id == Feed.id,
+                                    feed_likes.c.user_id == user_id
+                                )
+                            ),
+                            False
+                        )),
+                        Feed.created_at
+                    ]
+                ).label('cursor')
+            ).join(
+                User, Feed.user_id == User.id
+            ).where(
+                and_(
+                    Feed.user_id.in_(select(follows.c.target_id).where(follows.c.user_id == user_id)),
+                    func.TIMESTAMPDIFF(text("HOUR"), Feed.created_at, func.now()) <= 24,
+                    Feed.is_hidden == 0,
+                    Feed.deleted_at == None,
+                )
+            ).order_by('checked', desc('cursor'))
+            sql = select(func.count(customized_sort_query.c.id)).select_from(customized_sort_query)
+            total_count = self.session.execute(sql).scalar()
+            cache.set("total_count_newsfeed", total_count)
+        else:
+            # pagination
+            total_count = cache.get("total_count_newsfeed")
 
-        sql = select(func.count(customized_sort_query.c.id)).select_from(customized_sort_query)
-
-        total_count = self.session.execute(sql).scalar()
         return total_count
 
     def get_feeds_by_user(self, user_id: int, page_cursor: int, limit: int) -> list:
