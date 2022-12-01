@@ -127,11 +127,11 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
-
 ./global_configuration/database.py
 ./temp/
 ./temp/*
 ./execution_log.log
+_cache
 ._cache/
 ._cache/*
 ./_cache/
