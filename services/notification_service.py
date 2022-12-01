@@ -51,7 +51,7 @@ def get_notification_list(user_id: int, page_cursor: int, limit: int, notificati
             createdAt=notification.created_at,
             userId=notification.user_id,
             gender=notification.gender,
-            isFollowing=True if notification.is_following == 1 else False,
+            followed=True if notification.followed == 1 else False,
             profileImage=notification.profile_image,
             type=notification.type,
             message=replace_notification_message_variable(message_type, value_dict_for_message), # notification['message']
