@@ -435,7 +435,7 @@ def get_newsfeed():
 
         feed_mappers()
         feed_repo: FeedRepository = FeedRepository(db_session)
-        newsfeeds: list = feed_service.get_newsfeeds(user_id, page_cursor, limit, feed_repo)
+        newsfeeds: list = feed_service.get_newsfeeds(user_id, page_cursor, limit, feed_repo)  # 여기서 캐시를 한 번에 clear하기 때문에, number_of_newsfeeds는 반드시 이보다 밑에 호출되어야 한다.
         number_of_newsfeeds: int = feed_service.get_count_of_newsfeeds(user_id, feed_repo)
         clear_mappers()
 
