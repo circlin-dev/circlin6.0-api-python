@@ -362,8 +362,8 @@ food_rating_images = Table(
 food_rating_reviews = Table(
     "food_rating_reviews",
     mapper_registry.metadata,
-    Column("food_rating_id", BIGINT(unsigned=True), ForeignKey('food_ratings.id'), nullable=False, index=True),
-    Column("food_review_id", BIGINT(unsigned=True), ForeignKey('food_reviews.id'), nullable=False, index=True),
+    Column("food_rating_id", BIGINT(unsigned=True), ForeignKey('food_ratings.id'), primary_key=True, nullable=False, index=True),
+    Column("food_review_id", BIGINT(unsigned=True), ForeignKey('food_reviews.id'), primary_key=True, nullable=False, index=True),
 )
 
 
@@ -837,7 +837,6 @@ def feed_mappers():
             "feed_missions": relationship(FeedMission),
             "feed_products": relationship(FeedProduct),
             "feed_foods": relationship(FeedFood),
-            # "foods": relationship(Food, secondary=feed_foods)
         }
     )
     return mapper
@@ -1014,14 +1013,14 @@ def food_ingredient_mappers():
 def food_rating_mappers():
     mapper_registry.map_imperatively(Food, foods)
     mapper_registry.map_imperatively(User, users)
-    mapper_registry.map_imperatively(FoodReview, food_reviews)
+    mapper_registry.map_imperatively(FoodRatingReview, food_rating_reviews)
     mapper = mapper_registry.map_imperatively(
         FoodRating,
         food_ratings,
         properties={
             "foods": relationship(Food),
             "users": relationship(User),
-            "food_reviews": relationship(FoodReview)
+            "food_rating_reviews": relationship(FoodRatingReview)
         }
     )
     return mapper

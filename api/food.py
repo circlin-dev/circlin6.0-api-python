@@ -1,7 +1,8 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import food_mappers, food_category_mappers, food_review_mappers
+from adapter.orm import food_mappers, food_category_mappers, food_rating_mappers, food_review_mappers
 from adapter.repository.food_category import FoodCategoryRepository
+from adapter.repository.food_rating import FoodRatingRepository
 from adapter.repository.food_review import FoodReviewRepository
 from helper.constant import ERROR_RESPONSE, INITIAL_DESCENDING_PAGE_CURSOR
 from helper.function import authenticate, get_query_strings_from_request
@@ -29,6 +30,31 @@ def food():
         food_mappers()
 
         clear_mappers()
+
+
+@api.route('/food/<int:food_id>/user/rated', methods=['GET'])
+def get_user_rated_the_food(food_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
+        return json.dumps(result, ensure_ascii=False), 401
+
+    if food_id is None:
+        db_session.close()
+        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (food_id).'}
+        return json.dumps(result, ensure_ascii=False), 400
+
+    food_rating_mappers()
+    food_rating_repo: FoodRatingRepository = FoodRatingRepository(db_session)
+    ratings: list = food_services.get_rating_list_by_food_and_user(food_id, user_id, food_rating_repo)
+    clear_mappers()
+    db_session.close()
+
+    result = {"result": True, "rated": True if len(ratings) > 0 else False}
+    return json.dumps(result, ensure_ascii=False), 200
+
+
 
 
 @api.route('/food/category', methods=['GET'])
