@@ -30,6 +30,14 @@ class AbstractFeedRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_checked_feeds_by_user(self, user_id: int, page_cursor: int, limit: int):
+        pass
+
+    @abc.abstractmethod
+    def count_number_of_checked_feed_of_user(self, user_id: int):
+        pass
+
+    @abc.abstractmethod
     def get_feeds_by_user(self, user_id: int, page_cursor: int, limit: int) -> list:
         pass
 
@@ -86,9 +94,7 @@ class FeedRepository(AbstractFeedRepository):
             ).label('checked'),
             func.json_object(
                 "comments_count", text("(SELECT COUNT(*) FROM feed_comments WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-
                 "checks_count", text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-                #func.json_array(text("(SELECT u.id, u.nickname, u.profile_image FROM users u INNER JOIN feed_likes fl WHERE fl.feed_id = feeds.id AND fl.deleted_at IS NULL)")),
             ).label("feed_additional_information"),
 
             User.id.label('user_id'),
@@ -483,6 +489,84 @@ class FeedRepository(AbstractFeedRepository):
             total_count = cache.get("total_count_newsfeed")
 
         return total_count
+
+    def get_checked_feeds_by_user(self, user_id: int, page_cursor: int, limit: int):
+        sql = select(
+            Feed.id,
+            func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+            Feed.content.label('body'),
+            Feed.is_hidden,
+            select(func.json_arrayagg(
+                func.json_object(
+                    "order", FeedImage.order,
+                    "mimeType", FeedImage.type,
+                    "pathname", FeedImage.image,
+                    "resized", func.json_array()
+                )
+            )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
+            func.json_object(
+                "comments_count", text("(SELECT COUNT(*) FROM feed_comments WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
+                "checks_count", text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
+            ).label("feed_additional_information"),
+
+            User.id.label('user_id'),
+            User.nickname,
+            User.profile_image,
+            case(
+                (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
+                else_=0
+            ).label("is_blocked"),
+
+            func.json_object(
+                "type", FeedProduct.type,
+                "id", FeedProduct.id,
+                "brand", func.IF(FeedProduct.type == 'inside', select(brands.c.name_ko).where(brands.c.id == products.c.brand_id), outside_products.c.brand),
+                "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
+                "image", func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
+                "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
+                "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
+            ).label('product'),
+
+            func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
+        ).join(
+            User, User.id == Feed.user_id
+        ).join(
+          feed_likes, feed_likes.c.feed_id == Feed.id
+        ).join(
+            FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
+        ).join(
+            products, products.c.id == FeedProduct.product_id, isouter=True
+        ).join(
+            outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
+        ).where(
+            and_(
+                feed_likes.c.user_id == user_id,
+                feed_likes.c.deleted_at == None,
+                Feed.deleted_at == None,
+                Feed.id < page_cursor,
+            )
+        ).group_by(
+            Feed.id
+        ).order_by(desc(Feed.id)).limit(limit)
+
+        result = self.session.execute(sql).all()
+        return result
+
+    def count_number_of_checked_feed_of_user(self, user_id: int):
+        sql = select(
+            func.count(Feed.id)
+        ).join(
+          feed_likes, feed_likes.c.feed_id == Feed.id
+        ).where(
+            and_(
+                feed_likes.c.user_id == user_id,
+                feed_likes.c.deleted_at == None,
+                Feed.deleted_at == None,
+            )
+        )
+
+        result = self.session.execute(sql).scalar()
+        return result
 
     def get_feeds_by_user(self, user_id: int, page_cursor: int, limit: int) -> list:
         sql = select(

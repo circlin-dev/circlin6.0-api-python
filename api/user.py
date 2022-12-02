@@ -44,21 +44,22 @@ def get_all_users():
     return json.dumps(entries, ensure_ascii=False), 200
 
 
-@api.route('/user/favoriteCategory', methods=['GET', 'POST', 'DELETE'])
-def user_favorite_category():
-
+@api.route('/user/<int:target_user_id>/favoriteCategory', methods=['GET', 'POST', 'DELETE'])
+def user_favorite_category(target_user_id: int):
     user_id = authenticate(request, db_session)
     if user_id is None:
-        result = {
-            'result': False,
-            'error': ERROR_RESPONSE[401]
-        }
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
+
+    if target_user_id is None:
+        db_session.close()
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (user_id).'}
+        return json.dumps(result, ensure_ascii=False), 400
 
     if request.method == 'GET':
         user_favorite_category_mappers()
         repo = UserFavoriteCategoryRepository(db_session)
-        favorite_mission_categories = user_service.get_favorite_mission_categories(user_id, repo)
+        favorite_mission_categories = user_service.get_favorite_mission_categories(target_user_id, repo)
 
         clear_mappers()
 
@@ -85,7 +86,7 @@ def user_favorite_category():
         repo = UserFavoriteCategoryRepository(db_session)
         new_mission_category = UserFavoriteCategory(
             id=None,
-            user_id=user_id,
+            user_id=target_user_id,
             mission_category_id=mission_category_id
         )
         added_to_favorite_categories = user_service.add_to_favorite_mission_category(new_mission_category, repo)
@@ -114,7 +115,7 @@ def user_favorite_category():
         repo = UserFavoriteCategoryRepository(db_session)
         mission_category_to_delete = UserFavoriteCategory(
             id=None,
-            user_id=user_id,
+            user_id=target_user_id,
             mission_category_id=mission_category_id
         )
 
@@ -137,15 +138,15 @@ def user_favorite_category():
         return json.dumps(result), 405
 
 
-@api.route('/user/<int:user_id>/feed', methods=['GET'])
-def get_user_feeds(user_id: int):
+@api.route('/user/<int:target_user_id>/feed', methods=['GET'])
+def get_user_feeds(target_user_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
         result = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
 
-    if user_id is None:
+    if target_user_id is None:
         db_session.close()
         result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (user_id).'}
         return json.dumps(result, ensure_ascii=False), 400
@@ -157,8 +158,44 @@ def get_user_feeds(user_id: int):
 
         feed_mappers()
         repo: FeedRepository = FeedRepository(db_session)
-        feeds: list = user_service.get_feeds_by_user(user_id, page_cursor, limit, repo)
-        number_of_feeds: int = user_service.get_feed_count_of_the_user(user_id, repo)
+        feeds: list = user_service.get_feeds_by_user(target_user_id, page_cursor, limit, repo)
+        number_of_feeds: int = user_service.get_feed_count_of_the_user(target_user_id, repo)
+        clear_mappers()
+
+        db_session.close()
+        last_cursor: [str, None] = None if len(feeds) <= 0 else feeds[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': feeds,
+            'cursor': last_cursor,
+            'totalCount': number_of_feeds,
+        }
+        return json.dumps(result, ensure_ascii=False), 200
+
+
+@api.route('/user/<int:target_user_id>/checked/feed', methods=['GET'])
+def get_user_checked_feeds(target_user_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        result = {'result': False, 'error': ERROR_RESPONSE[401]}
+        return json.dumps(result, ensure_ascii=False), 401
+
+    if target_user_id is None:
+        db_session.close()
+        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (user_id).'}
+        return json.dumps(result, ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        feed_mappers()
+        feed_repo: FeedRepository = FeedRepository(db_session)
+        feeds: list = user_service.get_checked_feeds_by_user(target_user_id, page_cursor, limit, feed_repo)
+        number_of_feeds: int = user_service.get_checked_feed_count_of_the_user(target_user_id, feed_repo)
         clear_mappers()
 
         db_session.close()

@@ -78,8 +78,36 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
     return entries
 
 
-def get_feed_count_of_the_user(user_id, feed_repo: AbstractFeedRepository) -> int:
+def get_feed_count_of_the_user(user_id: int, feed_repo: AbstractFeedRepository) -> int:
     count = feed_repo.count_number_of_feed_of_user(user_id)
+    return count
+
+
+def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
+    feeds: list = feed_repo.get_checked_feeds_by_user(user_id, page_cursor, limit)
+    entries: list = [dict(
+        id=feed.id,
+        createdAt=feed.created_at,
+        body=feed.body,
+        isShow=True if feed.is_hidden == 0 else False,
+        images=json.loads(feed.images),
+        user=dict(
+            id=feed.user_id,
+            nickname=feed.nickname,
+            profile=feed.profile_image,
+            isBlocked=True if feed.is_blocked == 1 else False,
+        ),
+        commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
+        checksCount=json.loads(feed.feed_additional_information)["checks_count"],
+        product=json.loads(feed.product),
+        cursor=feed.cursor,
+    ) for feed in feeds]
+
+    return entries
+
+
+def get_checked_feed_count_of_the_user(user_id: int, feed_repo: AbstractFeedRepository) -> int:
+    count = feed_repo.count_number_of_checked_feed_of_user(user_id)
     return count
 
 
