@@ -1,7 +1,7 @@
 from domain.board import Board, BoardCategory, BoardComment, BoardImage, BoardLike
 from domain.brand import Brand
 from domain.common_code import CommonCode
-from domain.feed import Feed, FeedCheck, FeedComment, FeedImage, FeedMission, FeedProduct
+from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
 from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
@@ -168,6 +168,14 @@ feed_comments = Table(
     Column("depth", TINYINT, nullable=False, server_default=text("'0'")),
     Column("comment",  TEXT(collation='utf8mb4_unicode_ci'), nullable=False),
     Column("deleted_at", TIMESTAMP),
+)
+
+
+feed_foods = Table(
+    "feed_foods",
+    mapper_registry.metadata,
+    Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), primary_key=True, nullable=False, index=True),
+    Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), primary_key=True, nullable=False, index=True),
 )
 
 
@@ -817,6 +825,7 @@ def feed_mappers():
     mapper_registry.map_imperatively(FeedCheck, feed_likes)
     mapper_registry.map_imperatively(FeedMission, feed_missions)
     mapper_registry.map_imperatively(FeedProduct, feed_products)
+    mapper_registry.map_imperatively(FeedFood, feed_foods)
     mapper = mapper_registry.map_imperatively(
         Feed,
         feeds,
@@ -827,6 +836,22 @@ def feed_mappers():
             "feed_likes": relationship(FeedCheck),
             "feed_missions": relationship(FeedMission),
             "feed_products": relationship(FeedProduct),
+            "feed_foods": relationship(FeedFood),
+            # "foods": relationship(Food, secondary=feed_foods)
+        }
+    )
+    return mapper
+
+
+def feed_check_mappers():
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(User, users)
+    mapper = mapper_registry.map_imperatively(
+        FeedCheck,
+        feed_likes,
+        properties={
+            "feeds": relationship(Feed),
+            "users": relationship(User)
         }
     )
     return mapper
@@ -847,26 +872,26 @@ def feed_comment_mappers():
     return mapper
 
 
+def feed_food_mappers():
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(Food, foods)
+    mapper = mapper_registry.map_imperatively(
+        FeedFood,
+        feed_foods,
+        properties={
+            "feeds": relationship(Feed),
+            "foods": relationship(Food)
+        }
+    )
+    return mapper
+
+
 def feed_image_mappers():
     mapper_registry.map_imperatively(Feed, feeds)
     mapper = mapper_registry.map_imperatively(
         FeedImage,
         feed_images,
         properties={"feeds": relationship(Feed)}
-    )
-    return mapper
-
-
-def feed_check_mappers():
-    mapper_registry.map_imperatively(Feed, feeds)
-    mapper_registry.map_imperatively(User, users)
-    mapper = mapper_registry.map_imperatively(
-        FeedCheck,
-        feed_likes,
-        properties={
-            "feeds": relationship(Feed),
-            "users": relationship(User)
-        }
     )
     return mapper
 
@@ -946,6 +971,7 @@ def food_brand_mappers():
 
 def food_category_mappers():
     mapper = mapper_registry.map_imperatively(FoodCategory, food_categories)
+    return mapper
 
 
 def food_food_category_mappers():

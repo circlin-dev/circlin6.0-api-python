@@ -143,7 +143,6 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
             checked=feed.checked,
             commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
             checksCount=json.loads(feed.feed_additional_information)["checks_count"],
-            # checkedUsers = json.loads(feed.feed_additional_information["checked_users"]),
             user=dict(
                 id=feed.user_id,
                 nickname=feed.nickname,
@@ -165,7 +164,8 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
                 thumbnail=mission['thumbnail'],
                 bookmarked=True if mission['bookmarked'] == 1 else False,
             ) for mission in json.loads(feed.mission)],
-            product=json.loads(feed.product)
+            product=json.loads(feed.product),
+            food=json.loads(feed.food),
         ) if feed is not None else None
 
         return {'result': True, 'data': feed_dict}

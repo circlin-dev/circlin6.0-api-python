@@ -1,5 +1,5 @@
-from adapter.orm import brands, feed_images, feed_likes, follows, missions, mission_categories, outside_products, products
-from domain.feed import Feed, FeedCheck, FeedComment, FeedImage, FeedMission, FeedProduct
+from adapter.orm import brands, feed_images, feed_likes, follows, foods, missions, mission_categories, outside_products, products
+from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.user import User
 from helper.cache import cache
 from helper.constant import INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR
@@ -152,6 +152,11 @@ class FeedRepository(AbstractFeedRepository):
                 "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
                 "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
             ).label('product'),
+
+            func.json_object(
+                "id", foods.c.id,
+                "title", foods.c.title,
+            ).label('food'),
         ).join(
             User, User.id == Feed.user_id
         ).join(
@@ -164,6 +169,10 @@ class FeedRepository(AbstractFeedRepository):
             products, products.c.id == FeedProduct.product_id, isouter=True
         ).join(
             outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
+        ).join(
+            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+        ).join(
+            foods, foods.c.id == FeedFood.food_id, isouter=True
         ).where(
             and_(
                 Feed.id == feed_id,
@@ -594,32 +603,6 @@ class FeedRepository(AbstractFeedRepository):
                 text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
             ).label("feed_additional_information"),
 
-            # User.id.label('user_id'),
-            # User.nickname,
-            # User.profile_image,
-            # User.gender,
-            # case(
-            #     (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-            #     else_=0
-            # ).label("followed"),
-            # case(
-            #     (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-            #     else_=0
-            # ).label("is_blocked"),
-            # func.ifnull(
-            #     case(
-            #         (user_id == User.id, None),
-            #         # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
-            #         else_=text(
-            #             f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
-            #     ),
-            #     0
-            # ).label("is_chat_blocked"),
-            # func.json_object(
-            #     "followers", text("(SELECT COUNT(*) FROM follows f2 WHERE f2.target_id = feeds.user_id)"),
-            #     "area", text(
-            #         "(SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1)")
-            # ).label("user_additional_information"),
 
             func.json_arrayagg(
                 func.json_object(
@@ -652,9 +635,13 @@ class FeedRepository(AbstractFeedRepository):
                 "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
             ).label('product'),
 
+            func.json_object(
+                "id", foods.c.id,
+                "title", foods.c.title,
+            ).label('food'),
+
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
-        # ).join(
-        #     User, User.id == Feed.user_id
+
         ).join(
             FeedMission, FeedMission.feed_id == Feed.id, isouter=True
         ).join(
@@ -665,9 +652,12 @@ class FeedRepository(AbstractFeedRepository):
             products, products.c.id == FeedProduct.product_id, isouter=True
         ).join(
             outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
+        ).join(
+            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+        ).join(
+            foods, foods.c.id == FeedFood.food_id, isouter=True
         ).where(
             and_(
-                # User.id == user_id,
                 Feed.user_id == user_id,
                 Feed.deleted_at == None,
                 Feed.id < page_cursor,

@@ -72,6 +72,7 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
             bookmarked=True if mission['bookmarked'] == 1 else False,
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product),
+        food=json.loads(feed.food),
         cursor=feed.cursor,
     ) for feed in feeds]
 
