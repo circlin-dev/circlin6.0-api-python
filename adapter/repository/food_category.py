@@ -1,7 +1,7 @@
 from domain.food import FoodCategory
 
 import abc
-from sqlalchemy import select, func
+from sqlalchemy import select
 
 
 class AbstractFoodCategoryRepository(abc.ABC):
