@@ -57,6 +57,12 @@ class FeedComment:
         self.deleted_at = deleted_at
 
 
+class FeedFood:
+    def __init__(self, feed_id: int, food_id: int):
+        self.feed_id = feed_id
+        self.food_id = food_id
+
+
 class FeedImage:
     def __init__(self, feed_id: int, order: int, type: str, image: str):
         self.feed_id = feed_id
