@@ -240,9 +240,9 @@ foods = Table(
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("brand_id", BIGINT(unsigned=True), ForeignKey('food_brands.id'), index=True),
+    Column("brand_id", BIGINT(unsigned=True), ForeignKey('food_brands.id'), nullable=False, index=True),
     Column("large_category_title", VARCHAR(64)),
-    Column("title", VARCHAR(255,), nullable=False, comment='메뉴명, 재료명, 제품명'),
+    Column("title", VARCHAR(255), nullable=False, comment='메뉴명, 재료명, 제품명'),
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True, comment='최초 작성자 id'),
     Column("type", VARCHAR(32), comment='original(원물) | menu(대표메뉴), recipe(레시피), product(제품) => (원물의 조합)'),
     Column("barcode", VARCHAR(50), comment='null이면 원물(재료) 또는 food_category=내 요리'),
@@ -943,15 +943,16 @@ def food_flavor_mappers():
 
 def food_mappers():
     mapper_registry.map_imperatively(FoodBrand, food_brands)
+    mapper_registry.map_imperatively(FoodFoodCategory, food_food_categories)
     mapper_registry.map_imperatively(FoodIngredient, food_ingredients)
     mapper_registry.map_imperatively(FoodImage, food_images)
     mapper_registry.map_imperatively(User, users)
-
     mapper = mapper_registry.map_imperatively(
         Food,
         foods,
         properties={
             "food_brands": relationship(FoodBrand),
+            "food_food_categories": relationship(FoodFoodCategory),
             "food_ingredients": relationship(FoodIngredient),
             "food_images": relationship(FoodImage),
             "users": relationship(User)
