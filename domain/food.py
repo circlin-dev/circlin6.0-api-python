@@ -2,7 +2,7 @@ class Food:
     def __init__(
             self,
             id: int or None,
-            brand: str,
+            brand: str or None,
             large_category_title: str,
             title: str,
             user_id: int,
@@ -22,8 +22,8 @@ class Food:
             trans_fat: float,
             saturated_fat: float,
             cholesterol: float,
-            url: str,
-            approved_at: str,
+            url: str or None,
+            approved_at: str or None,
             original_data: dict or None,
             deleted_at: str or None
     ):

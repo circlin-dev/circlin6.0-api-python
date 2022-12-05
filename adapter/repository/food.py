@@ -1,10 +1,14 @@
 from domain.food import Food, FoodBrand, FoodImage
 
 import abc
-from sqlalchemy import and_, desc, func, select, text
+from sqlalchemy import and_, desc, func, insert, select, text
 
 
 class AbstractFoodRepository(abc.ABC):
+    @abc.abstractmethod
+    def get_one(self, food: Food) -> Food:
+        pass
+
     @abc.abstractmethod
     def get_list(self, word: str, page_cursor: int, limit: int) -> list:
         pass
@@ -13,10 +17,30 @@ class AbstractFoodRepository(abc.ABC):
     def count_number_of_food(self, word: str) -> int:
         pass
 
+    @abc.abstractmethod
+    def add_one(self, new_food: Food) -> int:
+        pass
+
 
 class FoodRepository(AbstractFoodRepository):
     def __init__(self, session):
         self.session = session
+
+    def get_one(self, food: Food) -> Food:
+        title = food.title
+        large_category_title = food.large_category_title
+        type = food.type
+        sql = select(
+            Food
+        ).where(
+            and_(
+                Food.title == title,
+                Food.large_category_title == large_category_title,
+                Food.type == type,
+                Food.deleted_at == None
+            )
+        )
+        return self.session.execute(sql).first()
 
     def get_list(self, word: str, page_cursor: int, limit: int) -> list:
         sql = select(
@@ -49,21 +73,6 @@ class FoodRepository(AbstractFoodRepository):
                                 )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
                     )
             )).select_from(FoodImage).where(FoodImage.food_id == Food.id).label("images"),
-            # func.ifnull(
-            #     func.json_arrayagg(
-            #         func.json_object(
-            #             'order', BoardImage.order,
-            #             'mimeType', BoardImage.mime_type,
-            #             'pathname', BoardImage.path,
-            #             'resized', text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
-            #                     'mimeType', bi.mime_type,
-            #                     'pathname', bi.path,
-            #                     'width', bi.width
-            #                     )), JSON_ARRAY()) FROM board_images bi WHERE bi.original_file_id = board_images.id)""")
-            #         )
-            #     ),
-            #     func.json_array()
-            # ).label('images'),
             func.concat(func.lpad(Food.id, 15, '0')).label('cursor'),
         ).join(
             FoodBrand, FoodBrand.id == Food.brand_id, isouter=True
@@ -94,3 +103,33 @@ class FoodRepository(AbstractFoodRepository):
         )
         result = self.session.execute(sql).scalar()
         return result
+
+    def add_one(self, new_food: Food) -> int:
+        sql = insert(Food).values(
+            brand_id=new_food.brand_id,
+            large_category_title=new_food.large_category_title,
+            title=new_food.title,
+            user_id=new_food.user_id,
+            type=new_food.type,
+            container=new_food.container,
+            amount_per_serving=new_food.amount_per_serving,
+            total_amount=new_food.total_amount,
+            unit=new_food.unit,
+            servings_per_container=new_food.servings_per_container,
+            price=new_food.price,
+            calorie=new_food.calorie,
+            carbohydrate=new_food.carbohydrate,
+            protein=new_food.protein,
+            fat=new_food.fat,
+            sodium=new_food.sodium,
+            sugar=new_food.sugar,
+            trans_fat=new_food.trans_fat,
+            saturated_fat=new_food.saturated_fat,
+            cholesterol=new_food.cholesterol,
+            url=new_food.url,
+            approved_at=new_food.approved_at,
+            deleted_at=new_food.deleted_at
+        )
+        result = self.session.execute(sql)  # =====> inserted row의 id값을 반환해야 한다.
+        return result.inserted_primary_key[0]
+
