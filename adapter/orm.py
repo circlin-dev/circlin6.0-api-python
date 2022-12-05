@@ -381,10 +381,8 @@ food_reviews = Table(
 food_ingredients = Table(
     "food_ingredients",
     mapper_registry.metadata,
-    Column("id", BIGINT(unsigned=True), primary_key=True),
-    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
-    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("value", VARCHAR(255), nullable=False, unique=True)
+    Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), primary_key=True, nullable=False, index=True),
+    Column("ingredient_id", BIGINT(unsigned=True), ForeignKey('ingredients.id'), primary_key=True, nullable=False, index=True),
 )
 
 
@@ -946,24 +944,28 @@ def food_flavor_mappers():
 def food_mappers():
     mapper_registry.map_imperatively(FoodBrand, food_brands)
     mapper_registry.map_imperatively(FoodIngredient, food_ingredients)
+    mapper_registry.map_imperatively(FoodImage, food_images)
     mapper_registry.map_imperatively(User, users)
 
     mapper = mapper_registry.map_imperatively(
         Food,
         foods,
         properties={
-            "food_brands": relationship(FoodBrand, food_brands),
-            "food_ingredients": relationship(FoodIngredient, food_ingredients),
-            "users": relationship(User, users)
+            "food_brands": relationship(FoodBrand),
+            "food_ingredients": relationship(FoodIngredient),
+            "food_images": relationship(FoodImage),
+            "users": relationship(User)
         }
     )
     return mapper
 
 
 def food_brand_mappers():
+    mapper_registry.map_imperatively(Food, foods)
     mapper = mapper_registry.map_imperatively(
         FoodBrand,
         food_brands,
+        properties={"foods": Food}
     )
     return mapper
 
@@ -989,6 +991,7 @@ def food_food_category_mappers():
 
 def food_image_mappers():
     mapper_registry.map_imperatively(Food, foods)
+    mapper_registry.map_imperatively(FoodImage, food_images)
     mapper = mapper_registry.map_imperatively(
         FoodImage,
         food_images,
@@ -1060,6 +1063,7 @@ def food_review_mappers():
         food_reviews,
         properties={"users": relationship(User)}
     )
+    return mapper
 
 
 def ingredient_mappers():

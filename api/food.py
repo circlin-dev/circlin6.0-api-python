@@ -1,6 +1,7 @@
 from . import api
 from adapter.database import db_session
 from adapter.orm import food_mappers, food_category_mappers, food_rating_mappers, food_review_mappers
+from adapter.repository.food import FoodRepository
 from adapter.repository.food_category import FoodCategoryRepository
 from adapter.repository.food_rating import FoodRatingRepository
 from adapter.repository.food_review import FoodReviewRepository
@@ -28,8 +29,22 @@ def food():
         page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
 
         food_mappers()
-
+        food_repo: FoodRepository = FoodRepository(db_session)
+        foods = food_services.get_food_list(word, page_cursor, limit, food_repo)
+        number_of_foods = food_services.get_count_of_foods(word, food_repo)
         clear_mappers()
+        db_session.close()
+
+        last_cursor: [str, None] = None if len(foods) <= 0 else foods[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': foods,
+            'cursor': last_cursor,
+            'totalCount': number_of_foods,
+        }
+        db_session.close()
+        return json.dumps(result, ensure_ascii=False), 200
 
 
 @api.route('/food/<int:food_id>/user/rated', methods=['GET'])
@@ -53,8 +68,6 @@ def get_user_rated_the_food(food_id: int):
 
     result = {"result": True, "rated": True if len(ratings) > 0 else False}
     return json.dumps(result, ensure_ascii=False), 200
-
-
 
 
 @api.route('/food/category', methods=['GET'])
