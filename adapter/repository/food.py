@@ -59,7 +59,7 @@ class FoodRepository(AbstractFoodRepository):
             Food.unit,
             Food.amount_per_serving,
             Food.container,
-            select(func.json_arrayagg(
+            func.json_arrayagg(
                 func.json_object(
                     "width", FoodImage.width,
                     "height", FoodImage.height,
@@ -67,21 +67,25 @@ class FoodRepository(AbstractFoodRepository):
                     "mimeType", FoodImage.mime_type,
                     "pathname", FoodImage.path,
                     'resized', text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
-                                'mimeType', fi.mime_type,
-                                'pathname', fi.path,
-                                'width', fi.width
-                                )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
-                    )
-            )).select_from(FoodImage).where(FoodImage.food_id == Food.id).label("images"),
+                            'mimeType', fi.mime_type,
+                            'pathname', fi.path,
+                            'width', fi.width,
+                            'height', fi.height
+                            )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                )
+            ).label("images"),
             func.concat(func.lpad(Food.id, 15, '0')).label('cursor'),
         ).join(
             FoodBrand, FoodBrand.id == Food.brand_id, isouter=True
+        ).join(
+            FoodImage, FoodImage.food_id == Food.id, isouter=True
         ).where(
             and_(
                 Food.type == 'product',
                 Food.title.like(f'%{word}%'),
                 Food.id < page_cursor,
-                Food.deleted_at == None
+                Food.deleted_at == None,
+                FoodImage.original_file_id == None
             )
         ).group_by(
             Food.id

@@ -1,5 +1,4 @@
 from adapter.orm import food_flavors
-from domain.food import FoodFlavor, FoodFoodCategory
 
 import abc
 from sqlalchemy import insert
@@ -20,9 +19,6 @@ class FoodFlavorRepository(AbstractFoodFlavorRepository):
         self.session = session
 
     def add(self, food_id: int, flavor_tags: list):
-        # new = [{'food_id': food_id, 'flavors': tag} for tag in flavor_tags]
-        # sql = insert(FoodFlavor)
-        # return self.session.execute(sql, new)
         for tag in flavor_tags:
             sql = insert(food_flavors).values(food_id=food_id, flavors=tag)
             self.session.execute(sql)

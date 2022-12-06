@@ -31,7 +31,7 @@ class FoodImageRepository(AbstractFoodImageRepository):
             )
         else:
             sql = insert(
-                new_food_image
+                food_images
             ).values(
                 food_id=new_food_image.board_id,
                 type=type,
