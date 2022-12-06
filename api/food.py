@@ -1,6 +1,6 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import food_mappers, food_category_mappers, food_rating_mappers, food_review_mappers
+from adapter.orm import food_mappers, food_category_mappers, food_rating_mappers, food_rating_image_mappers, food_review_mappers
 from adapter.repository.food import FoodRepository
 from adapter.repository.food_brand import FoodBrandRepository
 from adapter.repository.food_category import FoodCategoryRepository
@@ -8,8 +8,13 @@ from adapter.repository.food_flavor import FoodFlavorRepository
 from adapter.repository.food_food_category import FoodFoodCategoryRepository
 from adapter.repository.food_image import FoodImageRepository
 from adapter.repository.food_rating import FoodRatingRepository
+from adapter.repository.food_rating_image import FoodRatingImageRepository
+from adapter.repository.food_rating_review import FoodRatingReviewRepository
 from adapter.repository.food_review import FoodReviewRepository
-from domain.food import Food, FoodBrand
+from adapter.repository.notification import NotificationRepository
+from adapter.repository.point_history import PointHistoryRepository
+from adapter.repository.user import UserRepository
+from domain.food import Food, FoodBrand, FoodRating
 from helper.constant import ERROR_RESPONSE, INITIAL_DESCENDING_PAGE_CURSOR
 from helper.function import authenticate, get_query_strings_from_request
 from services import food_services
@@ -18,6 +23,7 @@ from flask import request
 import json
 import random
 from sqlalchemy.orm import clear_mappers
+from typing import List
 
 
 @api.route('/food', methods=['GET', 'POST'])
@@ -25,7 +31,7 @@ def food():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
+        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
         return json.dumps(result, ensure_ascii=False), 401
 
     if request.method == 'GET':
@@ -35,8 +41,8 @@ def food():
 
         food_mappers()
         food_repo: FoodRepository = FoodRepository(db_session)
-        foods = food_services.get_food_list(word, page_cursor, limit, food_repo)
-        number_of_foods = food_services.get_count_of_foods(word, food_repo)
+        foods: list = food_services.get_food_list(word, page_cursor, limit, food_repo)
+        number_of_foods: int = food_services.get_count_of_foods(word, food_repo)
         clear_mappers()
         db_session.close()
 
@@ -57,7 +63,7 @@ def food():
             # 이미지가 없음  ==> 식단 데이터 등록 우선
             # Request body가 JSON이므로 request.get_data() 로 확인한다.
             data = json.loads(request.get_data())
-            flavor_tags: list = data['flavor']
+            flavor_tags: List[str] = data['flavor']
             category: dict = {
                 'large': data['categoryLarge'],
                 'medium': data['categoryMedium'],
@@ -134,10 +140,19 @@ def food():
         else:
             # 이미지 등록
             # Request body가 formdata이므로 request.form.to_dict() 로 확인한다.
-            food_id = int(request.form.to_dict()['foodId'])
-            images = request.files.to_dict()
-            s3_object_path = f'food/{str(food_id)}'
-            types = ["front", "back", "content"]
+            food_id: int = int(request.form.to_dict()['foodId'])
+            images: list = request.files.to_dict()
+            s3_object_path: str = f'food/{str(food_id)}'
+            types: List[str] = ["front", "back", "content"]
+
+            if food_id is None:
+                db_session.close()
+                result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (foodId).'}
+                return json.dumps(result, ensure_ascii=False), 400
+            if images is None or len(images) == 0:
+                db_session.close()
+                result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (front, back, content images).'}
+                return json.dumps(result, ensure_ascii=False), 400
 
             food_mappers()
             # food_repo: FoodRepository = FoodRepository(db_session)
@@ -152,7 +167,6 @@ def food():
 
             result = {'result': True}
             return json.dumps(result, ensure_ascii=False), 200
-
 
     else:
         db_session.close()
@@ -194,6 +208,102 @@ def get_user_rated_the_food(food_id: int):
         return json.dumps(result), 405
 
 
+@api.route('/food/<int:food_id>/rating', methods=['GET', 'POST'])
+def food_review(food_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
+        return json.dumps(result, ensure_ascii=False), 401
+
+    if food_id is None:
+        db_session.close()
+        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (food_id).'}
+        return json.dumps(result, ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        pass
+    elif request.method == 'POST':
+        num_images: int = len(request.files.to_dict())
+
+        if num_images < 1:
+            # 이미지가 없음  ==> 식단 데이터 등록 우선
+            data = json.loads(request.get_data())
+            body: str = data['body']
+            rating: int = int(data['rating'])
+            selected_tag_ids: List[int] = data['tags']  # 기본 제공하는 태그 목록 중 선택한 것들의 id 배열
+            new_tags_written_by_user: List[str] = data['newTags']   # 직접 작성한 태그들 => food_reviews에 새로 INSERT해야 함
+
+            food_rating_mappers()
+            new_food_rating: FoodRating = FoodRating(
+                id=None,
+                food_id=food_id,
+                user_id=user_id,
+                rating=rating,
+                body=None if body.strip() == '' else body  # client-side에서 리뷰 텍스트 기본값을 ''로 했기 때문에 간단히 전처리.
+            )
+            food_review_repo: FoodReviewRepository = FoodReviewRepository(db_session)
+            food_rating_repo: FoodRatingRepository = FoodRatingRepository(db_session)
+            food_rating_review_repo: FoodRatingReviewRepository = FoodRatingReviewRepository(db_session)
+            # notification_repo: NotificationRepository = NotificationRepository(db_session)
+            point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
+            user_repo: UserRepository = UserRepository(db_session)
+            add_food_rating: dict = food_services.add_food_rating(
+                new_food_rating,
+                selected_tag_ids,
+                new_tags_written_by_user,
+                food_review_repo,
+                food_rating_repo,
+                food_rating_review_repo,
+                # notification_repo,
+                point_history_repo,
+                user_repo
+            )
+            clear_mappers()
+
+            if add_food_rating['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(add_food_rating, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({'result': False}, ensure_ascii=False), 400
+
+        else:
+            rating_id: int = int(request.form.to_dict()['ratingId'])  # request body가 FormData로 옴.
+            images: list = request.files.getlist('files[]')
+
+            if rating_id is None:
+                db_session.close()
+                result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (ratingId).'}
+                return json.dumps(result, ensure_ascii=False), 400
+            if images is None or len(images) == 0:
+                db_session.close()
+                result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (files[]).'}
+                return json.dumps(result, ensure_ascii=False), 400
+
+            food_rating_image_mappers()
+            food_rating_image_repo: FoodRatingImageRepository = FoodRatingImageRepository(db_session)
+
+            s3_object_path: str = f'food/{str(food_id)}/rating'
+            for image in images:
+                food_services.create_food_rating_images(rating_id, image, s3_object_path, food_rating_image_repo)
+
+            clear_mappers()
+            db_session.commit()
+            db_session.close()
+
+            result = {'result': True}
+            return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        result: dict = {
+            'result': False,
+            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
+        }
+        return json.dumps(result, ensure_ascii=False), 405
+
+
 @api.route('/food/category', methods=['GET'])
 def get_food_category():
     user_id: [int, None] = authenticate(request, db_session)
@@ -221,7 +331,7 @@ def get_food_category():
             'result': False,
             'error': f'{ERROR_RESPONSE[405]} ({request.method})'
         }
-        return json.dumps(result), 405
+        return json.dumps(result, ensure_ascii=False), 405
 
 
 @api.route('/food/review/tag', methods=['GET'])
@@ -251,4 +361,4 @@ def get_food_review_tag():
             'result': False,
             'error': f'{ERROR_RESPONSE[405]} ({request.method})'
         }
-        return json.dumps(result), 405
+        return json.dumps(result, ensure_ascii=False), 405

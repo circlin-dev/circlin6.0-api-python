@@ -22,24 +22,22 @@ class FoodBrandRepository(AbstractFoodBrandRepository):
     def add_if_not_exists(self, new_brand: FoodBrand):
         # QUERY BUILDER 문법으로 고칠 것.
         sql = text(f"""
-        INSERT INTO food_brands(title, type) 
-        SELECT
-            temp.*
-        FROM
-            (SELECT '{new_brand.title}', '{new_brand.type}') AS temp
-        WHERE NOT EXISTS(
+            INSERT INTO food_brands(title, type) 
             SELECT
-                id,
-                title,
-                type
+                temp.*
             FROM
-                food_brands
-            WHERE title = '{new_brand.title}'
-            AND type = '{new_brand.type}'
-        )""")
-        # result = self.session.execute(sql)
-        #
-        # return True
+                (SELECT '{new_brand.title}', '{new_brand.type}') AS temp
+            WHERE NOT EXISTS(
+                SELECT
+                    id,
+                    title,
+                    type
+                FROM
+                    food_brands
+                WHERE title = '{new_brand.title}'
+                AND type = '{new_brand.type}'
+            )
+        """)
         return self.session.execute(sql)
 
     def get_one(self, food_brand: FoodBrand) -> FoodBrand:
