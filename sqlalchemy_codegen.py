@@ -1625,7 +1625,7 @@ class PointHistory(Base):
     feed_id = Column(ForeignKey('feeds.id'), index=True)
     order_id = Column(ForeignKey('orders.id'), index=True)
     mission_id = Column(ForeignKey('missions.id'), index=True)
-    food_rating_id = Column(ForeignKey('circlin_65.food_rating.id'), index=True)
+    food_rating_id = Column(ForeignKey('food_ratings.id'), index=True)
     feed_comment_id = Column(ForeignKey('feed_comments.id'), index=True)
 
     feed_comment = relationship('FeedComment')

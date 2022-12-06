@@ -58,7 +58,15 @@ class PointHistoryRepository(AbstractPointHistoryRepository):
                 )
             )
         elif "food" in reason:
-            sql = ''
+            food_rating_id = point_history.food_rating_id
+            sql = select(
+                point_histories
+            ).where(
+                and_(
+                    point_histories.c.user_id == user_id,
+                    point_histories.c.food_rating_id == food_rating_id,
+                )
+            )
         elif "mission" in reason:
             sql = ''
         elif "order" in reason:
