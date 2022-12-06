@@ -140,13 +140,18 @@ def food():
             types = ["front", "back", "content"]
 
             food_mappers()
-            food_repo: FoodRepository = FoodRepository(db_session)
+            # food_repo: FoodRepository = FoodRepository(db_session)
             food_image_repo: FoodImageRepository = FoodImageRepository(db_session)
 
             for type in types:
-                food_services.create_food_images(food_id, type, images, s3_object_path, food_image_repo)
+                food_services.create_food_images(food_id, type, images[type], s3_object_path, food_image_repo)
 
+            clear_mappers()
+            db_session.commit()
+            db_session.close()
 
+            result = {'result': True}
+            return json.dumps(result, ensure_ascii=False), 200
 
 
     else:

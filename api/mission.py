@@ -1,6 +1,6 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import feed_mappers, feed_mission_mappers, mission_category_mappers, mission_comment_mappers, user_favorite_category_mappers
+from adapter.orm import feed_mappers, mission_category_mappers, mission_comment_mappers, user_favorite_category_mappers
 from adapter.repository.feed import FeedRepository
 from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
