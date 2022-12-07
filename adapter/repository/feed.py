@@ -342,7 +342,8 @@ class FeedRepository(AbstractFeedRepository):
                     select(True).where(
                         and_(
                             feed_likes.c.feed_id == Feed.id,
-                            feed_likes.c.user_id == user_id
+                            feed_likes.c.user_id == user_id,
+                            feed_likes.c.deleted_at == None
                         )
                     ),
                     False
@@ -411,7 +412,8 @@ class FeedRepository(AbstractFeedRepository):
                             select(True).where(
                                 and_(
                                     feed_likes.c.feed_id == Feed.id,
-                                    feed_likes.c.user_id == user_id
+                                    feed_likes.c.user_id == user_id,
+                                    feed_likes.c.deleted_at == None
                                 )
                             ),
                             False
@@ -461,7 +463,8 @@ class FeedRepository(AbstractFeedRepository):
                     select(True).where(
                         and_(
                             feed_likes.c.feed_id == Feed.id,
-                            feed_likes.c.user_id == user_id
+                            feed_likes.c.user_id == user_id,
+                            feed_likes.c.deleted_at == None
                         )
                     ),
                     False
@@ -472,7 +475,8 @@ class FeedRepository(AbstractFeedRepository):
                             select(True).where(
                                 and_(
                                     feed_likes.c.feed_id == Feed.id,
-                                    feed_likes.c.user_id == user_id
+                                    feed_likes.c.user_id == user_id,
+                                    feed_likes.c.deleted_at == None
                                 )
                             ),
                             False
