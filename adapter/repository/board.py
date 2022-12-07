@@ -12,7 +12,7 @@ class AbstractBoardRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_one(self, board_id: int) -> Board:
+    def get_one(self, board_id: int, user_id: int) -> Board:
         pass
 
     @abc.abstractmethod
@@ -49,13 +49,67 @@ class BoardRepository(AbstractBoardRepository):
 
         return result.inserted_primary_key[0]
 
-    def get_one(self, board_id: int) -> Board:
-        sql = select(Board).where(Board.id == board_id)
-        result = self.session.execute(sql).scalars().first()
-
-        if result is not None:
-            result.is_show = True if result.is_show == 1 else False
-
+    def get_one(self, board_id: int, user_id: int) -> Board:
+        sql = select(
+            Board.id,
+            Board.body,
+            func.date_format(Board.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+            User.id.label('user_id'),
+            User.profile_image,
+            case(
+                (text(f"users.id in (SELECT target_id FROM follows WHERE user_id={user_id})"), 1),
+                else_=0
+            ).label("followed"),
+            User.nickname,
+            case(
+                (text(f"users.id in (SELECT target_id FROM blocks WHERE user_id={user_id})"), 1),
+                else_=0
+            ).label("is_blocked"),
+            Board.board_category_id,
+            case(
+                (text(f"{user_id} in (SELECT user_id FROM board_likes WHERE board_id = boards.id)"), 1),
+                else_=0
+            ).label('liked'),
+            Board.is_show,
+            Board.deleted_at,
+            func.ifnull(
+                func.json_arrayagg(
+                    func.json_object(
+                        'order', BoardImage.order,
+                        'mimeType', BoardImage.mime_type,
+                        'pathname', BoardImage.path,
+                        'resized', text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                                    'mimeType', bi.mime_type,
+                                    'pathname', bi.path,
+                                    'width', bi.width
+                                    )), JSON_ARRAY()) FROM board_images bi WHERE bi.original_file_id = board_images.id)""")
+                    )
+                ),
+                func.json_array()
+            ).label('images'),
+            text(f"(SELECT COUNT(*) FROM follows f WHERE f.target_id = users.id) AS followers"),  # user.followers
+            text(f"(SELECT a.name AS area FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1) AS area"),  # user.area
+            text("(SELECT COUNT(*) AS likes_count FROM board_likes bl WHERE bl.board_id = boards.id) AS likes_count"),  # likesCount
+            text("(SELECT COUNT(*) AS comments_count FROM board_comments bcm WHERE bcm.board_id = boards.id AND bcm.deleted_at IS NULL) AS comments_count"),  # commentsCount
+        ).select_from(
+            Board
+        ).join(
+            User, Board.user_id == User.id
+        ).join(
+            BoardImage, Board.id == BoardImage.board_id, isouter=True
+        ).where(
+            and_(
+                Board.id == board_id,
+                Board.is_show == 1,
+                Board.deleted_at == None,
+                BoardImage.original_file_id == None
+            )
+        ).group_by(
+            Board.id
+        ).order_by(
+            desc(BoardImage.order)
+        )
+        result = self.session.execute(sql).first()
         return result
 
     def get_list(self, user_id: int, page_cursor: int, limit: int) -> list:

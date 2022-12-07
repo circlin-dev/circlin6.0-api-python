@@ -67,6 +67,36 @@ def get_board_list(user_id: int, page_cursor: int, limit: int, repo: AbstractBoa
     return entries
 
 
+def get_a_board(board_id: int, user_id: int, board_repo: AbstractBoardRepository) -> dict:
+    board: Board = board_repo.get_one(board_id, user_id)
+
+    if board is None or board_is_undeleted(board) is False:
+        return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
+    else:
+        board_dict = dict(
+            id=board.id,
+            body=board.body,
+            createdAt=board.created_at,
+            images=json.loads(board.images) if json.loads(board.images)[0]['pathname'] is not None else [],
+            user=dict(
+                id=board.user_id,
+                profile=board.profile_image,
+                followed=True if (board.followed == 1 or board.user_id == user_id) else False,
+                nickname=board.nickname,
+                followers=board[-4],
+                isBlocked=True if board.is_blocked == 1 else False,
+                area=board[-3]
+            ),
+            boardCategoryId=board.board_category_id,
+            likesCount=board[-2],
+            liked=True if board.liked == 1 else False,
+            commentsCount=board[-1],
+            isShow=True if board.is_show == 1 else False,
+        ) if board is not None else None
+
+        return {'result': True, 'data': board_dict}
+
+
 def create_new_board(new_board: Board, board_repo: AbstractBoardRepository) -> int:
     new_board_id: int = board_repo.add(new_board)
     return new_board_id
