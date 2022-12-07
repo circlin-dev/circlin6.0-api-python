@@ -39,7 +39,7 @@ app.logger.setLevel(gunicorn_logger.level)
 
 @app.route('/')
 def hello_world():
-    return "Hello, CIRCLIN6.0!"
+    return "Hello, CIRCLIN6.0!!"
 
 
 if __name__ == '__main__':

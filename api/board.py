@@ -102,7 +102,7 @@ def board_get_post():
         return json.dumps(result), 405
 
 
-@api.route('/board/<int:board_id>', methods=['PATCH', 'DELETE'])
+@api.route('/board/<int:board_id>', methods=['GET', 'PATCH', 'DELETE'])
 def board_patch_delete(board_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
@@ -115,6 +115,20 @@ def board_patch_delete(board_id: int):
         result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
         return json.dumps(result, ensure_ascii=False), 400
 
+    if request.method == 'GET':
+        board_mappers()
+        repo: BoardRepository = BoardRepository(db_session)
+
+        get_a_board: dict = board_service.get_a_board(board_id, user_id, repo)
+        clear_mappers()
+
+        if get_a_board['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(get_a_board, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in get_a_board.items() if key != 'status_code'}, ensure_ascii=False), get_a_board['status_code']
     if request.method == 'DELETE':
         board_mappers()
         repo: BoardRepository = BoardRepository(db_session)
