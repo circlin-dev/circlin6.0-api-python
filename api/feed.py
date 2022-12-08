@@ -351,7 +351,7 @@ def feed_check(feed_id: int):
 
         feed_check_mappers()
         feed_check_repo: FeedCheckRepository = FeedCheckRepository(db_session)
-        liked_users: list = feed_service.get_user_list_who_like_this_feed(feed_id, page_cursor, limit, feed_check_repo)
+        liked_users: list = feed_service.get_user_list_who_like_this_feed(feed_id, user_id, page_cursor, limit, feed_check_repo)
         number_of_liked_users: int = feed_service.get_like_count_of_the_feed(feed_id, feed_check_repo)
         clear_mappers()
 
