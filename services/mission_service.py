@@ -57,14 +57,14 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
             nickname=feed.nickname,
             profile=feed.profile_image,
             followed=True if feed.followed == 1 else False,
-            area=json.loads(feed.user_additional_information)["area"],
-            followers=json.loads(feed.user_additional_information)["followers"],
+            area=feed.area,
+            followers=feed.followers,
             gender=feed.gender,
             isBlocked=True if feed.is_blocked == 1 else False,
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
         ),
-        commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
-        checksCount=json.loads(feed.feed_additional_information)["checks_count"],
+        commentsCount=feed.comments_count,
+        checksCount=feed.checks_count,
         checked=True if feed.checked == 1 else False,
         cursor=feed.cursor,
     ) for feed in feeds]
