@@ -116,13 +116,14 @@ def get_like_count_of_the_feed(feed_id: int, repo: AbstractFeedCheckRepository) 
     return repo.count_number_of_like(feed_id)
 
 
-def get_user_list_who_like_this_feed(feed_id: int, page_cursor: int, limit: int, repo: AbstractFeedCheckRepository) -> list:
-    liked_users: list = repo.get_liked_user_list(feed_id, page_cursor, limit)
+def get_user_list_who_like_this_feed(feed_id: int, user_id: int, page_cursor: int, limit: int, repo: AbstractFeedCheckRepository) -> list:
+    liked_users: list = repo.get_liked_user_list(feed_id, user_id, page_cursor, limit)
     entries: list = [dict(
         id=user.id,
         nickname=user.nickname,
-        greeting=user.greeting,
+        gender=user.gender,
         profileImage=user.profile_image,
+        followed=True if user.followed == 1 else False,
         cursor=user.cursor
     ) for user in liked_users]
 
