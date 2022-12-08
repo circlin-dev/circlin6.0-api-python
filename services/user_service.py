@@ -58,8 +58,8 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
         #     isBlocked=True if feed.is_blocked == 1 else False,
         #     # isChatBlocked=True if feed.is_chat_blocked == 1 else False
         # ),
-        commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
-        checksCount=json.loads(feed.feed_additional_information)["checks_count"],
+        commentsCount=feed.comments_count,
+        checksCount=feed.checks_count,
         checked=True if feed.checked == 1 else False,
         missions=[dict(
             id=mission['id'],
@@ -98,8 +98,8 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
             profile=feed.profile_image,
             isBlocked=True if feed.is_blocked == 1 else False,
         ),
-        commentsCount=json.loads(feed.feed_additional_information)["comments_count"],
-        checksCount=json.loads(feed.feed_additional_information)["checks_count"],
+        commentsCount=feed.comments_count,
+        checksCount=feed.checks_count,
         product=json.loads(feed.product),
         cursor=feed.cursor,
     ) for feed in feeds]

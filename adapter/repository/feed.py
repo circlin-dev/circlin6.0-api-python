@@ -1,4 +1,4 @@
-from adapter.orm import brands, feed_images, feed_likes, follows, foods, missions, mission_categories, outside_products, products
+from adapter.orm import areas, brands, feed_comments, feed_images, feed_likes, follows, foods, missions, mission_categories, outside_products, products
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.user import User
 from helper.cache import cache
@@ -92,10 +92,8 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
-            func.json_object(
-                "comments_count", text("(SELECT COUNT(*) FROM feed_comments WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-                "checks_count", text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-            ).label("feed_additional_information"),
+            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
+            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
             User.id.label('user_id'),
             User.nickname,
@@ -116,11 +114,8 @@ class FeedRepository(AbstractFeedRepository):
                 ),
                 0
             ).label("is_chat_blocked"),
-            func.json_object(
-                "followers", text("(SELECT COUNT(*) FROM follows f2 WHERE f2.target_id = feeds.user_id)"),
-                "area", text(
-                    "(SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1)")
-            ).label("user_additional_information"),
+            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
 
             func.json_arrayagg(
                 func.json_object(
@@ -196,16 +191,18 @@ class FeedRepository(AbstractFeedRepository):
             단, 'feed_candidate_query.c.column'에서 c.column은 feeeds 테이블의 컬럼을 의미한다.
             이것은 sqlalchemy 문법을 준수하기 위함이다. 가독성이 다소 떨어지므로 개선의 대상이나, sqlalchemy에 조금 더 익숙해져야 할 수 있을 것 같다.
         """
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+
         nested_query = select(
-                FeedCheck.id,
-                FeedCheck.feed_id
-            ).where(
-                and_(
-                    func.TIMESTAMPDIFF(text("DAY"), FeedCheck.created_at, func.now()) == 0,
-                    FeedCheck.created_at >= func.DATE(func.now()),
-                    FeedCheck.deleted_at == None
-                )
-            ).order_by(desc(FeedCheck.id)).alias("t")
+            FeedCheck.id,
+            FeedCheck.feed_id
+        ).where(
+            and_(
+                func.TIMESTAMPDIFF(text("DAY"), FeedCheck.created_at, func.now()) == 0,
+                FeedCheck.created_at >= func.DATE(func.now()),
+                FeedCheck.deleted_at == None
+            )
+        ).group_by(FeedCheck.feed_id).order_by(desc(FeedCheck.id)).alias("t")
 
         feed_candidate_query = select(
             Feed
@@ -215,15 +212,15 @@ class FeedRepository(AbstractFeedRepository):
             Feed, Feed.id == text("t.feed_id")  # FeedCheck.feed_id
         ).where(
             and_(
-                Feed.user_id.not_in(select(follows.c.target_id).where(follows.c.user_id == user_id)),
+                Feed.user_id.not_in(followings),
                 Feed.deleted_at == None,
                 Feed.is_hidden == 0
             )
         ).group_by(
-            text("t.feed_id")
+            Feed.user_id
         ).order_by(
             desc(func.count(text("t.id"))),
-            desc(text("t.feed_id"))
+            Feed.user_id
         ).limit(10)
 
         sql = select(
@@ -249,10 +246,8 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
                 else_=0
             ).label("is_blocked"),
-            func.json_object(
-                "followers", text(f"(SELECT COUNT(*) FROM follows f2 WHERE f2.target_id = {feed_candidate_query.c.user_id})"),
-                "area", text("(SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1)")
-            ).label("user_additional_information"),
+            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
             func.ifnull(
                 case(
                     (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
@@ -265,10 +260,9 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = {feed_candidate_query.c.id} AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
-            func.json_object(
-                "comments_count", text(f"(SELECT COUNT(*) FROM feed_comments WHERE feed_id = {feed_candidate_query.c.id} AND deleted_at IS NULL)"),
-                "checks_count", text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = {feed_candidate_query.c.id} AND deleted_at IS NULL)"),
-            ).label("feed_additional_information"),
+            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
+            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
+
             func.json_arrayagg(
                 func.json_object(
                     "id", missions.c.id,
@@ -319,134 +313,427 @@ class FeedRepository(AbstractFeedRepository):
         return result
 
     def get_newsfeeds(self, user_id: int, page_cursor: int, limit: int) -> list:
+        '''
+        (1) current_number_of_following < 10 이면 newsfeed + 추천 피드를 함께 보내줘야 한다.
+        이때, newsfeed와 추천피드는 쿼리가 다르므로 UNION한 후 cursor를 생성한다.
+        (2) 반면, current_number_of_following >= 10 이면 newsfeed만 보낸다.
+        이때, newsfeed 조회 쿼리에는 cursor를 생성하는 쿼리가 추가되어야 한다.
+        이 때문에 함수 코드가 다소 길어졌다.
+        :param user_id:
+        :param page_cursor:
+        :param limit:
+        :return:
+        '''
         if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR:
             # first API call or refreshing
-
             # Clear cache first if exists.
             if cache.get("customized_sort_query") is not None:
                 cache.clear()
 
-            customized_sort_query = select(
-                Feed.id,
-                func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
-                Feed.content.label('body'),
-                select(func.json_arrayagg(
-                    func.json_object(
-                        "order", FeedImage.order,
-                        "mimeType", FeedImage.type,
-                        "pathname", FeedImage.image,
-                        "resized", func.json_array()
-                    )
-                )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
-                func.ifnull(
-                    select(True).where(
-                        and_(
-                            feed_likes.c.feed_id == Feed.id,
-                            feed_likes.c.user_id == user_id,
-                            feed_likes.c.deleted_at == None
+            followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+            followings_number = select(func.count(follows.c.target_id)).where(follows.c.user_id == user_id)
+            current_number_of_following = self.session.execute(followings_number).scalar()
+
+            if current_number_of_following >= 10:
+                # newsfeed only
+                customized_sort_query = select(
+                    Feed.id,
+                    func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+                    Feed.content.label('body'),
+                    select(func.json_arrayagg(
+                        func.json_object(
+                            "order", FeedImage.order,
+                            "mimeType", FeedImage.type,
+                            "pathname", FeedImage.image,
+                            "resized", func.json_array()
                         )
-                    ),
-                    False
-                ).label('checked'),
-                func.json_object(
-                    "comments_count", text("(SELECT COUNT(*) FROM feed_comments WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-                    "checks_count", text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-                ).label("feed_additional_information"),
-
-                User.id.label('user_id'),
-                User.nickname,
-                User.profile_image,
-                User.gender,
-                case(
-                    (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                    else_=0
-                ).label("followed"),
-                case(
-                    (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                    else_=0
-                ).label("is_blocked"),
-                func.ifnull(
-                    case(
-                        (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
-                        else_=text(f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
-                    ),
-                    0
-                ).label("is_chat_blocked"),
-                func.json_object(
-                    "followers", text("(SELECT COUNT(*) FROM follows f2 WHERE f2.target_id = feeds.user_id)"),
-                    "area", text("(SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1)")
-                ).label("user_additional_information"),
-
-                func.json_arrayagg(
-                    func.json_object(
-                        "id", missions.c.id,
-                        "title", missions.c.title,
-                        "emoji", select(mission_categories.c.emoji).where(mission_categories.c.id == missions.c.mission_category_id),
-                        "is_ground", missions.c.is_ground,
-                        "is_event", missions.c.is_event,
-                        "is_old_event", case(
-                            (and_(missions.c.id <= 1749, missions.c.is_event == 1), 1),
-                            else_=0
+                    )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
+                    func.ifnull(
+                        select(True).where(
+                            and_(
+                                feed_likes.c.feed_id == Feed.id,
+                                feed_likes.c.user_id == user_id,
+                                feed_likes.c.deleted_at == None
+                            )
                         ),
-                        "event_type", missions.c.event_type,
-                        "thumbnail", missions.c.thumbnail_image,
-                        "bookmarked", case(
-                            (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"), 1),
-                            else_=0
-                        )
-                    )
-                ).label('mission'),
+                        False
+                    ).label('checked'),
+                    select(func.count(feed_comments.c.id)).where(
+                        and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label(
+                        'comments_count'),
+                    select(func.count(FeedCheck.id)).where(
+                        and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
-                func.json_object(
-                    "type", FeedProduct.type,
-                    "id", FeedProduct.id,
-                    "brand", func.IF(FeedProduct.type == 'inside', select(brands.c.name_ko).where(brands.c.id == products.c.brand_id), outside_products.c.brand),
-                    "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
-                    "image", func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
-                    "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
-                    "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
-                ).label('product'),
-                func.row_number().over(
-                    order_by=[
-                        desc(func.ifnull(
-                            select(True).where(
-                                and_(
-                                    feed_likes.c.feed_id == Feed.id,
-                                    feed_likes.c.user_id == user_id,
-                                    feed_likes.c.deleted_at == None
-                                )
+                    User.id.label('user_id'),
+                    User.nickname,
+                    User.profile_image,
+                    User.gender,
+                    case(
+                        (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
+                        else_=0
+                    ).label("followed"),
+                    case(
+                        (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
+                        else_=0
+                    ).label("is_blocked"),
+                    func.ifnull(
+                        case(
+                            (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
+                            else_=text(
+                                f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
+                        ),
+                        0
+                    ).label("is_chat_blocked"),
+                    select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+                    select(areas.c.name).where(
+                        areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label(
+                        'area'),
+
+                    func.json_arrayagg(
+                        func.json_object(
+                            "id", missions.c.id,
+                            "title", missions.c.title,
+                            "emoji", select(mission_categories.c.emoji).where(
+                                mission_categories.c.id == missions.c.mission_category_id),
+                            "is_ground", missions.c.is_ground,
+                            "is_event", missions.c.is_event,
+                            "is_old_event", case(
+                                (and_(missions.c.id <= 1749, missions.c.is_event == 1), 1),
+                                else_=0
                             ),
-                            False
-                        )),
-                        Feed.created_at
-                    ]
-                ).label('cursor')
-            ).join(
-                User, User.id == Feed.user_id
-            ).join(
-                FeedMission, FeedMission.feed_id == Feed.id, isouter=True
-            ).join(
-                missions, missions.c.id == FeedMission.mission_id, isouter=True
-            ).join(
-                FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
-            ).join(
-                products, products.c.id == FeedProduct.product_id, isouter=True
-            ).join(
-                outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
-            ).where(
-                and_(
-                    Feed.user_id.in_(select(follows.c.target_id).where(follows.c.user_id == user_id)),
-                    func.abs(func.TIMESTAMPDIFF(text("HOUR"), Feed.created_at, func.now())) <= 24,
-                    Feed.deleted_at == None,
-                    Feed.is_hidden == 0,
+                            "event_type", missions.c.event_type,
+                            "thumbnail", missions.c.thumbnail_image,
+                            "bookmarked", case(
+                                (text(
+                                    f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
+                                 1),
+                                else_=0
+                            )
+                        )
+                    ).label('mission'),
+
+                    func.json_object(
+                        "type", FeedProduct.type,
+                        "id", FeedProduct.id,
+                        "brand", func.IF(FeedProduct.type == 'inside',
+                                         select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
+                                         outside_products.c.brand),
+                        "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
+                        "image",
+                        func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
+                        "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
+                        "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
+                    ).label('product'),
+
+                    func.row_number().over(
+                        order_by=[
+                            desc(func.ifnull(
+                                select(True).where(
+                                    and_(
+                                        feed_likes.c.feed_id == Feed.id,
+                                        feed_likes.c.user_id == user_id,
+                                        feed_likes.c.deleted_at == None
+                                    )
+                                ),
+                                False
+                            )),
+                            Feed.created_at
+                        ]
+                    ).label('cursor')
+                ).join(
+                    User, User.id == Feed.user_id
+                ).join(
+                    FeedMission, FeedMission.feed_id == Feed.id, isouter=True
+                ).join(
+                    missions, missions.c.id == FeedMission.mission_id, isouter=True
+                ).join(
+                    FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
+                ).join(
+                    products, products.c.id == FeedProduct.product_id, isouter=True
+                ).join(
+                    outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
+                ).where(
+                    and_(
+                        Feed.user_id.in_(followings),
+                        func.abs(func.TIMESTAMPDIFF(text("HOUR"), Feed.created_at, func.now())) <= 24,
+                        Feed.deleted_at == None,
+                        Feed.is_hidden == 0,
+                    )
+                ).group_by(
+                    Feed.id
+                ).order_by(
+                    'checked',
+                    desc('cursor')
                 )
-            ).group_by(
-                Feed.id
-            ).order_by(
-                'checked', desc('cursor')
-            )
-            candidate = self.session.execute(customized_sort_query).all()
-            cache.set("customized_sort_query", candidate)
+
+                candidate = self.session.execute(customized_sort_query).all()
+                cache.set("customized_sort_query", candidate)
+            else:
+                # newsfeed + recommendation
+                # newsfeed
+                customized_sort_query = select(
+                    Feed.id,
+                    func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+                    Feed.content.label('body'),
+                    select(func.json_arrayagg(
+                        func.json_object(
+                            "order", FeedImage.order,
+                            "mimeType", FeedImage.type,
+                            "pathname", FeedImage.image,
+                            "resized", func.json_array()
+                        )
+                    )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
+                    func.ifnull(
+                        select(True).where(
+                            and_(
+                                feed_likes.c.feed_id == Feed.id,
+                                feed_likes.c.user_id == user_id,
+                                feed_likes.c.deleted_at == None
+                            )
+                        ),
+                        False
+                    ).label('checked'),
+                    select(func.count(feed_comments.c.id)).where(
+                        and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label(
+                        'comments_count'),
+                    select(func.count(FeedCheck.id)).where(
+                        and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
+
+                    User.id.label('user_id'),
+                    User.nickname,
+                    User.profile_image,
+                    User.gender,
+                    case(
+                        (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
+                        else_=0
+                    ).label("followed"),
+                    case(
+                        (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
+                        else_=0
+                    ).label("is_blocked"),
+                    func.ifnull(
+                        case(
+                            (user_id == User.id, None),
+                            # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
+                            else_=text(
+                                f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
+                        ),
+                        0
+                    ).label("is_chat_blocked"),
+                    select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+                    select(areas.c.name).where(
+                        areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label(
+                        'area'),
+
+                    func.json_arrayagg(
+                        func.json_object(
+                            "id", missions.c.id,
+                            "title", missions.c.title,
+                            "emoji", select(mission_categories.c.emoji).where(
+                                mission_categories.c.id == missions.c.mission_category_id),
+                            "is_ground", missions.c.is_ground,
+                            "is_event", missions.c.is_event,
+                            "is_old_event", case(
+                                (and_(missions.c.id <= 1749, missions.c.is_event == 1), 1),
+                                else_=0
+                            ),
+                            "event_type", missions.c.event_type,
+                            "thumbnail", missions.c.thumbnail_image,
+                            "bookmarked", case(
+                                (text(
+                                    f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
+                                 1),
+                                else_=0
+                            )
+                        )
+                    ).label('mission'),
+
+                    func.json_object(
+                        "type", FeedProduct.type,
+                        "id", FeedProduct.id,
+                        "brand", func.IF(FeedProduct.type == 'inside',
+                                         select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
+                                         outside_products.c.brand),
+                        "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
+                        "image",
+                        func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
+                        "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
+                        "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
+                    ).label('product'),
+                ).join(
+                    User, User.id == Feed.user_id
+                ).join(
+                    FeedMission, FeedMission.feed_id == Feed.id, isouter=True
+                ).join(
+                    missions, missions.c.id == FeedMission.mission_id, isouter=True
+                ).join(
+                    FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
+                ).join(
+                    products, products.c.id == FeedProduct.product_id, isouter=True
+                ).join(
+                    outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
+                ).where(
+                    and_(
+                        Feed.user_id.in_(followings),
+                        func.abs(func.TIMESTAMPDIFF(text("HOUR"), Feed.created_at, func.now())) <= 24,
+                        Feed.deleted_at == None,
+                        Feed.is_hidden == 0,
+                    )
+                ).group_by(
+                    Feed.id
+                ).order_by(
+                    'checked'
+                )
+
+                # recommendation
+                nested_query = select(
+                    FeedCheck.id,
+                    FeedCheck.feed_id
+                ).where(
+                    and_(
+                        func.TIMESTAMPDIFF(text("DAY"), FeedCheck.created_at, func.now()) == 0,
+                        FeedCheck.created_at >= func.DATE(func.now()),
+                        FeedCheck.deleted_at == None
+                    )
+                ).group_by(FeedCheck.feed_id).order_by(desc(FeedCheck.id)).alias("t")
+
+                feed_candidate_query = select(
+                    Feed
+                ).select_from(
+                    nested_query
+                ).join(
+                    Feed, Feed.id == text("t.feed_id")  # FeedCheck.feed_id
+                ).where(
+                    and_(
+                        Feed.user_id.not_in(followings),
+                        Feed.deleted_at == None,
+                        Feed.is_hidden == 0
+                    )
+                ).group_by(
+                    Feed.user_id
+                ).order_by(
+                    desc(func.count(text("t.id"))),
+                    Feed.user_id
+                ).limit(10)
+
+                feed_for_recommendation = select(
+                    feed_candidate_query.c.id,
+                    func.date_format(feed_candidate_query.c.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+                    feed_candidate_query.c.content.label('body'),
+                    select(func.json_arrayagg(
+                        func.json_object(
+                            "order", FeedImage.order,
+                            "mimeType", FeedImage.type,
+                            "pathname", FeedImage.image,
+                            "resized", func.json_array()
+                        )
+                    )).select_from(FeedImage).where(FeedImage.feed_id == feed_candidate_query.c.id).label("images"),
+                    func.ifnull(
+                        select(True).where(
+                            and_(
+                                feed_likes.c.feed_id == feed_candidate_query.c.id,
+                                feed_likes.c.user_id == user_id,
+                                feed_likes.c.deleted_at == None
+                            )
+                        ),
+                        False
+                    ).label('checked'),
+                    select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == feed_candidate_query.c.id, feed_comments.c.deleted_at == None)).label('comments_count'),
+                    select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == feed_candidate_query.c.id, FeedCheck.deleted_at == None)).label('checks_count'),
+
+                    User.id.label('user_id'),
+                    User.nickname,
+                    User.gender,
+                    User.profile_image,
+                    case(
+                        (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
+                        else_=0
+                    ).label("followed"),
+                    case(
+                        (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
+                        else_=0
+                    ).label("is_blocked"),
+                    select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+                    select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
+                    func.ifnull(
+                        case(
+                            (user_id == User.id, None), # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
+                            else_=text(f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
+                        ),
+                        0
+                    ).label("is_chat_blocked"),
+
+                    func.json_arrayagg(
+                        func.json_object(
+                            "id", missions.c.id,
+                            "title", missions.c.title,
+                            "emoji", select(mission_categories.c.emoji).where(
+                                mission_categories.c.id == missions.c.mission_category_id),
+                            "is_ground", missions.c.is_ground,
+                            "is_event", missions.c.is_event,
+                            "is_old_event", case(
+                                (and_(missions.c.id <= 1749, missions.c.is_event == 1), 1),
+                                else_=0
+                            ),
+                            "event_type", missions.c.event_type,
+                            "thumbnail", missions.c.thumbnail_image,
+                            "bookmarked", case(
+                                (text(
+                                    f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
+                                    1),
+                                else_=0
+                            )
+                        )
+                    ).label('mission'),
+
+                    func.json_object(
+                        "type", FeedProduct.type,
+                        "id", FeedProduct.id,
+                        "brand", func.IF(FeedProduct.type == 'inside', select(brands.c.name_ko).where(brands.c.id == products.c.brand_id), outside_products.c.brand),
+                        "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
+                        "image", func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
+                        "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
+                        "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
+                    ).label('product'),
+                ).select_from(
+                    feed_candidate_query
+                ).join(
+                    User, User.id == feed_candidate_query.c.user_id
+                ).join(
+                    FeedMission, FeedMission.feed_id == feed_candidate_query.c.id, isouter=True
+                ).join(
+                    missions, missions.c.id == FeedMission.mission_id, isouter=True
+                ).join(
+                    FeedProduct, FeedProduct.feed_id == feed_candidate_query.c.id, isouter=True
+                ).join(
+                    products, products.c.id == FeedProduct.product_id, isouter=True
+                ).join(
+                    outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
+                ).group_by(
+                    feed_candidate_query.c.id
+                ).order_by(desc(feed_candidate_query.c.id))
+
+                union = customized_sort_query.union(feed_for_recommendation).alias('union_feed')
+                cursored_union = select(
+                    text('union_feed.*'),
+                    func.row_number().over(
+                        order_by=[
+                            desc(func.ifnull(
+                                    select(True).where(
+                                        and_(
+                                            feed_likes.c.feed_id == union.c.id,
+                                            feed_likes.c.user_id == user_id,
+                                            feed_likes.c.deleted_at == None
+                                        )
+                                    ),
+                                    False
+                                )),
+                                union.c.created_at
+                            ]
+                    ).label('cursor')
+                ).select_from(union).order_by(union.c.checked, desc('cursor'))
+                candidate = self.session.execute(cursored_union).all()
+                cache.set("customized_sort_query", candidate)
         else:
             # pagination
             candidate = cache.get("customized_sort_query")
@@ -455,8 +742,11 @@ class FeedRepository(AbstractFeedRepository):
         return result
 
     def count_number_of_newsfeed(self, user_id: int, page_cursor: int) -> int:
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+        followings_number = select(func.count(follows.c.target_id)).where(follows.c.user_id == user_id)
+        current_number_of_following = self.session.execute(followings_number).scalar()
+
         if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR:
-            # first API call or refreshing
             customized_sort_query = select(
                 Feed.id,
                 func.ifnull(
@@ -469,34 +759,61 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     False
                 ).label('checked'),
-                func.row_number().over(
-                    order_by=[
-                        desc(func.ifnull(
-                            select(True).where(
-                                and_(
-                                    feed_likes.c.feed_id == Feed.id,
-                                    feed_likes.c.user_id == user_id,
-                                    feed_likes.c.deleted_at == None
-                                )
-                            ),
-                            False
-                        )),
-                        Feed.created_at
-                    ]
-                ).label('cursor')
             ).join(
                 User, Feed.user_id == User.id
             ).where(
                 and_(
-                    Feed.user_id.in_(select(follows.c.target_id).where(follows.c.user_id == user_id)),
+                    Feed.user_id.in_(followings),
                     func.TIMESTAMPDIFF(text("HOUR"), Feed.created_at, func.now()) <= 24,
                     Feed.is_hidden == 0,
                     Feed.deleted_at == None,
                 )
-            ).order_by('checked', desc('cursor'))
-            sql = select(func.count(customized_sort_query.c.id)).select_from(customized_sort_query)
-            total_count = self.session.execute(sql).scalar()
-            cache.set("total_count_newsfeed", total_count)
+            ).order_by(
+                'checked'
+            )
+            newsfeed_count = select(func.count(customized_sort_query.c.id)).select_from(customized_sort_query)
+
+            if current_number_of_following >= 10:
+                # newsfeed only
+                total_count = self.session.execute(newsfeed_count).scalar()
+                cache.set("total_count_newsfeed", total_count)
+            else:
+                # newsfeed + recommendation
+
+                # recommendation
+                nested_query = select(
+                    FeedCheck.id,
+                    FeedCheck.feed_id
+                ).where(
+                    and_(
+                        func.TIMESTAMPDIFF(text("DAY"), FeedCheck.created_at, func.now()) == 0,
+                        FeedCheck.created_at >= func.DATE(func.now()),
+                        FeedCheck.deleted_at == None
+                    )
+                ).order_by(desc(FeedCheck.id)).alias("t")
+
+                feed_candidate_query = select(
+                    Feed
+                ).select_from(
+                    nested_query
+                ).join(
+                    Feed, Feed.id == text("t.feed_id")  # FeedCheck.feed_id
+                ).where(
+                    and_(
+                        Feed.user_id.not_in(followings),
+                        Feed.deleted_at == None,
+                        Feed.is_hidden == 0
+                    )
+                ).group_by(
+                    text("t.feed_id")
+                ).order_by(
+                    desc(func.count(text("t.id"))),
+                    desc(text("t.feed_id"))
+                ).limit(10)
+                recommend_feed_count = select(func.count(feed_candidate_query.c.id)).select_from(feed_candidate_query)
+
+                total_count = self.session.execute(newsfeed_count).scalar() + self.session.execute(recommend_feed_count).scalar()
+                cache.set("total_count_newsfeed", total_count)
         else:
             # pagination
             total_count = cache.get("total_count_newsfeed")
@@ -517,10 +834,8 @@ class FeedRepository(AbstractFeedRepository):
                     "resized", func.json_array()
                 )
             )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
-            func.json_object(
-                "comments_count", text("(SELECT COUNT(*) FROM feed_comments WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-                "checks_count", text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-            ).label("feed_additional_information"),
+            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
+            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
             User.id.label('user_id'),
             User.nickname,
@@ -544,7 +859,7 @@ class FeedRepository(AbstractFeedRepository):
         ).join(
             User, User.id == Feed.user_id
         ).join(
-          feed_likes, feed_likes.c.feed_id == Feed.id
+            feed_likes, feed_likes.c.feed_id == Feed.id
         ).join(
             FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
         ).join(
@@ -569,7 +884,7 @@ class FeedRepository(AbstractFeedRepository):
         sql = select(
             func.count(Feed.id)
         ).join(
-          feed_likes, feed_likes.c.feed_id == Feed.id
+            feed_likes, feed_likes.c.feed_id == Feed.id
         ).where(
             and_(
                 feed_likes.c.user_id == user_id,
@@ -600,13 +915,8 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
-            func.json_object(
-                "comments_count",
-                text("(SELECT COUNT(*) FROM feed_comments WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-                "checks_count",
-                text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-            ).label("feed_additional_information"),
-
+            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
+            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
             func.json_arrayagg(
                 func.json_object(
@@ -703,10 +1013,8 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
-            func.json_object(
-                "comments_count", text("(SELECT COUNT(*) FROM feed_comments WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-                "checks_count", text("(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND deleted_at IS NULL)"),
-            ).label("feed_additional_information"),
+            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
+            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
             User.id.label('user_id'),
             User.nickname,
@@ -727,10 +1035,8 @@ class FeedRepository(AbstractFeedRepository):
                 ),
                 0
             ).label("is_chat_blocked"),
-            func.json_object(
-                "followers", text("(SELECT COUNT(*) FROM follows f2 WHERE f2.target_id = feeds.user_id)"),
-                "area", text("(SELECT a.name FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1)")
-            ).label("user_additional_information"),
+            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
 
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
         ).join(

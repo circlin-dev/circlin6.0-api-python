@@ -20,6 +20,20 @@ mapper_registry = registry()
 
 # region tables
 
+
+# region areas
+areas = Table(
+    "areas",
+    mapper_registry.metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("code", VARCHAR(255), nullable=False, index=True),
+    Column("name", VARCHAR(255), nullable=False),
+    Column("name_en", VARCHAR(255)),
+)
+# endregion
+
 # region board
 boards = Table(
     "boards",
@@ -724,6 +738,16 @@ versions = Table(
 
 
 # region mappers
+
+# region areas
+# def area_mappers():
+#     mapper = mapper_registry.map_imperatively(
+#         Area,
+#         areas
+#     )
+#     return mapper
+# endregion
+
 
 # region boards
 def board_mappers():
