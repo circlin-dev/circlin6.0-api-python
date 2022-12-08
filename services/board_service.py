@@ -337,13 +337,14 @@ def get_like_count_of_the_board(board_id, repo: AbstractBoardLikeRepository) -> 
     return repo.count_number_of_like(board_id)
 
 
-def get_user_list_who_like_this_board(board_id: int, page_cursor: int, limit: int, repo: AbstractBoardLikeRepository) -> list:
-    liked_users: list = repo.get_liked_user_list(board_id, page_cursor, limit)
+def get_user_list_who_like_this_board(board_id: int, user_id: int, page_cursor: int, limit: int, repo: AbstractBoardLikeRepository) -> list:
+    liked_users: list = repo.get_liked_user_list(board_id, user_id, page_cursor, limit)
     entries: list = [dict(
         id=user.id,
         nickname=user.nickname,
-        greeting=user.greeting,
+        gender=user.gender,
         profileImage=user.profile_image,
+        followed=True if user.followed == 1 else False,
         cursor=user.cursor
     ) for user in liked_users]
 

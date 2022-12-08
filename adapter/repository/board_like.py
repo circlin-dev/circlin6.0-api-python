@@ -1,7 +1,9 @@
-import abc
+from adapter.orm import follows
 from domain.board import BoardLike
 from domain.user import User
-from sqlalchemy import select, delete, insert, and_, text, func
+from sqlalchemy import case, desc, select, delete, insert, and_, text, func
+
+import abc
 
 
 class AbstractBoardLikeRepository(abc.ABC):
@@ -14,7 +16,7 @@ class AbstractBoardLikeRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_liked_user_list(self, board_id: int, page_cursor: int, limit: int) -> list:
+    def get_liked_user_list(self, board_id: int, user_id: int, page_cursor: int, limit: int) -> list:
         pass
 
     @abc.abstractmethod
@@ -50,13 +52,27 @@ class BoardLikeRepository(AbstractBoardLikeRepository):
         )
         return self.session.execute(sql).first()
 
-    def get_liked_user_list(self, board_id: int, page_cursor: int, limit: int) -> list:
+    def get_liked_user_list(self, board_id: int, user_id: int, page_cursor: int, limit: int) -> list:
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
         sql = select(
             User.id,
             User.nickname,
-            User.greeting,
+            User.gender,
             User.profile_image,
-            func.concat(func.lpad(BoardLike.id, 15, '0')).label('cursor')
+            case(
+                (User.id.in_(followings), True),
+                else_=False
+            ).label("followed"),
+            func.row_number().over(
+                order_by=[
+                    desc(
+                        case(
+                            (User.id.in_(followings), True),
+                            else_=False
+                        )
+                    )
+                ]
+            ).label('cursor')
         ).select_from(
             User
         ).join(
@@ -66,8 +82,12 @@ class BoardLikeRepository(AbstractBoardLikeRepository):
                 BoardLike.board_id == board_id,
                 BoardLike.id > page_cursor
             )
-        ).limit(limit)
-        result = self.session.execute(sql)
+        ).order_by(
+            desc('followed'),
+            'cursor'
+        )
+        candidate = self.session.execute(sql)
+        result = [data for data in candidate if data.cursor > page_cursor][:limit]
 
         return result
 

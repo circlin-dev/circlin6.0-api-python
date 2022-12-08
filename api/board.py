@@ -389,7 +389,7 @@ def board_like(board_id: int):
 
         board_like_mappers()
         repo: BoardLikeRepository = BoardLikeRepository(db_session)
-        liked_users: list = board_service.get_user_list_who_like_this_board(board_id, page_cursor, limit, repo)
+        liked_users: list = board_service.get_user_list_who_like_this_board(board_id, user_id, page_cursor, limit, repo)
         number_of_like: int = board_service.get_like_count_of_the_board(board_id, repo)
         clear_mappers()
 
