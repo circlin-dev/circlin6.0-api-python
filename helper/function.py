@@ -1,9 +1,11 @@
 from adapter.orm import user_mappers
 from adapter.repository.user import UserRepository
-from helper.constant import JWT_AUDIENCE
+from helper.constant import JWT_AUDIENCE, SLACK_NOTIFICATION_WEBHOOK
 from flask import abort
+import json
 import jwt
 import re
+import requests
 from sqlalchemy.orm import clear_mappers
 
 
@@ -29,6 +31,34 @@ def authenticate(request, session):
 # region response
 def failed_response(error_message: str) -> dict:
     return {"result": False, "error": error_message}
+
+
+def slack_error_notification(
+        ip: str,
+        type: str,
+        endpoint: str,
+        method: str,
+        status_code: int,
+        error_message: str):
+    send_notification_request = requests.post(
+        SLACK_NOTIFICATION_WEBHOOK,
+        json.dumps({
+            "channel": "#circlin-log",
+            "username": "써클인 server(python flask)",
+            "method": method,
+            "text": f"*[경고]* *서버에서 예측하지 못한 오류가 발생했습니다.* \n \
+- IP: `{ip}` \n \
+- 장애 유형: `{type}` \n \
+- 장애 API: `{endpoint}` \n \
+- HTTP method: `{method}` \n \
+- Status code: `{status_code}` \n \
+```에러 로그: {error_message}```",
+            "icon_url": "https://www.circlin.co.kr/new/assets/favicon/apple-icon-180x180.png"
+        }, ensure_ascii=False).encode('utf-8')
+    )
+
+    print('send_notification_request.status_code:', send_notification_request.status_code)
+    return send_notification_request
 # endregion
 
 
