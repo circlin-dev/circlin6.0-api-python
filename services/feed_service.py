@@ -11,6 +11,7 @@ from domain.point_history import PointHistory
 from domain.push import PushHistory
 from domain.user import User
 from helper.constant import BASIC_COMPENSATION_AMOUNT_PER_REASON, PUSH_TITLE_FEED, REASONS_HAVE_DAILY_REWARD_RESTRICTION
+from helper.function import failed_response
 from services import notification_service, point_service, push_service
 
 from datetime import datetime, timedelta
@@ -134,7 +135,10 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
     feed: Feed = feed_repo.get_one(feed_id, user_id)
 
     if feed.id is None or feed_is_undeleted(feed) is False:
-        return {'result': False, 'error': '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         feed_dict = dict(
             id=feed.id,
@@ -176,9 +180,15 @@ def update_feed(new_feed: Feed, request_user_id: int, feed_repo: AbstractFeedRep
     target_feed: Feed = feed_repo.get_simple_one(new_feed.id)
 
     if target_feed is None or feed_is_undeleted(target_feed) is False:
-        return {'result': False, 'error': '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_feed(target_feed.user_id, request_user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 피드이므로 수정할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 피드이므로 수정할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         feed_repo.update(new_feed)
         return {'result': True}
@@ -188,9 +198,15 @@ def delete_feed(feed: Feed, request_user_id: int, feed_repo: AbstractFeedReposit
     target_feed: Feed = feed_repo.get_simple_one(feed.id)
 
     if target_feed is None or feed_is_undeleted(target_feed) is False:
-        return {'result': False, 'error': '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 피드이거나, 존재하지 않는 피드입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_feed(target_feed.user_id, request_user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 피드이므로 삭제할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 피드이므로 삭제할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         feed_repo.delete(target_feed)
         return {'result': True}
@@ -252,12 +268,18 @@ def add_comment(new_feed_comment: FeedComment,
 
     # 1. 게시물에 댓글을 작성할할 수 있는 상태인지 확인한다.
     if target_feed is None:
-        return {'result': False, 'error': '존재하지 않는 피드입니다.', 'status_code': 400}
+        error_message = '존재하지 않는 피드입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif target_feed is not None \
             and not feed_is_available_to_other(target_feed) \
             and not check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
         # 1-1. 숨김 처리되었거나, 삭제된 게시물에는 게시글 주인 외에는 댓글 작성 불가능
-        return {'result': False, 'error': '작성자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 게시글에는 댓글을 작성할 수 없습니다.', 'status_code': 400}
+        error_message = '작성자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 게시글에는 댓글을 작성할 수 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif target_feed is not None \
             and not feed_is_available_to_other(target_feed) \
             and check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
@@ -381,9 +403,15 @@ def update_comment(feed_comment: FeedComment, repo: AbstractFeedCommentRepositor
     target_comment: FeedComment = repo.get_one(feed_comment.id)
 
     if target_comment is None or feed_comment_is_undeleted(target_comment) is False:
-        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_feed_comment(target_comment.user_id, feed_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 댓글이므로 수정할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         repo.update(feed_comment)
         return {'result': True}
@@ -393,9 +421,15 @@ def delete_comment(feed_comment: FeedComment, feed_comment_repo: AbstractFeedCom
     target_comment: FeedComment = feed_comment_repo.get_one(feed_comment.id)
 
     if target_comment is None or feed_comment_is_undeleted(target_comment) is False:
-        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_feed_comment(target_comment.user_id, feed_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         point_history: PointHistory = PointHistory(
             id=None,
@@ -478,10 +512,16 @@ def increase_like(
     my_current_like_count: int = feed_like_repo.get_current_like_count_of_user(user_who_likes_this_feed)
 
     if target_feed is None or feed_is_available_to_other(target_feed) is False:
-        return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.', 'status_code': 400}
+        error_message = '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif checked_status is not None:  # 현재 이 피드를 내가 좋아요 눌러 둔 '상태' 인지, 아닌지 확인
         # 이미 좋아요 한 상태인 피드
-        return {'result': False, 'error': '이미 좋아한 피드에 중복하여 좋아요를 누를 수 없습니다.', 'status_code': 400}
+        error_message = '이미 좋아한 피드에 중복하여 좋아요를 누를 수 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         if check_if_user_is_the_owner_of_the_feed(target_feed.user_id, feed_like.user_id):
             pass
@@ -610,11 +650,17 @@ def decrease_like(feed_like: FeedCheck, feed_like_repo: AbstractFeedCheckReposit
     target_feed: Feed = feed_repo.get_one(feed_like.feed_id, feed_like.user_id)
 
     if target_feed is None or feed_is_available_to_other(target_feed) is False:
-        return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.', 'status_code': 400}
+        error_message = '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         liked_record: FeedCheck = feed_like_repo.get_one_excluding_deleted_record(feed_like)
         if liked_record is None:
-            return {'result': False, 'error': '해당 피드에 좋아요 한 기록이 없습니다.',  'status_code': 400}
+            error_message = '해당 피드에 좋아요 한 기록이 없습니다.'
+            result = failed_response(error_message)
+            result['status_code'] = 400
+            return result
         else:
             feed_like_repo.delete(feed_like)
             return {'result': True}

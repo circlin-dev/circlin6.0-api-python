@@ -6,7 +6,7 @@ from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
 from helper.constant import ERROR_RESPONSE, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
-from helper.function import authenticate, get_query_strings_from_request
+from helper.function import authenticate, failed_response, get_query_strings_from_request
 from services import mission_service
 from services.user_service import get_favorite_mission_categories
 
@@ -19,11 +19,7 @@ from sqlalchemy.orm import clear_mappers
 def mission_category():
     user_id = authenticate(request, db_session)
     if user_id is None:
-        result = {
-            'result': False,
-            'error': ERROR_RESPONSE[401]
-        }
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
         user_favorite_category_mappers()
@@ -44,11 +40,8 @@ def mission_category():
         return json.dumps(result, ensure_ascii=False), 200
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/mission/<int:mission_id>/comment', methods=['GET', 'POST'])
@@ -56,13 +49,12 @@ def mission_comment(mission_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if mission_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (mission_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -89,11 +81,8 @@ def mission_comment(mission_id: int):
         pass
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/mission/<int:mission_id>/feed', methods=['GET'])
@@ -101,13 +90,12 @@ def mission_feeds(mission_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if mission_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (mission_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)

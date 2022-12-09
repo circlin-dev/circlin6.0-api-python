@@ -10,7 +10,7 @@ from adapter.repository.push import PushHistoryRepository
 from adapter.repository.notification import NotificationRepository
 from domain.board import Board, BoardComment, BoardLike
 
-from helper.function import authenticate, get_query_strings_from_request
+from helper.function import authenticate, failed_response, get_query_strings_from_request
 from helper.constant import ERROR_RESPONSE, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 
 from services import board_service
@@ -25,8 +25,7 @@ def board_get_post():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
         page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -54,12 +53,12 @@ def board_get_post():
         data = request.form.to_dict()
         if data['boardCategoryId'] is None or data['boardCategoryId'].strip() == '':
             db_session.close()
-            result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (boardCategoryId)'}
-            return json.dumps(result, ensure_ascii=False), 400
+            error_message = f'{ERROR_RESPONSE[400]} (boardCategoryId)'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         if data['body'] is None or data['body'].strip() == '':
             db_session.close()
-            result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (body)'}
-            return json.dumps(result, ensure_ascii=False), 400
+            error_message = f'{ERROR_RESPONSE[400]} (body)'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
         category_id = int(data['boardCategoryId'])
         body = data['body']
@@ -94,11 +93,8 @@ def board_get_post():
         return json.dumps(result, ensure_ascii=False), 200
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/board/<int:board_id>', methods=['GET', 'PATCH', 'DELETE'])
@@ -106,13 +102,12 @@ def board_patch_delete(board_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if board_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (board_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         board_mappers()
@@ -144,32 +139,22 @@ def board_patch_delete(board_id: int):
             return json.dumps({key: value for key, value in delete_board.items() if key != 'status_code'}, ensure_ascii=False), delete_board['status_code']
     elif request.method == 'PATCH':
         data: dict = json.loads(request.get_data())
-        new_body: [str, None] = data['body'] if data['body'] is not None or data['body'].strip() != '' else None
-        new_is_show: [int, None] = int(data['isShow']) if data['isShow'] is not None else None
-        new_board_category_id: [int, None] = int(data['boardCategoryId']) if data['boardCategoryId'] is not None else None
-
-        if new_body is None or new_body.strip() == '':
+        if 'body' not in data.keys():
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (body).'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-        elif new_is_show is None:
+            error_message = f'{ERROR_RESPONSE[400]} (body).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'isShow' not in data.keys():
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (isShow).'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-        elif new_board_category_id is None:
+            error_message = f'{ERROR_RESPONSE[400]} (isShow).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'boardCategoryId' not in data.keys():
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (boardCategoryId).'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
+            error_message = f'{ERROR_RESPONSE[400]} (boardCategoryId).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
+            new_body: [str, None] = data['body'] if data['body'] is not None or data['body'].strip() != '' else None
+            new_is_show: [int, None] = int(data['isShow']) if data['isShow'] is not None else None
+            new_board_category_id: [int, None] = int(data['boardCategoryId']) if data['boardCategoryId'] is not None else None
             board_mappers()
             repo: BoardRepository = BoardRepository(db_session)
             new_board: Board = Board(
@@ -192,11 +177,8 @@ def board_patch_delete(board_id: int):
                 return json.dumps({key: value for key, value in update_board.items() if key != 'status_code'}, ensure_ascii=False), update_board['status_code']
     else:
         db_session.close()
-        result = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/board/<int:board_id>/comment', methods=['GET', 'POST'])
@@ -204,13 +186,12 @@ def get_post_board_comment(board_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if board_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (board_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -235,65 +216,53 @@ def get_post_board_comment(board_id: int):
         return json.dumps(result, ensure_ascii=False), 200
     elif request.method == 'POST':
         params: dict = json.loads(request.get_data())
-        comment: [str, None] = params['comment']
-        group: [int, None] = params['group']
-
-        if comment is None or comment.strip() == '':
+        if 'comment' not in params.keys() or params['comment'].strip() == '':
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (comment)'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-        if group is None:
+            error_message = f'{ERROR_RESPONSE[400]} (comment).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'group' not in params.keys():
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (group)'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-
-        board_mappers()
-        board_comment_repo: BoardCommentRepository = BoardCommentRepository(db_session)
-        board_repo: BoardRepository = BoardRepository(db_session)
-        user_repo: UserRepository = UserRepository(db_session)
-        push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
-        notification_repo: NotificationRepository = NotificationRepository(db_session)
-        new_board_comment: BoardComment = BoardComment(
-            id=None,
-            board_id=board_id,
-            group=group,
-            comment=comment,
-            user_id=user_id,
-            depth=0
-        )
-
-        add_comment: dict = board_service.add_comment(
-            new_board_comment,
-            board_comment_repo,
-            board_repo,
-            notification_repo,
-            push_history_repo,
-            user_repo
-        )
-
-        clear_mappers()
-
-        if add_comment['result']:
-            db_session.commit()
-            db_session.close()
-            return json.dumps(add_comment, ensure_ascii=False), 200
+            error_message = f'{ERROR_RESPONSE[400]} (group).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
-            db_session.close()
-            return json.dumps({key: value for key, value in add_comment.items() if key != 'status_code'}, ensure_ascii=False), add_comment['status_code']
+            comment: [str, None] = params['comment']
+            group: [int, None] = params['group']
+
+            board_mappers()
+            board_comment_repo: BoardCommentRepository = BoardCommentRepository(db_session)
+            board_repo: BoardRepository = BoardRepository(db_session)
+            user_repo: UserRepository = UserRepository(db_session)
+            push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
+            notification_repo: NotificationRepository = NotificationRepository(db_session)
+            new_board_comment: BoardComment = BoardComment(
+                id=None,
+                board_id=board_id,
+                group=group,
+                comment=comment,
+                user_id=user_id,
+                depth=0
+            )
+            add_comment: dict = board_service.add_comment(
+                new_board_comment,
+                board_comment_repo,
+                board_repo,
+                notification_repo,
+                push_history_repo,
+                user_repo
+            )
+            clear_mappers()
+            if add_comment['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(add_comment, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in add_comment.items() if key != 'status_code'}, ensure_ascii=False), add_comment['status_code']
 
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/board/<int:board_id>/comment/<int:board_comment_id>', methods=['PATCH', 'DELETE'])
@@ -301,50 +270,46 @@ def board_comment_manipulate(board_id: int, board_comment_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if board_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (board_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if board_comment_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (comment_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (comment_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'PATCH':
-        new_comment: [str, None] = json.loads(request.get_data())['comment']
-
-        if new_comment is None or new_comment.strip() == '':
+        params = json.loads(request.get_data())
+        if 'comment' not in params.keys() or params['comment'].strip() == '':
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (comment)'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-
-        board_comment_mappers()
-        repo: BoardCommentRepository = BoardCommentRepository(db_session)
-        new_comment_record: BoardComment = BoardComment(
-            id=board_comment_id,
-            user_id=user_id,
-            board_id=board_id,
-            comment=new_comment,
-            depth=0,
-            group=0
-        )
-        update_comment: dict = board_service.update_comment(new_comment_record, repo)
-        clear_mappers()
-
-        if update_comment['result']:
-            db_session.commit()
-            db_session.close()
-            return json.dumps(update_comment, ensure_ascii=False), 200
+            error_message = f'{ERROR_RESPONSE[400]} (comment).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
-            db_session.close()
-            return json.dumps({key: value for key, value in update_comment.items() if key != 'status_code'}, ensure_ascii=False), update_comment['status_code']
+            new_comment: [str, None] = json.loads(request.get_data())['comment']
+            board_comment_mappers()
+            repo: BoardCommentRepository = BoardCommentRepository(db_session)
+            new_comment_record: BoardComment = BoardComment(
+                id=board_comment_id,
+                user_id=user_id,
+                board_id=board_id,
+                comment=new_comment,
+                depth=0,
+                group=0
+            )
+            update_comment: dict = board_service.update_comment(new_comment_record, repo)
+            clear_mappers()
+
+            if update_comment['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(update_comment, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in update_comment.items() if key != 'status_code'}, ensure_ascii=False), update_comment['status_code']
     elif request.method == 'DELETE':
         board_comment_mappers()
         repo: BoardCommentRepository = BoardCommentRepository(db_session)
@@ -368,11 +333,8 @@ def board_comment_manipulate(board_id: int, board_comment_id: int):
             return json.dumps({key: value for key, value in delete_comment.items() if key != 'status_code'}, ensure_ascii=False), delete_comment['status_code']
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/board/<int:board_id>/like', methods=['GET', 'POST', 'DELETE'])
@@ -380,13 +342,12 @@ def board_like(board_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if board_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (board_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (board_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
@@ -429,7 +390,7 @@ def board_like(board_id: int):
             return json.dumps(like, ensure_ascii=False), 200
         else:
             db_session.close()
-            return json.dumps(like, ensure_ascii=False), 400
+            return json.dumps({key: value for key, value in like.items() if key != 'status_code'}, ensure_ascii=False), like['status_code']
 
     elif request.method == 'DELETE':
         # board_like_mappers()  -> raise 500 error when getting get_one() Board -> BoardImage.xxxx
@@ -447,12 +408,8 @@ def board_like(board_id: int):
             return json.dumps(cancel_like, ensure_ascii=False), 200
         else:
             db_session.close()
-            return json.dumps(cancel_like, ensure_ascii=False), 400
-
+            return json.dumps({key: value for key, value in cancel_like.items() if key != 'status_code'}, ensure_ascii=False), cancel_like['status_code']
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405

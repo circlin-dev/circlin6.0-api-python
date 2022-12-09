@@ -23,7 +23,12 @@ def authenticate(request, session):
             return int(user.id)
     except Exception as e:
         abort(500, e)
+# endregion
 
+
+# region response
+def failed_response(error_message: str) -> dict:
+    return {"result": False, "error": error_message}
 # endregion
 
 
