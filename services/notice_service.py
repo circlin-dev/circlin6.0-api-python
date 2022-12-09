@@ -109,7 +109,7 @@ def add_comment(new_notice_comment: NoticeComment,
     if target_notice is None:
         return {'result': False, 'error': '존재하지 않는 공지사항입니다.', 'status_code': 400}
     elif not notice_is_available_to_other(target_notice):
-        # 숨김 처리되었거나, 삭제된 게시물에는 댓글 작성 불가능
+        # 숨김 처리 되었거나, 삭제된 게시물 은 댓글 작성 불가능
         return {'result': False, 'error': '운영자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 공지사항에는 댓글을 작성할 수 없습니다.', 'status_code': 400}
     else:
         # 작성 가능

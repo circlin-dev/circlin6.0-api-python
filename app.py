@@ -2,11 +2,44 @@ from api import api
 from helper.cache import cache
 from flask import Flask
 from flask_cors import CORS
+import json
 import logging
 import os
-
+from sqlalchemy.orm import clear_mappers
+from werkzeug.exceptions import HTTPException, default_exceptions, _aborter
 
 app = Flask(__name__)
+
+
+@app.errorhandler(500)
+def internal_error(error):
+    clear_mappers()
+    # def error_handling(error):
+    #     if isinstance(error, HTTPException):  # HTTP Exeption의 경우
+    #         print('here')
+    #         result = {
+    #             'code': error.code,
+    #             'description': error.description,
+    #             "message": f"Internal server error: {str(error)}"
+    #         }
+    #     else:
+    #         print('here222')
+    #         description = _aborter.mapping[500].description  # 나머지 Exception의 경우
+    #         result = {
+    #             'code': 500,
+    #             'description': description,
+    #             "message": f"Internal server error: {str(error)}"
+    #         }
+    #     resp = json.dumps(result)
+    #     # resp.status_code = result['code']
+    #     return resp
+
+    result = {
+        "result": False,
+        "message": f"Internal server error: {str(error)}"
+    }
+    # result = error_handling(e)
+    return json.dumps(result, ensure_ascii=False), 500
 
 
 # Cache configuration

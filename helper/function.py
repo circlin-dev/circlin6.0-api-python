@@ -1,9 +1,11 @@
 from adapter.orm import user_mappers
 from adapter.repository.user import UserRepository
 from helper.constant import JWT_AUDIENCE
-
+from flask import abort
+from app import internal_error
 import jwt
 import re
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import clear_mappers
 
 
@@ -11,11 +13,13 @@ from sqlalchemy.orm import clear_mappers
 def authenticate(request, session):
     token = request.headers.get('token')
     uid: int = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
-
-    user_mappers()
-    repo: UserRepository = UserRepository(session)
-    user = repo.get_one(user_id=uid)
-    clear_mappers()
+    try:
+        user_mappers()
+        repo: UserRepository = UserRepository(session)
+        user = repo.get_one(user_id=uid)
+        clear_mappers()
+    except Exception as e:
+        abort(500, e)
 
     if user is None:
         return None

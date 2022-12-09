@@ -197,7 +197,7 @@ def delete_feed(feed: Feed, request_user_id: int, feed_repo: AbstractFeedReposit
 
 
 # region feed comment
-def can_the_user_get_feed_comment_point(feed_id: int, user_id: int, point_history_repo: PointHistoryRepository) -> int:
+def can_the_user_get_feed_comment_point(feed_id: int, user_id: int, point_history_repo: AbstractPointHistoryRepository) -> int:
     amount = point_history_repo.calculate_feed_comment_point_by_feed_id_and_user_id(feed_id, user_id)
     return True if int(amount) <= 0 else False
 
@@ -273,7 +273,7 @@ def add_comment(new_feed_comment: FeedComment,
     else:
         # 2-3. max_comment_group_value이 Null이 아닌 경우, group으로 새 댓글인지 대댓글인지 판단하고 comment_group값과 max_comment_group_value이 + 1을 비교하여 depth를 결정한다.
         comment_group = new_feed_comment.group if new_feed_comment.group >= 1 else max_comment_group_value + 1  # 인자로 전달된 group value가 -1보다 크다면 답글이다. 댓글이라면, 현재의 comment group 최대값보다 1만큼 큰 새로운 댓글을 단다.
-        depth = 0 if comment_group >= max_comment_group_value + 1 else 1  # comment_group과
+        depth = 0 if comment_group >= max_comment_group_value + 1 else 1
     new_feed_comment.group = comment_group
     new_feed_comment.depth = depth
 
@@ -466,7 +466,7 @@ def increase_like(
         user_repo: AbstractUserRepository
 ) -> dict:
     target_feed: Feed = feed_repo.get_one(feed_like.feed_id, feed_like.user_id)
-    paid_point: bool = False  # 대상에게 포인트 줬는지
+    paid_point: bool = False  # 대상 에게 포인트 지급 여부
 
     feed_writer: User = user_repo.get_one(target_feed.user_id)
     user_who_likes_this_feed: User = user_repo.get_one(feed_like.user_id)
@@ -475,7 +475,7 @@ def increase_like(
 
     if target_feed is None or feed_is_available_to_other(target_feed) is False:
         return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.', 'status_code': 400}
-    elif checked_status is not None:  # 현재 이 피드를 내가 좋아요 눌러 둔 '상태'인지, 아닌지 확인
+    elif checked_status is not None:  # 현재 이 피드를 내가 좋아요 눌러 둔 '상태' 인지, 아닌지 확인
         # 이미 좋아요 한 상태인 피드
         return {'result': False, 'error': '이미 좋아한 피드에 중복하여 좋아요를 누를 수 없습니다.', 'status_code': 400}
     else:
