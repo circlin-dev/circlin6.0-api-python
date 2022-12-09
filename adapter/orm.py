@@ -1230,7 +1230,7 @@ def point_history_mappers():
     mapper_registry.map_imperatively(Feed, feeds)
     # mapper_registry.map_imperatively(Order, orders)
     mapper_registry.map_imperatively(Mission, missions)
-    # mapper_registry.map_imperatively(FoodRating, food_ratings)
+    mapper_registry.map_imperatively(FoodRating, food_ratings)
     mapper_registry.map_imperatively(FeedComment, feed_comments)
     mapper = mapper_registry.map_imperatively(
         PointHistory,
@@ -1240,7 +1240,7 @@ def point_history_mappers():
             "feeds": relationship(Feed),
             # "orders": relationship(Order),
             "missions": relationship(Mission),
-            # "food_ratings": relationship(FoodRating),
+            "food_ratings": relationship(FoodRating),
             "feed_comments": relationship(FeedComment)
         }
     )
