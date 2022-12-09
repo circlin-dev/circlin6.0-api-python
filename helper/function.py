@@ -2,10 +2,8 @@ from adapter.orm import user_mappers
 from adapter.repository.user import UserRepository
 from helper.constant import JWT_AUDIENCE
 from flask import abort
-from app import internal_error
 import jwt
 import re
-from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import clear_mappers
 
 
