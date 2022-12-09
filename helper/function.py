@@ -18,13 +18,14 @@ def authenticate(request, session):
         repo: UserRepository = UserRepository(session)
         user = repo.get_one(user_id=uid)
         clear_mappers()
+
+        if user is None:
+            return None
+        else:
+            return int(user.id)
     except Exception as e:
         abort(500, e)
 
-    if user is None:
-        return None
-    else:
-        return int(user.id)
 # endregion
 
 
