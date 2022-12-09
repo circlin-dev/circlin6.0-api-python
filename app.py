@@ -11,35 +11,22 @@ from werkzeug.exceptions import HTTPException, default_exceptions, _aborter
 app = Flask(__name__)
 
 
-@app.errorhandler(500)
+@app.errorhandler(Exception)
 def internal_error(error):
     clear_mappers()
-    # def error_handling(error):
-    #     if isinstance(error, HTTPException):  # HTTP Exeption의 경우
-    #         print('here')
-    #         result = {
-    #             'code': error.code,
-    #             'description': error.description,
-    #             "message": f"Internal server error: {str(error)}"
-    #         }
-    #     else:
-    #         print('here222')
-    #         description = _aborter.mapping[500].description  # 나머지 Exception의 경우
-    #         result = {
-    #             'code': 500,
-    #             'description': description,
-    #             "message": f"Internal server error: {str(error)}"
-    #         }
-    #     resp = json.dumps(result)
-    #     # resp.status_code = result['code']
-    #     return resp
 
-    result = {
-        "result": False,
-        "message": f"Internal server error: {str(error)}"
-    }
-    # result = error_handling(e)
-    return json.dumps(result, ensure_ascii=False), 500
+    if isinstance(error, HTTPException):  # HTTP error
+        result = {
+            "result": False,
+            "error": f"Unexpected HTTP exception(error code: {error.code}): {error.description}"
+        }
+        return json.dumps(result, ensure_ascii=False), error.code
+    else:  # non-HTTP error
+        result = {
+            "result": False,
+            "error": f"일시적인 서버 오류가 발생하여 요청하신 작업을 수행할 수 없습니다. 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({str(error)})."
+        }
+        return json.dumps(result, ensure_ascii=False), 500
 
 
 # Cache configuration

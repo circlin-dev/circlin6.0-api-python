@@ -253,10 +253,14 @@ def add_comment(new_feed_comment: FeedComment,
     # 1. 게시물에 댓글을 작성할할 수 있는 상태인지 확인한다.
     if target_feed is None:
         return {'result': False, 'error': '존재하지 않는 피드입니다.', 'status_code': 400}
-    elif target_feed is not None and not feed_is_available_to_other(target_feed) and not check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
+    elif target_feed is not None \
+            and not feed_is_available_to_other(target_feed) \
+            and not check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
         # 1-1. 숨김 처리되었거나, 삭제된 게시물에는 게시글 주인 외에는 댓글 작성 불가능
         return {'result': False, 'error': '작성자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 게시글에는 댓글을 작성할 수 없습니다.', 'status_code': 400}
-    elif target_feed is not None and not feed_is_available_to_other(target_feed) and check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
+    elif target_feed is not None \
+            and not feed_is_available_to_other(target_feed) \
+            and check_if_user_is_the_owner_of_the_feed(target_feed.user_id, new_feed_comment.user_id):
         # 작성 가능
         pass
     else:
