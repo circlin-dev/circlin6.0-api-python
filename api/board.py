@@ -37,7 +37,7 @@ def board_get_post():
         repo: BoardRepository = BoardRepository(db_session)
         board_list: list = board_service.get_board_list(user_id, page_cursor, limit, repo)
         number_of_boards: int = board_service.get_count_of_boards(repo)
-        # clear_mappers()
+        clear_mappers()
 
         last_cursor: [str, None] = None if len(board_list) <= 0 else board_list[-1]['cursor']  # 배열 원소의 cursor string
 
