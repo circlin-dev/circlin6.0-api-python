@@ -8,7 +8,6 @@ from adapter.repository.board_like import BoardLikeRepository
 from adapter.repository.user import UserRepository
 from adapter.repository.push import PushHistoryRepository
 from adapter.repository.notification import NotificationRepository
-
 from domain.board import Board, BoardComment, BoardLike
 
 from helper.function import authenticate, get_query_strings_from_request

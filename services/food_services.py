@@ -161,7 +161,6 @@ def get_food_review_tags(food_review_repo: AbstractFoodReviewRepository):
 # region food rating
 def check_if_user_rate_this_food_for_the_first_time(food_rating: FoodRating, food_rating_repo: AbstractFoodRatingRepository):
     record = food_rating_repo.get_rating_list_by_food_and_user(food_rating.food_id, food_rating.user_id)
-    print('len(record): ', len(record))
     return True if len(record) < 1 else False
 
 
