@@ -1,13 +1,13 @@
 from api import api
 from helper.cache import cache
-from helper.function import failed_response
-from flask import Flask
+from helper.function import failed_response, slack_error_notification
+from flask import Flask, request
 from flask_cors import CORS
 import json
 import logging
 import os
 from sqlalchemy.orm import clear_mappers
-from werkzeug.exceptions import HTTPException, default_exceptions, _aborter
+from werkzeug.exceptions import HTTPException, default_exceptions
 
 app = Flask(__name__)
 
@@ -15,12 +15,36 @@ app = Flask(__name__)
 @app.errorhandler(Exception)
 def internal_error(error):
     clear_mappers()
+    exception_url = request.url
+    method = request.method
+    ip = request.remote_addr
+    error_log = error.description if isinstance(error, HTTPException) else str(error)
+    status_code = error.code if isinstance(error, HTTPException) else 500
+
+    error_message = f"Unexpected HTTP exception(status code: {status_code}): {error_log}" \
+        if isinstance(error, HTTPException) \
+        else f"Unexpected non-HTTP exception(status code: {status_code}). 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({error_log})."
+
     if isinstance(error, HTTPException):  # HTTP error
-        error_message = f"Unexpected HTTP exception(error code: {error.code}): {error.description}"
-        return json.dumps(failed_response(error_message), ensure_ascii=False), error.code
+        slack_error_notification(
+            ip=ip,
+            type='HTTPException',
+            endpoint=exception_url,
+            method=method,
+            status_code=int(error.code),
+            error_message=error_log
+        )
+        return json.dumps(failed_response(error_message), ensure_ascii=False), status_code
     else:  # non-HTTP error
-        error_message = f"Unexpected non-HTTP exception(error code: 500). 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({str(error)})."
-        return json.dumps(failed_response(error_message), ensure_ascii=False), 500
+        slack_error_notification(
+            ip=ip,
+            type='Non-HTTPException',
+            endpoint=exception_url,
+            method=method,
+            status_code=500,
+            error_message=error_log
+        )
+        return json.dumps(failed_response(error_message), ensure_ascii=False), status_code
 
 
 # Cache configuration
