@@ -12,6 +12,7 @@ from domain.push import PushHistory
 from domain.user import User
 
 from helper.constant import PUSH_TITLE_BOARD
+from helper.function import failed_response
 
 from services import file_service, push_service, notification_service
 
@@ -71,7 +72,10 @@ def get_a_board(board_id: int, user_id: int, board_repo: AbstractBoardRepository
     board: Board = board_repo.get_one(board_id, user_id)
 
     if board is None or board_is_undeleted(board) is False:
-        return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         board_dict = dict(
             id=board.id,
@@ -147,9 +151,15 @@ def update_board(board: Board, request_user_id: int, board_repo: AbstractBoardRe
     target_board: Board = board_repo.get_one(board.id, request_user_id)
 
     if target_board is None or board_is_undeleted(target_board) is False:
-        return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_board(target_board.user_id, request_user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 게시글이므로 수정할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 게시글이므로 수정할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         board_repo.update(board)
         return {'result': True}
@@ -159,9 +169,15 @@ def delete_board(board_id, request_user_id: int, board_repo: AbstractBoardReposi
     target_board = board_repo.get_one(board_id, request_user_id)
 
     if target_board is None or board_is_undeleted(target_board) is False:
-        return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_board(target_board.user_id, request_user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 게시글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 게시글이므로 삭제할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         board_repo.delete(target_board)
         return {'result': True}
@@ -212,10 +228,16 @@ def add_comment(new_board_comment: BoardComment,
 
     # 1. 게시물에 댓글을 작성할할 수 있는 상태인지 확인한다.
     if target_board is None:
-        return {'result': False, 'error': '존재하지 않는 게시글입니다.', 'status_code': 400}
+        error_message = '존재하지 않는 게시글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif target_board is not None and not board_is_available_to_other(target_board) and not check_if_user_is_the_owner_of_the_board(target_board.user_id, new_board_comment.user_id):
         # 1-1. 숨김 처리되었거나, 삭제된 게시물에는 게시글 주인 외에는 댓글 작성 불가능
-        return {'result': False, 'error': '작성자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 게시글에는 댓글을 작성할 수 없습니다.', 'status_code': 400}
+        error_message = '작성자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 게시글에는 댓글을 작성할 수 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif target_board is not None and not board_is_available_to_other(target_board) and check_if_user_is_the_owner_of_the_board(target_board.user_id, new_board_comment.user_id):
         # 작성 가능
         pass
@@ -233,7 +255,7 @@ def add_comment(new_board_comment: BoardComment,
     else:
         # 2-3. max_comment_group_value이 Null이 아닌 경우, group으로 새 댓글인지 대댓글인지 판단하고 comment_group값과 max_comment_group_value이 + 1을 비교하여 depth를 결정한다.
         comment_group = new_board_comment.group if new_board_comment.group >= 1 else max_comment_group_value + 1  # 인자로 전달된 group value가 -1보다 크다면 답글이다. 댓글이라면, 현재의 comment group 최대값보다 1만큼 큰 새로운 댓글을 단다.
-        depth = 0 if comment_group >= max_comment_group_value + 1 else 1  # comment_group과
+        depth = 0 if comment_group >= max_comment_group_value + 1 else 1
     new_board_comment.group = comment_group
     new_board_comment.depth = depth
 
@@ -311,9 +333,15 @@ def update_comment(board_comment: BoardComment, board_comment_repo: AbstractBoar
     target_comment: BoardComment = board_comment_repo.get_one(board_comment.id)
 
     if target_comment is None or board_comment_is_undeleted(target_comment) is False:
-        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 댓글이므로 수정할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         board_comment_repo.update(board_comment)
         return {'result': True}
@@ -323,9 +351,15 @@ def delete_comment(board_comment: BoardComment, board_comment_repo: AbstractBoar
     target_comment: BoardComment = board_comment_repo.get_one(board_comment.id)
 
     if target_comment is None or board_comment_is_undeleted(target_comment) is False:
-        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 댓글이므로 수정할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     else:
         board_comment_repo.delete(target_comment)
         return {'result': True}
@@ -362,11 +396,17 @@ def increase_like(
 
     target_board: Board = board_repo.get_one(board_like.board_id, board_like.user_id)
     if target_board is None or board_is_available_to_other(target_board) is False:
-        return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 게시글입니다.'}
+        error_message = '존재하지 않거나, 숨김처리 되었거나, 삭제된 게시글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         liked_record: BoardLike = board_like_repo.get_liked_record(board_like)
         if liked_record is not None:
-            return {'result': False, 'error': '이미 좋아한 게시글에 중복하여 좋아요를 누를 수 없습니다.'}
+            error_message = '이미 좋아한 게시글에 중복하여 좋아요를 누를 수 없습니다.'
+            result = failed_response(error_message)
+            result['status_code'] = 400
+            return result
         else:
             board_like_repo.add(board_like)
 
@@ -423,11 +463,17 @@ def decrease_like(board_like: BoardLike, board_like_repo: AbstractBoardLikeRepos
     target_board: Board = board_repo.get_one(board_like.board_id, board_like.user_id)
 
     if target_board is None or board_is_available_to_other(target_board) is False:
-        return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 게시글입니다.'}
+        error_message = '존재하지 않거나, 숨김처리 되었거나, 삭제된 게시글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         liked_record: BoardLike = board_like_repo.get_liked_record(board_like)
         if liked_record is None:
-            return {'result': False, 'error': '해당 게시글에 좋아요를 누른 기록이 없습니다.'}
+            error_message = '해당 게시글에 좋아요를 누른 기록이 없습니다.'
+            result = failed_response(error_message)
+            result['status_code'] = 400
+            return result
         else:
             board_like_repo.delete(board_like)
             return {'result': True}

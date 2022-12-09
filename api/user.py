@@ -6,7 +6,7 @@ from adapter.repository.user import UserRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
 from domain.user import UserFavoriteCategory
 from helper.constant import INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
-from helper.function import authenticate, get_query_strings_from_request
+from helper.function import authenticate, failed_response, get_query_strings_from_request
 from services import user_service
 from helper.constant import ERROR_RESPONSE
 
@@ -48,13 +48,13 @@ def get_all_users():
 def user_favorite_category(target_user_id: int):
     user_id = authenticate(request, db_session)
     if user_id is None:
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if target_user_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (user_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (user_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         user_favorite_category_mappers()
@@ -72,45 +72,38 @@ def user_favorite_category(target_user_id: int):
 
     elif request.method == 'POST':
         params = json.loads(request.get_data())
-        mission_category_id = None if params['missionCateogryId'] is None else params['missionCateogryId']
 
-        if mission_category_id is None:
-            result = {
-                'result': False,
-                'error': ERROR_RESPONSE[400]
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-
-        user_favorite_category_mappers()
-
-        repo = UserFavoriteCategoryRepository(db_session)
-        new_mission_category = UserFavoriteCategory(
-            id=None,
-            user_id=target_user_id,
-            mission_category_id=mission_category_id
-        )
-        added_to_favorite_categories = user_service.add_to_favorite_mission_category(new_mission_category, repo)
-        clear_mappers()
-
-        if added_to_favorite_categories['result']:
-            db_session.commit()
-            db_session.close()
-            return json.dumps(added_to_favorite_categories, ensure_ascii=False), 200
+        if 'missionCategoryId' not in params.keys():
+            error_message = f'{ERROR_RESPONSE[400]} (missionCategoryId).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
-            db_session.close()
-            return json.dumps(added_to_favorite_categories, ensure_ascii=False), 400
+            mission_category_id = None if params['missionCategoryId'] is None else params['missionCategoryId']
+            user_favorite_category_mappers()
 
+            repo = UserFavoriteCategoryRepository(db_session)
+            new_mission_category = UserFavoriteCategory(
+                id=None,
+                user_id=target_user_id,
+                mission_category_id=mission_category_id
+            )
+            added_to_favorite_categories = user_service.add_to_favorite_mission_category(new_mission_category, repo)
+            clear_mappers()
+
+            if added_to_favorite_categories['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(added_to_favorite_categories, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in added_to_favorite_categories.items() if key != 'status_code'}, ensure_ascii=False), added_to_favorite_categories['status_code']
     elif request.method == 'DELETE':
         params = json.loads(request.get_data())
-        mission_category_id = None if params['missionCateogryId'] is None else params['missionCateogryId']
 
-        if mission_category_id is None:
-            result = {
-                'result': False,
-                'error': ERROR_RESPONSE[400]
-            }
-            return json.dumps(result, ensure_ascii=False), 400
+        if 'missionCategoryId' not in params.keys():
+            error_message = f'{ERROR_RESPONSE[400]} (missionCategoryId).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
+        mission_category_id = params['missionCategoryId']
         user_favorite_category_mappers()
         repo = UserFavoriteCategoryRepository(db_session)
         mission_category_to_delete = UserFavoriteCategory(
@@ -128,14 +121,12 @@ def user_favorite_category(target_user_id: int):
             return json.dumps(delete_from_favorite_categories, ensure_ascii=False), 200
         else:
             db_session.close()
-            return json.dumps(delete_from_favorite_categories, ensure_ascii=False), 400
+            return json.dumps({key: value for key, value in delete_from_favorite_categories.items() if key != 'status_code'}, ensure_ascii=False), delete_from_favorite_categories['status_code']
 
     else:
-        result = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/user/<int:target_user_id>/feed', methods=['GET'])
@@ -143,13 +134,12 @@ def get_user_feeds(target_user_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if target_user_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (user_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (user_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -179,13 +169,12 @@ def get_user_checked_feeds(target_user_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if target_user_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (user_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (user_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)

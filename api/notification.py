@@ -6,7 +6,7 @@ from adapter.repository.common_code import CommonCodeRepository
 from adapter.repository.notification import NotificationRepository
 from domain.notification import Notification
 
-from helper.function import authenticate, get_query_strings_from_request
+from helper.function import authenticate, failed_response, get_query_strings_from_request
 from helper.constant import ERROR_RESPONSE, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 
 from services import notification_service
@@ -20,8 +20,7 @@ def get_notification():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result: dict = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
         page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)

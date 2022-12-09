@@ -1,5 +1,6 @@
 from api import api
 from helper.cache import cache
+from helper.function import failed_response
 from flask import Flask
 from flask_cors import CORS
 import json
@@ -15,17 +16,11 @@ app = Flask(__name__)
 def internal_error(error):
     clear_mappers()
     if isinstance(error, HTTPException):  # HTTP error
-        result = {
-            "result": False,
-            "error": f"Unexpected HTTP exception(error code: {error.code}): {error.description}"
-        }
-        return json.dumps(result, ensure_ascii=False), error.code
+        error_message = f"Unexpected HTTP exception(error code: {error.code}): {error.description}"
+        return json.dumps(failed_response(error_message), ensure_ascii=False), error.code
     else:  # non-HTTP error
-        result = {
-            "result": False,
-            "error": f"Unexpected non-HTTP exception(error code: 500). 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({str(error)})."
-        }
-        return json.dumps(result, ensure_ascii=False), 500
+        error_message = f"Unexpected non-HTTP exception(error code: 500). 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({str(error)})."
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 500
 
 
 # Cache configuration

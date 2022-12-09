@@ -16,6 +16,7 @@ from domain.notification import Notification
 from domain.point_history import PointHistory
 from domain.user import User
 from helper.constant import BASIC_COMPENSATION_AMOUNT_PER_REASON
+from helper.function import failed_response
 from services import file_service, notification_service, point_service, user_service
 
 import json
@@ -61,7 +62,9 @@ def add_food(
     target_food = food_repo.get_one(new_food)
 
     if target_food is not None:
-        result = {'result': False, 'error': f"'{target_food.title}'은 이미 등록된 식품입니다. 다른 이름의 식품을 등록해 보세요.", 'status_code': 400}
+        error_message = f"'{target_food.title}'은 이미 등록된 식품입니다. 다른 이름의 식품을 등록해 보세요."
+        result = failed_response(error_message)
+        result['status_code'] = 400
         return result
     else:
         # 2. food_brands에 존재하지 않는 브랜드명은 새로 등록 후 id SELECT

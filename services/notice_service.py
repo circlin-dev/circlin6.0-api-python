@@ -8,6 +8,7 @@ from domain.notification import Notification
 from domain.push import PushHistory
 from domain.user import User
 from helper.constant import PUSH_TITLE_NOTICE
+from helper.function import failed_response
 from services import notification_service, push_service
 import json
 
@@ -107,10 +108,16 @@ def add_comment(new_notice_comment: NoticeComment,
 
     # 1. 공지사항에 댓글을 작성할 수 있는 상태인지 확인한다.
     if target_notice is None:
-        return {'result': False, 'error': '존재하지 않는 공지사항입니다.', 'status_code': 400}
+        error_message = '존재하지 않는 공지사항입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     elif not notice_is_available_to_other(target_notice):
         # 숨김 처리 되었거나, 삭제된 게시물 은 댓글 작성 불가능
-        return {'result': False, 'error': '운영자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 공지사항에는 댓글을 작성할 수 없습니다.', 'status_code': 400}
+        error_message = '운영자가 숨김 처리 했거나, 삭제하여 접근할 수 없는 공지사항에는 댓글을 작성할 수 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         # 작성 가능
         pass
@@ -201,9 +208,15 @@ def update_comment(notice_comment: NoticeComment, notice_comment_repo: AbstractN
     target_comment: NoticeComment = notice_comment_repo.get_one(notice_comment.id)
 
     if check_if_user_is_the_owner_of_the_notice_comment(target_comment.user_id, notice_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 댓글이므로 수정할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     elif target_comment is None or notice_comment_is_undeleted(target_comment) is False:
-        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         notice_comment_repo.update(notice_comment)
         return {'result': True}
@@ -213,9 +226,15 @@ def delete_comment(notice_comment: NoticeComment, notice_comment_repo: AbstractN
     target_comment: NoticeComment = notice_comment_repo.get_one(notice_comment.id)
 
     if check_if_user_is_the_owner_of_the_notice_comment(target_comment.user_id, notice_comment.user_id) is False:
-        return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
+        error_message = '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 403
+        return result
     elif target_comment is None or notice_comment_is_undeleted(target_comment) is False:
-        return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
+        error_message = '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
     else:
         notice_comment_repo.delete(target_comment)
         return {'result': True}

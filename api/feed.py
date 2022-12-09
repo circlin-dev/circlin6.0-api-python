@@ -10,7 +10,7 @@ from adapter.repository.push import PushHistoryRepository
 from adapter.repository.user import UserRepository
 from domain.feed import Feed, FeedCheck, FeedComment
 from helper.constant import ERROR_RESPONSE, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
-from helper.function import authenticate, get_query_strings_from_request
+from helper.function import authenticate, failed_response, get_query_strings_from_request
 from services import feed_service, point_service
 
 from flask import request
@@ -23,13 +23,12 @@ def feed(feed_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if feed_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (feed_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (feed_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         feed_mappers()
@@ -49,24 +48,18 @@ def feed(feed_id: int):
 
     elif request.method == 'PATCH':
         data: dict = json.loads(request.get_data())
-        new_body: [str, None] = data['body'] if data['body'] is not None or data['body'].strip() != '' else None
-        new_is_hidden: [int, None] = int(data['isHidden']) if data['isHidden'] is not None else None
 
-        if new_body is None or new_body.strip() == '':
+        if 'body' not in data.keys() or data['body'].strip() == '':
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (body).'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-        elif new_is_hidden is None:
+            error_message = f'{ERROR_RESPONSE[400]} (body).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'isHidden' not in data.keys():
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (isHidden).'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
+            error_message = f'{ERROR_RESPONSE[400]} (isHidden).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
+            new_body: [str, None] = data['body']
+            new_is_hidden: [int, None] = int(data['isHidden'])
             feed_mappers()
             repo: FeedRepository = FeedRepository(db_session)
             new_feed = Feed(
@@ -116,11 +109,8 @@ def feed(feed_id: int):
             return json.dumps({key: value for key, value in delete_feed.items() if key != 'status_code'}, ensure_ascii=False), delete_feed['status_code']
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/feed', methods=['POST'])
@@ -128,18 +118,14 @@ def post_a_feed():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'POST':
         pass
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/feed/<int:feed_id>/comment', methods=['GET', 'POST'])
@@ -147,13 +133,12 @@ def feed_comment(feed_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if feed_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (feed_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (feed_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -178,61 +163,51 @@ def feed_comment(feed_id: int):
         return json.dumps(result, ensure_ascii=False), 200
     elif request.method == 'POST':
         params: dict = json.loads(request.get_data())
-        comment: [str, None] = params['comment']
-        group: [int, None] = params['group']
 
-        if comment is None or comment.strip() == '':
+        if 'comment' not in params.keys() or params['comment'].strip() == '':
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (comment)'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-        if group is None:
+            error_message = f'{ERROR_RESPONSE[400]} (comment).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'group' not in params.keys():
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (group)'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-
-        # feed_comment_mappers()
-        feed_mappers()
-        feed_repo: FeedRepository = FeedRepository(db_session)
-        feed_comment_repo: FeedCommentRepository = FeedCommentRepository(db_session)
-
-        notification_repo: NotificationRepository = NotificationRepository(db_session)
-        point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
-        push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
-        user_repo: UserRepository = UserRepository(db_session)
-
-        new_feed_comment: FeedComment = FeedComment(
-            id=None,
-            comment=comment,
-            feed_id=feed_id,
-            user_id=user_id,
-            group=group,
-            depth=0,
-            deleted_at=None
-        )
-
-        add_comment: dict = feed_service.add_comment(new_feed_comment, feed_comment_repo, feed_repo, notification_repo, point_history_repo, push_history_repo, user_repo)
-        clear_mappers()
-
-        if add_comment['result']:
-            db_session.commit()
-            db_session.close()
-            return json.dumps(add_comment, ensure_ascii=False), 200
+            error_message = f'{ERROR_RESPONSE[400]} (group).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
-            db_session.close()
-            return json.dumps({key: value for key, value in add_comment.items() if key != 'status_code'}, ensure_ascii=False), add_comment['status_code']
+            comment: [str, None] = params['comment']
+            group: [int, None] = params['group']
+            feed_mappers()
+            feed_repo: FeedRepository = FeedRepository(db_session)
+            feed_comment_repo: FeedCommentRepository = FeedCommentRepository(db_session)
+
+            notification_repo: NotificationRepository = NotificationRepository(db_session)
+            point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
+            push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
+            user_repo: UserRepository = UserRepository(db_session)
+
+            new_feed_comment: FeedComment = FeedComment(
+                id=None,
+                comment=comment,
+                feed_id=feed_id,
+                user_id=user_id,
+                group=group,
+                depth=0,
+                deleted_at=None
+            )
+
+            add_comment: dict = feed_service.add_comment(new_feed_comment, feed_comment_repo, feed_repo, notification_repo, point_history_repo, push_history_repo, user_repo)
+            clear_mappers()
+
+            if add_comment['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(add_comment, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in add_comment.items() if key != 'status_code'}, ensure_ascii=False), add_comment['status_code']
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/feed/<int:feed_id>/point', methods=['GET'])
@@ -252,51 +227,46 @@ def feed_comment_manipulate(feed_id: int, feed_comment_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if feed_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (feed_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (feed_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if feed_comment_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (feed_comment_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (feed_comment_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'PATCH':
-        new_comment: [str, None] = json.loads(request.get_data())['comment']
-
-        if new_comment is None or new_comment.strip() == '':
+        params = json.loads(request.get_data())
+        if 'comment' not in params.keys() or params['comment'].strip() == '':
             db_session.close()
-            result: dict = {
-                'result': False,
-                'error': f'{ERROR_RESPONSE[400]} (comment)'
-            }
-            return json.dumps(result, ensure_ascii=False), 400
-
-        feed_comment_mappers()
-        repo: FeedCommentRepository = FeedCommentRepository(db_session)
-        new_feed_comment: FeedComment = FeedComment(
-            id=feed_comment_id,
-            user_id=user_id,
-            feed_id=feed_id,
-            comment=new_comment,
-            depth=0,
-            group=0,
-            deleted_at=None
-        )
-        update_comment: dict = feed_service.update_comment(new_feed_comment, repo)
-        clear_mappers()
-
-        if update_comment['result']:
-            db_session.commit()
-            db_session.close()
-            return json.dumps(update_comment, ensure_ascii=False), 200
+            error_message = f'{ERROR_RESPONSE[400]} (comment).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
-            db_session.close()
-            return json.dumps({key: value for key, value in update_comment.items() if key != 'status_code'}, ensure_ascii=False), update_comment['status_code']
+            new_comment = params['comment']
+            feed_comment_mappers()
+            repo: FeedCommentRepository = FeedCommentRepository(db_session)
+            new_feed_comment: FeedComment = FeedComment(
+                id=feed_comment_id,
+                user_id=user_id,
+                feed_id=feed_id,
+                comment=new_comment,
+                depth=0,
+                group=0,
+                deleted_at=None
+            )
+            update_comment: dict = feed_service.update_comment(new_feed_comment, repo)
+            clear_mappers()
+            if update_comment['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(update_comment, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in update_comment.items() if key != 'status_code'}, ensure_ascii=False), update_comment['status_code']
     elif request.method == 'DELETE':
         feed_comment_mappers()
         # feed_mappers()
@@ -324,11 +294,8 @@ def feed_comment_manipulate(feed_id: int, feed_comment_id: int):
             return json.dumps({key: value for key, value in delete_comment.items() if key != 'status_code'}, ensure_ascii=False), delete_comment['status_code']
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/feed/<int:feed_id>/like', methods=['GET', 'POST', 'DELETE'])
@@ -336,13 +303,12 @@ def feed_check(feed_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if feed_id is None:
         db_session.close()
-        result = {'result': False, 'error': f'{ERROR_RESPONSE[400]} (feed_id).'}
-        return json.dumps(result, ensure_ascii=False), 400
+        error_message = f'{ERROR_RESPONSE[400]} (feed_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
@@ -413,11 +379,8 @@ def feed_check(feed_id: int):
 
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route("/newsfeed", methods=['GET'])
@@ -425,8 +388,7 @@ def get_newsfeed():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
         page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
@@ -451,11 +413,8 @@ def get_newsfeed():
         return json.dumps(result, ensure_ascii=False), 200
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/feed/recently-most-checked', methods=['GET'])
@@ -463,8 +422,7 @@ def get_recently_most_checked_feeds():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
-        result = {'result': False, 'error': ERROR_RESPONSE[401]}
-        return json.dumps(result, ensure_ascii=False), 401
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
         feed_mappers()
@@ -481,8 +439,5 @@ def get_recently_most_checked_feeds():
         return json.dumps(result, ensure_ascii=False), 200
     else:
         db_session.close()
-        result: dict = {
-            'result': False,
-            'error': f'{ERROR_RESPONSE[405]} ({request.method})'
-        }
-        return json.dumps(result), 405
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
