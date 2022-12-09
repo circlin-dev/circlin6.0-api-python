@@ -17,14 +17,14 @@ from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, IN
 from sqlalchemy.orm import registry, relationship
 
 mapper_registry = registry()
-
+metadata = mapper_registry.metadata
 # region tables
 
 
 # region areas
 areas = Table(
     "areas",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -37,7 +37,7 @@ areas = Table(
 # region board
 boards = Table(
     "boards",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -51,7 +51,7 @@ boards = Table(
 
 board_categories = Table(
     "board_categories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -61,7 +61,7 @@ board_categories = Table(
 
 board_comments = Table(
     "board_comments",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -76,7 +76,7 @@ board_comments = Table(
 
 board_images = Table(
     "board_images",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -94,7 +94,7 @@ board_images = Table(
 
 board_likes = Table(
     "board_likes",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -107,7 +107,7 @@ board_likes = Table(
 # region brand
 brands = Table(
     "brands",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -123,7 +123,7 @@ brands = Table(
 # region common_code
 common_codes = Table(
     "common_codes",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -142,7 +142,7 @@ common_codes = Table(
 # region feed
 feeds = Table(
     "feeds",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -159,7 +159,7 @@ feeds = Table(
 
 feed_likes = Table(
     "feed_likes",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -172,7 +172,7 @@ feed_likes = Table(
 
 feed_comments = Table(
     "feed_comments",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -187,7 +187,7 @@ feed_comments = Table(
 
 feed_foods = Table(
     "feed_foods",
-    mapper_registry.metadata,
+    metadata,
     Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), primary_key=True, nullable=False, index=True),
     Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), primary_key=True, nullable=False, index=True),
 )
@@ -195,7 +195,7 @@ feed_foods = Table(
 
 feed_images = Table(
     "feed_images",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -209,7 +209,7 @@ feed_images = Table(
 
 feed_missions = Table(
     "feed_missions",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -221,7 +221,7 @@ feed_missions = Table(
 
 feed_products = Table(
     "feed_products",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -236,7 +236,7 @@ feed_products = Table(
 # region follow
 follows = Table(
     "follows",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -250,7 +250,7 @@ follows = Table(
 # region foods
 foods = Table(
     "foods",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -284,7 +284,7 @@ foods = Table(
 
 food_brands = Table(
     "food_brands",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -295,7 +295,7 @@ food_brands = Table(
 
 food_categories = Table(
     "food_categories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -307,7 +307,7 @@ food_categories = Table(
 
 food_flavors = Table(
     "food_flavors",
-    mapper_registry.metadata,
+    metadata,
     Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), nullable=False),
     Column("flavors", VARCHAR(255))
 )
@@ -315,7 +315,7 @@ food_flavors = Table(
 
 food_food_categories = Table(
     "food_food_categories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -326,7 +326,7 @@ food_food_categories = Table(
 
 food_images = Table(
     "food_images",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -344,7 +344,7 @@ food_images = Table(
 
 food_ratings = Table(
     "food_ratings",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -358,7 +358,7 @@ food_ratings = Table(
 
 food_rating_images = Table(
     "food_rating_images",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -375,7 +375,7 @@ food_rating_images = Table(
 
 food_rating_reviews = Table(
     "food_rating_reviews",
-    mapper_registry.metadata,
+    metadata,
     Column("food_rating_id", BIGINT(unsigned=True), ForeignKey('food_ratings.id'), primary_key=True, nullable=False, index=True),
     Column("food_review_id", BIGINT(unsigned=True), ForeignKey('food_reviews.id'), primary_key=True, nullable=False, index=True),
 )
@@ -383,7 +383,7 @@ food_rating_reviews = Table(
 
 food_reviews = Table(
     "food_reviews",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -394,7 +394,7 @@ food_reviews = Table(
 
 food_ingredients = Table(
     "food_ingredients",
-    mapper_registry.metadata,
+    metadata,
     Column("food_id", BIGINT(unsigned=True), ForeignKey('foods.id'), primary_key=True, nullable=False, index=True),
     Column("ingredient_id", BIGINT(unsigned=True), ForeignKey('ingredients.id'), primary_key=True, nullable=False, index=True),
 )
@@ -402,7 +402,7 @@ food_ingredients = Table(
 
 ingredients = Table(
     "ingredients",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -414,7 +414,7 @@ ingredients = Table(
 # region missions
 missions = Table(
     "missions",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -453,7 +453,7 @@ missions = Table(
 
 mission_categories = Table(
     "mission_categories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -466,7 +466,7 @@ mission_categories = Table(
 
 mission_comments = Table(
     "mission_comments",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -481,7 +481,7 @@ mission_comments = Table(
 
 mission_stats = Table(
     "mission_stats",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -500,7 +500,7 @@ mission_stats = Table(
 # region notices
 notices = Table(
     "notices",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -515,7 +515,7 @@ notices = Table(
 
 notice_comments = Table(
     "notice_comments",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -530,7 +530,7 @@ notice_comments = Table(
 
 notice_images = Table(
     "notice_images",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -545,7 +545,7 @@ notice_images = Table(
 # region notification
 notifications = Table(
     "notifications",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -570,7 +570,7 @@ notifications = Table(
 # region point history
 point_histories = Table(
     "point_histories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -590,7 +590,7 @@ point_histories = Table(
 # region product
 outside_products = Table(
     "outside_products",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -605,7 +605,7 @@ outside_products = Table(
 
 products = Table(
     "products",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -626,7 +626,7 @@ products = Table(
 
 product_categories = Table(
     "product_categories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -639,7 +639,7 @@ product_categories = Table(
 # region push
 push_histories = Table(
     "push_histories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -658,7 +658,7 @@ push_histories = Table(
 # region user
 users = Table(
     "users",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True, autoincrement=True, nullable=False),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -710,7 +710,7 @@ users = Table(
 
 user_favorite_categories = Table(
     "user_favorite_categories",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
@@ -723,7 +723,7 @@ user_favorite_categories = Table(
 # region version
 versions = Table(
     "versions",
-    mapper_registry.metadata,
+    metadata,
     Column("id", BIGINT(unsigned=True), primary_key=True, autoincrement=True, nullable=False, unique=True),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),

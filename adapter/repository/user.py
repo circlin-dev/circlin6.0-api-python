@@ -10,7 +10,7 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_one(self, user_id) -> User:
+    def get_one(self, user_id: int) -> User:
         pass
 
     @abc.abstractmethod
@@ -41,7 +41,7 @@ class UserRepository(AbstractUserRepository):
     def add(self, version):
         self.session.add(version)
 
-    def get_one(self, user_id):
+    def get_one(self, user_id: int):
         sql = select(
             User
         ).where(

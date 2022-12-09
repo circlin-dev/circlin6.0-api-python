@@ -253,14 +253,12 @@ def get_post_board_comment(board_id: int):
             }
             return json.dumps(result, ensure_ascii=False), 400
 
-        # board_comment_mappers()
         board_mappers()
         board_comment_repo: BoardCommentRepository = BoardCommentRepository(db_session)
         board_repo: BoardRepository = BoardRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
         push_history_repo: PushHistoryRepository = PushHistoryRepository(db_session)
         notification_repo: NotificationRepository = NotificationRepository(db_session)
-
         new_board_comment: BoardComment = BoardComment(
             id=None,
             board_id=board_id,
@@ -270,7 +268,15 @@ def get_post_board_comment(board_id: int):
             depth=0
         )
 
-        add_comment: dict = board_service.add_comment(new_board_comment, board_comment_repo, board_repo, user_repo, push_history_repo, notification_repo)
+        add_comment: dict = board_service.add_comment(
+            new_board_comment,
+            board_comment_repo,
+            board_repo,
+            notification_repo,
+            push_history_repo,
+            user_repo
+        )
+
         clear_mappers()
 
         if add_comment['result']:
@@ -406,7 +412,8 @@ def board_like(board_id: int):
 
     elif request.method == 'POST':
         # board_like_mappers()  -> raise 500 error when getting get_one() Board -> BoardImage.xxxx
-        board_mappers()
+        # board_mappers()
+        board_like_mappers()
         board_like_repo: BoardLikeRepository = BoardLikeRepository(db_session)
         board_repo: BoardRepository = BoardRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
