@@ -420,7 +420,7 @@ def increase_like(
 
 
 def decrease_like(board_like: BoardLike, board_like_repo: AbstractBoardLikeRepository, board_repo: AbstractBoardRepository) -> dict:
-    target_board: Board = board_repo.get_one(board_like.board_id)
+    target_board: Board = board_repo.get_one(board_like.board_id, board_like.user_id)
 
     if target_board is None or board_is_available_to_other(target_board) is False:
         return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 게시글입니다.'}
