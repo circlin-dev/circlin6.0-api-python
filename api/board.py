@@ -253,7 +253,8 @@ def get_post_board_comment(board_id: int):
             }
             return json.dumps(result, ensure_ascii=False), 400
 
-        board_comment_mappers()
+        # board_comment_mappers()
+        board_mappers()
         board_comment_repo: BoardCommentRepository = BoardCommentRepository(db_session)
         board_repo: BoardRepository = BoardRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
@@ -404,7 +405,8 @@ def board_like(board_id: int):
         return json.dumps(result, ensure_ascii=False), 200
 
     elif request.method == 'POST':
-        board_like_mappers()
+        # board_like_mappers()  -> raise 500 error when getting get_one() Board -> BoardImage.xxxx
+        board_mappers()
         board_like_repo: BoardLikeRepository = BoardLikeRepository(db_session)
         board_repo: BoardRepository = BoardRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
