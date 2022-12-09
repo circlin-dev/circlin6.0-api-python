@@ -143,27 +143,27 @@ def create_board_image(board_id: int, order: int, file, s3_object_path: str, boa
     return True
 
 
-def update_board(board: Board, request_user_id: int, repo: AbstractBoardRepository) -> dict:
-    target_board: Board = repo.get_one(board.id)
+def update_board(board: Board, request_user_id: int, board_repo: AbstractBoardRepository) -> dict:
+    target_board: Board = board_repo.get_one(board.id, request_user_id)
 
     if target_board is None or board_is_undeleted(target_board) is False:
         return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
     elif check_if_user_is_the_owner_of_the_board(target_board.user_id, request_user_id) is False:
         return {'result': False, 'error': '타인이 쓴 게시글이므로 수정할 권한이 없습니다.', 'status_code': 403}
     else:
-        repo.update(board)
+        board_repo.update(board)
         return {'result': True}
 
 
-def delete_board(board_id, request_user_id: int, repo: AbstractBoardRepository) -> dict:
-    target_board = repo.get_one(board_id)
+def delete_board(board_id, request_user_id: int, board_repo: AbstractBoardRepository) -> dict:
+    target_board = board_repo.get_one(board_id, request_user_id)
 
     if target_board is None or board_is_undeleted(target_board) is False:
         return {'result': False, 'error': '이미 삭제한 게시글이거나, 존재하지 않는 게시글입니다.', 'status_code': 400}
     elif check_if_user_is_the_owner_of_the_board(target_board.user_id, request_user_id) is False:
         return {'result': False, 'error': '타인이 쓴 게시글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
     else:
-        repo.delete(target_board)
+        board_repo.delete(target_board)
         return {'result': True}
 # endregion
 
@@ -177,12 +177,12 @@ def board_comment_is_undeleted(board_comment: BoardComment) -> bool:
     return True if board_comment.deleted_at is None else False
 
 
-def get_comment_count_of_the_board(board_id, repo: AbstractBoardCommentRepository) -> int:
-    return repo.count_number_of_comment(board_id)
+def get_comment_count_of_the_board(board_id, board_comment_repo: AbstractBoardCommentRepository) -> int:
+    return board_comment_repo.count_number_of_comment(board_id)
 
 
-def get_comments(board_id: int, page_cursor: int, limit: int, user_id: int, repo: AbstractBoardCommentRepository) -> list:
-    comments: list = repo.get_list(board_id, page_cursor, limit, user_id)
+def get_comments(board_id: int, page_cursor: int, limit: int, user_id: int, board_comment_repo: AbstractBoardCommentRepository) -> list:
+    comments: list = board_comment_repo.get_list(board_id, page_cursor, limit, user_id)
     entries: list = [
         dict(
             id=comment.id,
@@ -208,7 +208,7 @@ def add_comment(new_board_comment: BoardComment,
                 push_history_repo: PushHistoryRepository,
                 user_repo: AbstractUserRepository
                 ) -> dict:
-    target_board: Board = board_repo.get_one(new_board_comment.board_id)
+    target_board: Board = board_repo.get_one(new_board_comment.board_id, new_board_comment.user_id)
 
     # 1. 게시물에 댓글을 작성할할 수 있는 상태인지 확인한다.
     if target_board is None:
@@ -242,10 +242,10 @@ def add_comment(new_board_comment: BoardComment,
     commented_user_nickname: str = commented_user.nickname
 
     # 3. 알림, 푸쉬
-    # depth로 댓글이인지, 대댓글인지 판단한다.
-    # 댓글: 게시글 주인이 나일 경우는 아무것도 하지 않고, 아닐 경우에만 게시글 주인에게 "댓글" 알림, 푸쉬를 보낸다.
-    # 답글: 같은 댓글 group에 속한 댓글/답글 작성자 리스트를 구하고, 그 중 본인을 제외하고 "답글" 알림, 푸쉬를 보낸다. 단, 중복을 제거한다.
-    # 답글: 같은 댓글 group에 속한 댓글/답글 작성자 리스트에 게시글 작성자가 속해있지 않는 한, 게시글 작성자에게 보내지 않는다(To Be Determined).
+    # depth 로 댓글 인지, 대댓글 인지 판단.
+    # 댓글: 게시글 주인이 나일 경우는 아무 것도 하지 않고, 아닐 경우만 게시글 주인에 "댓글" 알림, 푸쉬를 보낸다.
+    # 답글: 같은 댓글 group 에 속한 댓글/답글 작성자 리스트 를 구하고, 그 중 본인을 제외 하고 "답글" 알림, 푸쉬를 보낸다. 단, 중복은 제거.
+    # 답글: 같은 댓글 group 에 속한 댓글/답글 작성자 리스트 에 게시글 작성자 가 속해 있지 않는 한, 게시글 작성자 에게 보내지 않는다(To Be Determined).
     ##################################################################################################################
     # (1) Push 발송 함수
     # (2) Notification 생성 함수
@@ -307,38 +307,38 @@ def add_comment(new_board_comment: BoardComment,
     return {'result': True}
 
 
-def update_comment(board_comment: BoardComment, repo: AbstractBoardCommentRepository) -> dict:
-    target_comment: BoardComment = repo.get_one(board_comment.id)
+def update_comment(board_comment: BoardComment, board_comment_repo: AbstractBoardCommentRepository) -> dict:
+    target_comment: BoardComment = board_comment_repo.get_one(board_comment.id)
 
     if target_comment is None or board_comment_is_undeleted(target_comment) is False:
         return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
     elif check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
         return {'result': False, 'error': '타인이 쓴 댓글이므로 수정할 권한이 없습니다.', 'status_code': 403}
     else:
-        repo.update(board_comment)
+        board_comment_repo.update(board_comment)
         return {'result': True}
 
 
-def delete_comment(board_comment: BoardComment, repo: AbstractBoardCommentRepository) -> dict:
-    target_comment: BoardComment = repo.get_one(board_comment.id)
+def delete_comment(board_comment: BoardComment, board_comment_repo: AbstractBoardCommentRepository) -> dict:
+    target_comment: BoardComment = board_comment_repo.get_one(board_comment.id)
 
     if target_comment is None or board_comment_is_undeleted(target_comment) is False:
         return {'result': False, 'error': '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.', 'status_code': 400}
     elif check_if_user_is_the_owner_of_the_board_comment(target_comment.user_id, board_comment.user_id) is False:
         return {'result': False, 'error': '타인이 쓴 댓글이므로 삭제할 권한이 없습니다.', 'status_code': 403}
     else:
-        repo.delete(target_comment)
+        board_comment_repo.delete(target_comment)
         return {'result': True}
 # endregion
 
 
 # region board like
-def get_like_count_of_the_board(board_id, repo: AbstractBoardLikeRepository) -> int:
-    return repo.count_number_of_like(board_id)
+def get_like_count_of_the_board(board_id, board_like_repo: AbstractBoardLikeRepository) -> int:
+    return board_like_repo.count_number_of_like(board_id)
 
 
-def get_user_list_who_like_this_board(board_id: int, user_id: int, page_cursor: int, limit: int, repo: AbstractBoardLikeRepository) -> list:
-    liked_users: list = repo.get_liked_user_list(board_id, user_id, page_cursor, limit)
+def get_user_list_who_like_this_board(board_id: int, user_id: int, page_cursor: int, limit: int, board_like_repo: AbstractBoardLikeRepository) -> list:
+    liked_users: list = board_like_repo.get_liked_user_list(board_id, user_id, page_cursor, limit)
     entries: list = [dict(
         id=user.id,
         nickname=user.nickname,
@@ -360,7 +360,7 @@ def increase_like(
         notification_repo: NotificationRepository
 ) -> dict:
 
-    target_board: Board = board_repo.get_one(board_like.board_id)
+    target_board: Board = board_repo.get_one(board_like.board_id, board_like.user_id)
     if target_board is None or board_is_available_to_other(target_board) is False:
         return {'result': False, 'error': '존재하지 않거나, 숨김처리 되었거나, 삭제된 게시글입니다.'}
     else:
