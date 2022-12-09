@@ -14,7 +14,6 @@ app = Flask(__name__)
 @app.errorhandler(Exception)
 def internal_error(error):
     clear_mappers()
-
     if isinstance(error, HTTPException):  # HTTP error
         result = {
             "result": False,
@@ -24,7 +23,7 @@ def internal_error(error):
     else:  # non-HTTP error
         result = {
             "result": False,
-            "error": f"일시적인 서버 오류가 발생하여 요청하신 작업을 수행할 수 없습니다. 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({str(error)})."
+            "error": f"Unexpected non-HTTP exception(error code: 500). 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({str(error)})."
         }
         return json.dumps(result, ensure_ascii=False), 500
 
