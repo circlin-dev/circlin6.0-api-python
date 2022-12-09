@@ -1,6 +1,6 @@
 from api import api
 from helper.cache import cache
-from flask import Flask, request
+from flask import Flask
 from flask_cors import CORS
 import logging
 import os
