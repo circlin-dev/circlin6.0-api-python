@@ -350,10 +350,11 @@ class FeedRepository(AbstractFeedRepository):
         :param limit:
         :return:
         '''
-        if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR:
+        cache_exists = True if cache.get(f"customized_sort_query_user_{user_id}") is not None else False
+        if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR or (page_cursor != INITIAL_DESCENDING_PAGE_CURSOR and cache_exists is False):
             # first API call or refreshing
             # Clear cache first if exists.
-            if cache.get(f"customized_sort_query_user_{user_id}") is not None:
+            if cache_exists is True:
                 cache.clear()
 
             followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
@@ -430,9 +431,7 @@ class FeedRepository(AbstractFeedRepository):
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
                             "bookmarked", case(
-                                (text(
-                                    f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
-                                 1),
+                                (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"), 1),
                                 else_=0
                             )
                         )
@@ -441,9 +440,10 @@ class FeedRepository(AbstractFeedRepository):
                     func.json_object(
                         "type", FeedProduct.type,
                         "id", FeedProduct.id,
-                        "brand", func.IF(FeedProduct.type == 'inside',
-                                         select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
-                                         outside_products.c.brand),
+                        "brand", func.IF(
+                            FeedProduct.type == 'inside',
+                            select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
+                            outside_products.c.brand),
                         "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
                         "image",
                         func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
@@ -762,7 +762,7 @@ class FeedRepository(AbstractFeedRepository):
             # pagination
             candidate = cache.get(f"customized_sort_query_user_{user_id}")
 
-        result = [data for data in candidate if data.cursor < page_cursor][:limit]
+        result = [] if candidate is None else [data for data in candidate if data.cursor < page_cursor][:limit]
         return result
 
     def count_number_of_newsfeed(self, user_id: int, page_cursor: int) -> int:
@@ -770,7 +770,17 @@ class FeedRepository(AbstractFeedRepository):
         followings_number = select(func.count(follows.c.target_id)).where(follows.c.user_id == user_id)
         current_number_of_following = self.session.execute(followings_number).scalar()
 
-        if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR:
+        cache_exists = True if cache.get(f"total_count_newsfeed_user_{user_id}") is not None else False
+        # if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR or (page_cursor != INITIAL_DESCENDING_PAGE_CURSOR and cache_exists is False):
+        #     # first API call or refreshing
+        #     # Clear cache first if exists.
+        #     if cache_exists is True:
+        #         cache.clear()
+
+        if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR or (page_cursor != INITIAL_DESCENDING_PAGE_CURSOR and cache_exists is False):
+            if cache_exists is True:
+                cache.clear()
+
             customized_sort_query = select(
                 Feed.id,
                 func.ifnull(
@@ -842,7 +852,7 @@ class FeedRepository(AbstractFeedRepository):
             # pagination
             total_count = cache.get(f"total_count_newsfeed_user_{user_id}")
 
-        return total_count
+        return 0 if total_count is None else total_count
 
     def get_checked_feeds_by_user(self, user_id: int, page_cursor: int, limit: int):
         feed_likes_aliased = aliased(FeedCheck)
