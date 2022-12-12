@@ -54,17 +54,17 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
         body=feed.body,
         isShow=True if feed.is_hidden == 0 else False,
         images=json.loads(feed.images),
-        # user=dict(
-        #     id=feed.user_id,
-        #     nickname=feed.nickname,
-        #     profile=feed.profile_image,
-        #     followed=True if feed.followed == 1 else False,
-        #     # area=json.loads(feed.user_additional_information)["area"],
-        #     # followers=json.loads(feed.user_additional_information)["followers"],
-        #     gender=feed.gender,
-        #     isBlocked=True if feed.is_blocked == 1 else False,
-        #     # isChatBlocked=True if feed.is_chat_blocked == 1 else False
-        # ),
+        user=dict(
+            id=feed.user_id,
+            nickname=feed.nickname,
+            profile=feed.profile_image,
+            followed=True if feed.followed == 1 else False,
+            area=feed.area,
+            followers=feed.followers,
+            gender=feed.gender,
+            isBlocked=True if feed.is_blocked == 1 else False,
+            isChatBlocked=True if feed.is_chat_blocked == 1 else False
+        ),
         commentsCount=feed.comments_count,
         checksCount=feed.checks_count,
         checked=True if feed.checked == 1 else False,

@@ -895,6 +895,7 @@ class FeedRepository(AbstractFeedRepository):
             and_(
                 feed_likes.c.user_id == user_id,
                 feed_likes.c.deleted_at == None,
+                User.deleted_at == None,
                 Feed.deleted_at == None,
                 Feed.id < page_cursor,
             )
@@ -943,6 +944,29 @@ class FeedRepository(AbstractFeedRepository):
             select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
             select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
+            User.id.label('user_id'),
+            User.nickname,
+            User.profile_image,
+            User.gender,
+            case(
+                (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
+                else_=0
+            ).label("followed"),
+            case(
+                (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
+                else_=0
+            ).label("is_blocked"),
+            func.ifnull(
+                case(
+                    (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
+                    else_=text(
+                        f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
+                ),
+                0
+            ).label("is_chat_blocked"),
+            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
+
             func.json_arrayagg(
                 func.json_object(
                     "id", missions.c.id,
@@ -975,7 +999,8 @@ class FeedRepository(AbstractFeedRepository):
             ).label('product'),
 
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
-
+        ).join(
+            User, User.id == Feed.user_id
         ).join(
             FeedMission, FeedMission.feed_id == Feed.id, isouter=True
         ).join(
