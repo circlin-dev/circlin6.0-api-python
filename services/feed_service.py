@@ -123,8 +123,10 @@ def get_user_list_who_like_this_feed(feed_id: int, user_id: int, page_cursor: in
         id=user.id,
         nickname=user.nickname,
         gender=user.gender,
-        profileImage=user.profile_image,
+        profile=user.profile_image,
         followed=True if user.followed == 1 else False,
+        area=user.area,
+        followers=user.followers,
         cursor=user.cursor
     ) for user in liked_users]
 
@@ -151,6 +153,7 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
             checked=feed.checked,
             commentsCount=feed.comments_count,
             checksCount=feed.checks_count,
+            isShow=True if feed.is_hidden == 0 else False,
             user=dict(
                 id=feed.user_id,
                 nickname=feed.nickname,
@@ -171,7 +174,7 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
                 eventType=mission['event_type'],
                 thumbnail=mission['thumbnail'],
                 bookmarked=True if mission['bookmarked'] == 1 else False,
-            ) for mission in json.loads(feed.mission)],
+            ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
             product=json.loads(feed.product),
             food=json.loads(feed.food),
         ) if feed is not None else None
@@ -402,8 +405,8 @@ def add_comment(new_feed_comment: FeedComment,
     return {'result': True}
 
 
-def update_comment(feed_comment: FeedComment, repo: AbstractFeedCommentRepository) -> dict:
-    target_comment: FeedComment = repo.get_one(feed_comment.id)
+def update_comment(feed_comment: FeedComment, feed_comment_repo: AbstractFeedCommentRepository) -> dict:
+    target_comment: FeedComment = feed_comment_repo.get_one(feed_comment.id)
 
     if target_comment is None or feed_comment_is_undeleted(target_comment) is False:
         error_message = '이미 삭제한 댓글이거나, 존재하지 않는 댓글입니다.'
