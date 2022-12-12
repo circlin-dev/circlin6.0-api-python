@@ -1,4 +1,4 @@
-from adapter.orm import areas, brands, feed_comments, feed_images, feed_likes, follows, foods, missions, mission_categories, outside_products, products
+from adapter.orm import areas, brands, feed_comments, feed_images, feed_likes, food_brands, food_images, follows, foods, missions, mission_categories, outside_products, products
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.user import User
 from helper.cache import cache
@@ -154,7 +154,26 @@ class FeedRepository(AbstractFeedRepository):
 
             func.json_object(
                 "id", foods.c.id,
+                "largeCategoryTitle", foods.c.large_category_title,
                 "title", foods.c.title,
+                "brand", food_brands.c.title,
+                "images", select(func.json_arrayagg(
+                    func.json_object(
+                        "width", food_images.c.width,
+                        "height", food_images.c.height,
+                        "type", food_images.c.type,
+                        "mimeType", food_images.c.mime_type,
+                        "pathname", food_images.c.path,
+                        "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                        'mimeType', fi.mime_type,
+                        'pathname', fi.path,
+                        'width', fi.width,
+                        'height', fi.height
+                        )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                    )
+                )).where(and_(
+                    food_images.c.food_id == foods.c.id,
+                    food_images.c.original_file_id == None)),
             ).label('food'),
         ).join(
             User, User.id == Feed.user_id
@@ -172,10 +191,12 @@ class FeedRepository(AbstractFeedRepository):
             FeedFood, FeedFood.feed_id == Feed.id, isouter=True
         ).join(
             foods, foods.c.id == FeedFood.food_id, isouter=True
+        ).join(
+            food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
         ).where(
             and_(
                 Feed.id == feed_id,
-                Feed.deleted_at == None
+                Feed.deleted_at == None,
             )
         )
 
@@ -953,11 +974,6 @@ class FeedRepository(AbstractFeedRepository):
                 "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
             ).label('product'),
 
-            func.json_object(
-                "id", foods.c.id,
-                "title", foods.c.title,
-            ).label('food'),
-
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
 
         ).join(
@@ -970,10 +986,6 @@ class FeedRepository(AbstractFeedRepository):
             products, products.c.id == FeedProduct.product_id, isouter=True
         ).join(
             outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
-        ).join(
-            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
-        ).join(
-            foods, foods.c.id == FeedFood.food_id, isouter=True
         ).where(
             and_(
                 Feed.user_id == user_id,

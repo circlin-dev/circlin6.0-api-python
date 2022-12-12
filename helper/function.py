@@ -53,7 +53,7 @@ def slack_error_notification(
 - 장애 API: `{endpoint}` \n \
 - 장애 유형: `{type}` \n \
 - IP: `{ip}` \n \
-```에러 로그: {error_message}```",
+```[에러 로그]\n\n {error_message}```",
             "icon_url": "https://www.circlin.co.kr/new/assets/favicon/apple-icon-180x180.png"
         }, ensure_ascii=False).encode('utf-8')
     )
