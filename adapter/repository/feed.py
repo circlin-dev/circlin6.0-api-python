@@ -1,4 +1,4 @@
-from adapter.orm import areas, brands, feed_comments, feed_images, feed_likes, food_brands, food_images, follows, foods, missions, mission_categories, outside_products, products
+from adapter.orm import areas, brands, feed_comments, feed_images, feed_likes, food_brands, food_images, follows, foods, missions, mission_categories, outside_products, products, users
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.user import User
 from helper.cache import cache
@@ -6,6 +6,7 @@ from helper.constant import INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PA
 
 import abc
 from sqlalchemy import select, delete, insert, update, join, desc, and_, case, func, text
+from sqlalchemy.orm import aliased
 
 
 class AbstractFeedRepository(abc.ABC):
@@ -540,9 +541,7 @@ class FeedRepository(AbstractFeedRepository):
                         case(
                             (user_id == User.id, None),
                             # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
-                            else_=text(
-                                f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
-                        ),
+                            else_=text(f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")),
                         0
                     ).label("is_chat_blocked"),
                     select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
@@ -565,9 +564,7 @@ class FeedRepository(AbstractFeedRepository):
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
                             "bookmarked", case(
-                                (text(
-                                    f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
-                                 1),
+                                (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),1),
                                 else_=0
                             )
                         )
@@ -576,9 +573,11 @@ class FeedRepository(AbstractFeedRepository):
                     func.json_object(
                         "type", FeedProduct.type,
                         "id", FeedProduct.id,
-                        "brand", func.IF(FeedProduct.type == 'inside',
-                                         select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
-                                         outside_products.c.brand),
+                        "brand", func.IF(
+                            FeedProduct.type == 'inside',
+                            select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
+                            outside_products.c.brand
+                        ),
                         "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
                         "image",
                         func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
@@ -846,6 +845,7 @@ class FeedRepository(AbstractFeedRepository):
         return total_count
 
     def get_checked_feeds_by_user(self, user_id: int, page_cursor: int, limit: int):
+        feed_likes_aliased = aliased(FeedCheck)
         sql = select(
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
@@ -858,13 +858,13 @@ class FeedRepository(AbstractFeedRepository):
                     "pathname", FeedImage.image,
                     "resized", func.json_array()
                 )
-            )).select_from(FeedImage).where(FeedImage.feed_id == Feed.id).label("images"),
+            )).where(feed_images.c.feed_id == Feed.id).label("images"),
             select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
-            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
+            select(func.count(feed_likes_aliased.id)).where(and_(feed_likes_aliased.feed_id == Feed.id, feed_likes_aliased.deleted_at == None)).label('checks_count'),
 
-            User.id.label('user_id'),
-            User.nickname,
-            User.profile_image,
+            users.c.id.label('user_id'),
+            users.c.nickname,
+            users.c.profile_image,
             case(
                 (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
                 else_=0
@@ -882,9 +882,9 @@ class FeedRepository(AbstractFeedRepository):
 
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
         ).join(
-            User, User.id == Feed.user_id
+            FeedCheck, FeedCheck.feed_id == Feed.id
         ).join(
-            feed_likes, feed_likes.c.feed_id == Feed.id
+            users, users.c.id == Feed.user_id
         ).join(
             FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
         ).join(
@@ -893,8 +893,8 @@ class FeedRepository(AbstractFeedRepository):
             outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
         ).where(
             and_(
-                feed_likes.c.user_id == user_id,
-                feed_likes.c.deleted_at == None,
+                FeedCheck.user_id == user_id,
+                FeedCheck.deleted_at == None,
                 User.deleted_at == None,
                 Feed.deleted_at == None,
                 Feed.id < page_cursor,
@@ -911,10 +911,13 @@ class FeedRepository(AbstractFeedRepository):
             func.count(Feed.id)
         ).join(
             feed_likes, feed_likes.c.feed_id == Feed.id
+        ).join(
+            User, Feed.user_id == User.id
         ).where(
             and_(
                 feed_likes.c.user_id == user_id,
                 feed_likes.c.deleted_at == None,
+                User.deleted_at == None,
                 Feed.deleted_at == None,
             )
         )
