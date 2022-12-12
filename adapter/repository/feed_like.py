@@ -1,4 +1,4 @@
-from adapter.orm import feeds, follows
+from adapter.orm import areas, feeds, follows
 from domain.feed import Feed, FeedCheck
 from domain.user import Follow, User
 from sqlalchemy import desc, select, update, insert, and_, text, func
@@ -107,6 +107,8 @@ class FeedCheckRepository(AbstractFeedCheckRepository):
                 (User.id.in_(followings), True),
                 else_=False
             ).label("followed"),
+            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
             func.row_number().over(
                 order_by=[
                     desc(
