@@ -1,4 +1,4 @@
-from adapter.orm import follows
+from adapter.orm import areas, follows
 from domain.board import BoardLike
 from domain.user import User
 from sqlalchemy import case, desc, select, delete, insert, and_, text, func
@@ -63,6 +63,8 @@ class BoardLikeRepository(AbstractBoardLikeRepository):
                 (User.id.in_(followings), True),
                 else_=False
             ).label("followed"),
+            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
+            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
             func.row_number().over(
                 order_by=[
                     desc(
