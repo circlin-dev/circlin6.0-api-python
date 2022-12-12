@@ -377,7 +377,9 @@ def get_user_list_who_like_this_board(board_id: int, user_id: int, page_cursor: 
         id=user.id,
         nickname=user.nickname,
         gender=user.gender,
-        profileImage=user.profile_image,
+        profile=user.profile_image,
+        followers=user.followers,
+        area=user.area,
         followed=True if user.followed == 1 else False,
         cursor=user.cursor
     ) for user in liked_users]
