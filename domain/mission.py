@@ -107,6 +107,16 @@ class MissionGround:
         pass
 
 
+class MissionIntro:
+    def __init__(self):
+        pass
+
+
+class MissionRank:
+    def __init__(self):
+        pass
+
+
 class MissionStat:
     def __init__(
             self,
