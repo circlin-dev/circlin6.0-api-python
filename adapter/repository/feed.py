@@ -353,7 +353,7 @@ class FeedRepository(AbstractFeedRepository):
         if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR:
             # first API call or refreshing
             # Clear cache first if exists.
-            if cache.get("customized_sort_query") is not None:
+            if cache.get(f"customized_sort_query_user_{user_id}") is not None:
                 cache.clear()
 
             followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
@@ -493,7 +493,7 @@ class FeedRepository(AbstractFeedRepository):
                 )
 
                 candidate = self.session.execute(customized_sort_query).all()
-                cache.set("customized_sort_query", candidate)
+                cache.set(f"customized_sort_query_user_{user_id}", candidate)
             else:
                 # newsfeed + recommendation
                 # newsfeed
@@ -757,10 +757,10 @@ class FeedRepository(AbstractFeedRepository):
                     ).label('cursor')
                 ).select_from(union).order_by(union.c.checked, desc('cursor'))
                 candidate = self.session.execute(cursored_union).all()
-                cache.set("customized_sort_query", candidate)
+                cache.set(f"customized_sort_query_user_{user_id}", candidate)
         else:
             # pagination
-            candidate = cache.get("customized_sort_query")
+            candidate = cache.get(f"customized_sort_query_user_{user_id}")
 
         result = [data for data in candidate if data.cursor < page_cursor][:limit]
         return result
@@ -800,7 +800,7 @@ class FeedRepository(AbstractFeedRepository):
             if current_number_of_following >= 10:
                 # newsfeed only
                 total_count = self.session.execute(newsfeed_count).scalar()
-                cache.set("total_count_newsfeed", total_count)
+                cache.set(f"total_count_newsfeed_user_{user_id}", total_count)
             else:
                 # newsfeed + recommendation
 
@@ -837,10 +837,10 @@ class FeedRepository(AbstractFeedRepository):
                 recommend_feed_count = select(func.count(feed_candidate_query.c.id)).select_from(feed_candidate_query)
 
                 total_count = self.session.execute(newsfeed_count).scalar() + self.session.execute(recommend_feed_count).scalar()
-                cache.set("total_count_newsfeed", total_count)
+                cache.set(f"total_count_newsfeed_user_{user_id}", total_count)
         else:
             # pagination
-            total_count = cache.get("total_count_newsfeed")
+            total_count = cache.get(f"total_count_newsfeed_user_{user_id}")
 
         return total_count
 
