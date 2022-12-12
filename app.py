@@ -15,36 +15,30 @@ app = Flask(__name__)
 @app.errorhandler(Exception)
 def internal_error(error):
     clear_mappers()
-    exception_url = request.url
-    method = request.method
-    ip = request.remote_addr
-    error_log = error.description if isinstance(error, HTTPException) else str(error)
-    status_code = error.code if isinstance(error, HTTPException) else 500
-
-    error_message = f"Unexpected HTTP exception(status code: {status_code}): {error_log}" \
-        if isinstance(error, HTTPException) \
-        else f"Unexpected non-HTTP exception(status code: {status_code}). 카카오톡 채널을 통해 개발팀에 문의해 주시기 바랍니다({error_log})."
 
     if isinstance(error, HTTPException):  # HTTP error
-        slack_error_notification(
-            ip=ip,
-            type='HTTPException',
-            endpoint=exception_url,
-            method=method,
-            status_code=int(error.code),
-            error_message=error_log
-        )
-        return json.dumps(failed_response(error_message), ensure_ascii=False), status_code
+        status_code = error.code
+        error_log = error.description
+        error_type = "HTTP Exception"
     else:  # non-HTTP error
-        slack_error_notification(
-            ip=ip,
-            type='Non-HTTPException',
-            endpoint=exception_url,
-            method=method,
-            status_code=500,
-            error_message=error_log
-        )
-        return json.dumps(failed_response(error_message), ensure_ascii=False), status_code
+        status_code = 500
+        error_log = str(error)
+        error_type = "non-HTTP Exception"
+
+    error_message = f"Unexpected {error_type}(status code: {status_code}): ({error_log}). \n 이 에러가 계속될 경우 카카오톡 채널 '써클인' 으로 문의해 주시기 바랍니다."
+    endpoint = request.url
+    ip = request.remote_addr
+    method = request.method
+
+    slack_error_notification(
+        endpoint=endpoint,
+        error_message=error_log,
+        ip=ip,
+        method=method,
+        status_code=status_code,
+        type=error_type,
+    )
+    return json.dumps(failed_response(error_message), ensure_ascii=False), status_code
 
 
 # Cache configuration

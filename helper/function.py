@@ -34,12 +34,13 @@ def failed_response(error_message: str) -> dict:
 
 
 def slack_error_notification(
-        ip: str,
-        type: str,
         endpoint: str,
+        error_message: str,
+        ip: str,
         method: str,
         status_code: int,
-        error_message: str):
+        type: str,
+):
     send_notification_request = requests.post(
         SLACK_NOTIFICATION_WEBHOOK,
         json.dumps({
@@ -47,17 +48,16 @@ def slack_error_notification(
             "username": "써클인 server(python flask)",
             "method": method,
             "text": f"*[경고]* *서버에서 예측하지 못한 오류가 발생했습니다.* \n \
-- IP: `{ip}` \n \
-- 장애 유형: `{type}` \n \
-- 장애 API: `{endpoint}` \n \
-- HTTP method: `{method}` \n \
 - Status code: `{status_code}` \n \
+- HTTP method: `{method}` \n \
+- 장애 API: `{endpoint}` \n \
+- 장애 유형: `{type}` \n \
+- IP: `{ip}` \n \
 ```에러 로그: {error_message}```",
             "icon_url": "https://www.circlin.co.kr/new/assets/favicon/apple-icon-180x180.png"
         }, ensure_ascii=False).encode('utf-8')
     )
 
-    print('send_notification_request.status_code:', send_notification_request.status_code)
     return send_notification_request
 # endregion
 

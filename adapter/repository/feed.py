@@ -87,6 +87,10 @@ class FeedRepository(AbstractFeedRepository):
                 )
             )).select_from(feed_images).where(feed_images.c.feed_id == Feed.id).label("images"),
             Feed.is_hidden,
+            Feed.distance,
+            Feed.laptime,
+            Feed.distance_origin,
+            Feed.laptime_origin,
             func.date_format(Feed.deleted_at, '%Y/%m/%d %H:%i:%s').label('deleted_at'),
             case(
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
