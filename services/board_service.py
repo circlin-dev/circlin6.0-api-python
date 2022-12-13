@@ -20,8 +20,8 @@ import json
 
 
 # region board
-def get_count_of_boards(category_id: int, repo: AbstractBoardRepository) -> int:
-    return repo.count_number_of_board(category_id)
+def get_count_of_boards(category_id: int, board_repo: AbstractBoardRepository) -> int:
+    return board_repo.count_number_of_board(category_id)
 
 
 def check_if_user_is_the_owner_of_the_board(board_owner_id: int, request_user_id: int) -> bool:
@@ -40,8 +40,8 @@ def board_is_available_to_other(board: Board) -> bool:
     return board_is_visible(board) is True and board_is_undeleted(board) is True
 
 
-def get_board_list(user_id: int, category_id: int, page_cursor: int, limit: int, repo: AbstractBoardRepository) -> list:
-    board_list = repo.get_list(user_id, category_id, page_cursor, limit)
+def get_board_list(user_id: int, category_id: int, page_cursor: int, limit: int, board_repo: AbstractBoardRepository) -> list:
+    board_list = board_repo.get_list(user_id, category_id, page_cursor, limit)
     entries = [
         dict(
             id=board.id,
