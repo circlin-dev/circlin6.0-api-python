@@ -1,3 +1,4 @@
+from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from adapter.repository.user import AbstractUserRepository
@@ -44,6 +45,38 @@ def delete_from_favorite_mission_category(mission_category_to_delete: UserFavori
     else:
         repo.delete(mission_category_to_delete)
         return {'result': True}
+
+
+def get_boards_by_user(user_id: int, category_id: int, page_cursor: int, limit: int, board_repo: AbstractBoardRepository) -> list:
+    board_list = board_repo.get_list_by_user(user_id, category_id, page_cursor, limit)
+    entries = [
+        dict(
+            id=board.id,
+            body=board.body,
+            createdAt=board.created_at,
+            images=json.loads(board.images) if json.loads(board.images)[0]['pathname'] is not None else [],
+            user=dict(
+                id=board.user_id,
+                profile=board.profile_image,
+                followed=True if (board.followed == 1 or board.user_id == user_id) else False,
+                nickname=board.nickname,
+                followers=board.followers,
+                isBlocked=True if board.is_blocked == 1 else False,
+                area=board.area,
+            ),
+            boardCategoryId=board.board_category_id,
+            likesCount=board.likes_count,
+            liked=True if board.liked == 1 else False,
+            commentsCount=board.comments_count,
+            isShow=True if board.is_show == 1 else False,
+            cursor=board.cursor
+        ) for board in board_list
+    ]
+    return entries
+
+
+def get_board_count_of_the_user(user_id: int, category_id: int, board_repo: AbstractBoardRepository) -> int:
+    return board_repo.count_number_of_board_of_user(user_id, category_id)
 
 
 def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
