@@ -183,7 +183,27 @@ def get_boards_from_following_users(target_user_id: int):
         return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
-        pass
+        category_id = get_query_strings_from_request(request, 'category', 0)
+        page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+        limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        board_mappers()
+        repo: BoardRepository = BoardRepository(db_session)
+        board_list: list = user_service.get_boards_of_following_users(target_user_id, category_id, page_cursor, limit, repo)
+        number_of_boards: int = user_service.get_board_count_of_following_users(target_user_id, category_id, repo)
+        clear_mappers()
+
+        last_cursor: [str, None] = None if len(board_list) <= 0 else board_list[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': board_list,
+            'cursor': last_cursor,
+            'totalCount': number_of_boards,
+        }
+        db_session.close()
+        return json.dumps(result, ensure_ascii=False), 200
     else:
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
