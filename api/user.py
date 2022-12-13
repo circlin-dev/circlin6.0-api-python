@@ -129,6 +129,46 @@ def user_favorite_category(target_user_id: int):
         return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
+@api.route('/user/<int:target_user_id>/board', methods=['GET'])
+def get_user_boards(target_user_id: int):
+    user_id = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if target_user_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (user_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        pass
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/user/<int:target_user_id>/board/following', methods=['GET'])
+def get_boards_from_following_users(target_user_id: int):
+    user_id = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if target_user_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (user_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        pass
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
 @api.route('/user/<int:target_user_id>/feed', methods=['GET'])
 def get_user_feeds(target_user_id: int):
     user_id: [int, None] = authenticate(request, db_session)

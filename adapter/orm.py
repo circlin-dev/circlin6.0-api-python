@@ -1,3 +1,4 @@
+from domain.block import Block
 from domain.board import Board, BoardCategory, BoardComment, BoardImage, BoardLike
 from domain.brand import Brand
 from domain.common_code import CommonCode
@@ -33,6 +34,23 @@ areas = Table(
     Column("name_en", VARCHAR(255)),
 )
 # endregion
+
+
+# region block
+blocks = Table(
+    "blocks",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), index=True, comment='차단 요청자'),
+    Column("target_id", BIGINT(unsigned=True), ForeignKey('users.id'), comment='user_id에 해당하는 유저가 차단하고자하는 상대 유저'),
+# user = relationship('User', primaryjoin='Block.user_id == User.id')
+# user1 = relationship('User', primaryjoin='Block.user_id == User.id')
+)
+
+# endregion
+
 
 # region board
 boards = Table(
@@ -747,6 +765,18 @@ versions = Table(
 #     )
 #     return mapper
 # endregion
+
+
+def block_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper = mapper_registry.map_imperatively(
+        Block,
+        blocks,
+        properties={
+            "users": relationship(User, primaryjoin='Block.user_id == User.id'),
+        }
+    )
+    return mapper
 
 
 # region boards

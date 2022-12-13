@@ -28,14 +28,15 @@ def board_get_post():
         return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
+        category_id = get_query_strings_from_request(request, 'category', 0)
         page_cursor = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
         limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
         page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
         board_mappers()
         repo: BoardRepository = BoardRepository(db_session)
-        board_list: list = board_service.get_board_list(user_id, page_cursor, limit, repo)
-        number_of_boards: int = board_service.get_count_of_boards(repo)
+        board_list: list = board_service.get_board_list(user_id, category_id, page_cursor, limit, repo)
+        number_of_boards: int = board_service.get_count_of_boards(category_id, repo)
         clear_mappers()
 
         last_cursor: [str, None] = None if len(board_list) <= 0 else board_list[-1]['cursor']  # 배열 원소의 cursor string

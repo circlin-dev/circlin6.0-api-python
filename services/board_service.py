@@ -20,8 +20,8 @@ import json
 
 
 # region board
-def get_count_of_boards(repo: AbstractBoardRepository) -> int:
-    return repo.count_number_of_board()
+def get_count_of_boards(category_id: int, repo: AbstractBoardRepository) -> int:
+    return repo.count_number_of_board(category_id)
 
 
 def check_if_user_is_the_owner_of_the_board(board_owner_id: int, request_user_id: int) -> bool:
@@ -40,8 +40,8 @@ def board_is_available_to_other(board: Board) -> bool:
     return board_is_visible(board) is True and board_is_undeleted(board) is True
 
 
-def get_board_list(user_id: int, page_cursor: int, limit: int, repo: AbstractBoardRepository) -> list:
-    board_list = repo.get_list(user_id, page_cursor, limit)
+def get_board_list(user_id: int, category_id: int, page_cursor: int, limit: int, repo: AbstractBoardRepository) -> list:
+    board_list = repo.get_list(user_id, category_id, page_cursor, limit)
     entries = [
         dict(
             id=board.id,
@@ -53,14 +53,14 @@ def get_board_list(user_id: int, page_cursor: int, limit: int, repo: AbstractBoa
                 profile=board.profile_image,
                 followed=True if (board.followed == 1 or board.user_id == user_id) else False,
                 nickname=board.nickname,
-                followers=board[-4],
+                followers=board.followers,
                 isBlocked=True if board.is_blocked == 1 else False,
-                area=board[-3]
+                area=board.area,
             ),
             boardCategoryId=board.board_category_id,
-            likesCount=board[-2],
+            likesCount=board.likes_count,
             liked=True if board.liked == 1 else False,
-            commentsCount=board[-1],
+            commentsCount=board.comments_count,
             isShow=True if board.is_show == 1 else False,
             cursor=board.cursor
         ) for board in board_list
@@ -87,14 +87,14 @@ def get_a_board(board_id: int, user_id: int, board_repo: AbstractBoardRepository
                 profile=board.profile_image,
                 followed=True if (board.followed == 1 or board.user_id == user_id) else False,
                 nickname=board.nickname,
-                followers=board[-4],
+                followers=board.followers,
                 isBlocked=True if board.is_blocked == 1 else False,
-                area=board[-3]
+                area=board.area
             ),
             boardCategoryId=board.board_category_id,
-            likesCount=board[-2],
+            likesCount=board.likes_count,
             liked=True if board.liked == 1 else False,
-            commentsCount=board[-1],
+            commentsCount=board.comments_count,
             isShow=True if board.is_show == 1 else False,
         ) if board is not None else None
 
