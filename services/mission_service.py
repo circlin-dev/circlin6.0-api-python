@@ -50,8 +50,11 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
         id=feed.id,
         createdAt=feed.created_at,
         body=feed.body,
+        distance=None if feed.distance is None
+        else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
+        else f'{round(feed.distance, 2)} km',
+        images=[] if feed.images is None else json.loads(feed.images),
         isShow=True if feed.is_hidden == 0 else False,
-        images=json.loads(feed.images),
         user=dict(
             id=feed.user_id,
             nickname=feed.nickname,
@@ -62,10 +65,12 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
             gender=feed.gender,
             isBlocked=True if feed.is_blocked == 1 else False,
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
-        ),
+        ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
         checksCount=feed.checks_count,
         checked=True if feed.checked == 1 else False,
+        product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
+        food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
         cursor=feed.cursor,
     ) for feed in feeds]
     return entries
