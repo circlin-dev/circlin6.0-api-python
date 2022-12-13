@@ -67,7 +67,11 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
         ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
-        checksCount=feed.checks_count,
+        checkedUsers=[dict(
+            id=user['id'],
+            nickname=user['nickname'],
+            profile=user['profile_image']
+        ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
         checked=True if feed.checked == 1 else False,
         product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
         food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,

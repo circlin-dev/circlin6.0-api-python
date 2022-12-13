@@ -40,7 +40,11 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
         ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
-        checksCount=feed.checks_count,
+        checkedUsers=[dict(
+            id=user['id'],
+            nickname=user['nickname'],
+            profile=user['profile_image']
+        ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
         checked=True if feed.checked == 1 else False,
         missions=[dict(
             id=mission['id'],
@@ -103,7 +107,11 @@ def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedReposit
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
         ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
-        checksCount=feed.checks_count,
+        checkedUsers=[dict(
+            id=user['id'],
+            nickname=user['nickname'],
+            profile=user['profile_image']
+        ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
         checked=True if feed.checked == 1 else False,
         missions=[dict(
             id=mission['id'],
@@ -160,7 +168,11 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
             images=[] if feed.images is None else json.loads(feed.images),
             checked=feed.checked,
             commentsCount=feed.comments_count,
-            checksCount=feed.checks_count,
+            checkedUsers=[dict(
+                id=user['id'],
+                nickname=user['nickname'],
+                profile=user['profile_image']
+            ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
             isShow=True if feed.is_hidden == 0 else False,
             user=dict(
                 id=feed.user_id,

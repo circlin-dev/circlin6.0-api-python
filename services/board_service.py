@@ -58,7 +58,11 @@ def get_board_list(user_id: int, category_id: int, page_cursor: int, limit: int,
                 area=board.area,
             ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
-            likesCount=board.likes_count,
+            likedUsers=[dict(
+                id=user['id'],
+                nickname=user['nickname'],
+                profile=user['profile_image']
+            ) for user in json.loads(board.liked_users)] if board.liked_users is not None else [],
             liked=True if board.liked == 1 else False,
             commentsCount=board.comments_count,
             isShow=True if board.is_show == 1 else False,
@@ -92,7 +96,11 @@ def get_a_board(board_id: int, user_id: int, board_repo: AbstractBoardRepository
                 area=board.area
             ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
-            likesCount=board.likes_count,
+            likedUsers=[dict(
+                id=user['id'],
+                nickname=user['nickname'],
+                profile=user['profile_image']
+            ) for user in json.loads(board.liked_users)] if board.liked_users is not None else [],
             liked=True if board.liked == 1 else False,
             commentsCount=board.comments_count,
             isShow=True if board.is_show == 1 else False,

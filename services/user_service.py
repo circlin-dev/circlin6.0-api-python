@@ -65,7 +65,11 @@ def get_boards_by_user(target_user_id: int, category_id: int, page_cursor: int, 
                 area=board.area,
             ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
-            likesCount=board.likes_count,
+            likedUsers=[dict(
+                id=user['id'],
+                nickname=user['nickname'],
+                profile=user['profile_image']
+            ) for user in json.loads(board.liked_users)] if board.liked_users is not None else [],
             liked=True if board.liked == 1 else False,
             commentsCount=board.comments_count,
             isShow=True if board.is_show == 1 else False,
@@ -97,7 +101,11 @@ def get_boards_of_following_users(target_user_id: int, category_id: int, page_cu
                 area=board.area,
             ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
-            likesCount=board.likes_count,
+            likedUsers=[dict(
+                id=user['id'],
+                nickname=user['nickname'],
+                profile=user['profile_image']
+            ) for user in json.loads(board.liked_users)] if board.liked_users is not None else [],
             liked=True if board.liked == 1 else False,
             commentsCount=board.comments_count,
             isShow=True if board.is_show == 1 else False,
@@ -134,7 +142,11 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
         ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
-        checksCount=feed.checks_count,
+        checkedUsers=[dict(
+            id=user['id'],
+            nickname=user['nickname'],
+            profile=user['profile_image']
+        ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
         checked=True if feed.checked == 1 else False,
         missions=[dict(
             id=mission['id'],
@@ -177,7 +189,11 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
             isBlocked=True if feed.is_blocked == 1 else False,
         ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
-        checksCount=feed.checks_count,
+        checkedUsers=[dict(
+            id=user['id'],
+            nickname=user['nickname'],
+            profile=user['profile_image']
+        ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
         missions=[dict(
             id=mission['id'],
             title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",

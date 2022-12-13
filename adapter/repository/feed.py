@@ -1,4 +1,4 @@
-from adapter.orm import areas, brands, feed_comments, feed_images, feed_likes, food_brands, food_images, follows, foods, missions, mission_categories, outside_products, products, users
+from adapter.orm import areas, blocks, brands, feed_comments, feed_images, feed_likes, food_brands, food_images, follows, foods, missions, mission_categories, outside_products, products, users
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.user import User
 from helper.cache import cache
@@ -75,6 +75,18 @@ class FeedRepository(AbstractFeedRepository):
         pass
 
     def get_one(self, feed_id: int, user_id: int) -> Feed:
+        users_aliased = aliased(User)
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        comments_count = select(
+            func.count(feed_comments.c.id)
+        ).where(and_(
+            feed_comments.c.feed_id == Feed.id,
+            feed_comments.c.deleted_at == None
+        ))
+        follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+
         sql = select(
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
@@ -97,21 +109,31 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
-            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
-            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
             User.id.label('user_id'),
             User.nickname,
             User.profile_image,
             User.gender,
-            case(
-                (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                else_=0
-            ).label("followed"),
-            case(
-                (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                else_=0
-            ).label("is_blocked"),
+            comments_count.label('comments_count'),
+            area.label('area'),
+            case((User.id.in_(followings), 1), else_=0).label("followed"),
+            follower_count.label('followers'),
+            case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                users_aliased
+            ).join(
+                FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+            ).where(
+                FeedCheck.feed_id == Feed.id
+            ).label('checked_users'),
             func.ifnull(
                 case(
                     (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
@@ -119,8 +141,6 @@ class FeedRepository(AbstractFeedRepository):
                 ),
                 0
             ).label("is_chat_blocked"),
-            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
-            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
 
             func.json_arrayagg(
                 func.json_object(
@@ -381,6 +401,18 @@ class FeedRepository(AbstractFeedRepository):
         :param limit:
         :return:
         '''
+        users_aliased = aliased(User)
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        comments_count = select(
+            func.count(feed_comments.c.id)
+        ).where(and_(
+            feed_comments.c.feed_id == Feed.id,
+            feed_comments.c.deleted_at == None
+        ))
+        follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+
         cache_exists = True if cache.get(f"customized_sort_query_user_{user_id}") is not None else False
         if page_cursor == INITIAL_DESCENDING_PAGE_CURSOR or (page_cursor != INITIAL_DESCENDING_PAGE_CURSOR and cache_exists is False):
             # first API call or refreshing
@@ -388,7 +420,6 @@ class FeedRepository(AbstractFeedRepository):
             if cache_exists is True:
                 cache.clear()
 
-            followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
             followings_number = select(func.count(follows.c.target_id)).where(follows.c.user_id == user_id)
             current_number_of_following = self.session.execute(followings_number).scalar()
 
@@ -420,24 +451,11 @@ class FeedRepository(AbstractFeedRepository):
                         ),
                         False
                     ).label('checked'),
-                    select(func.count(feed_comments.c.id)).where(
-                        and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label(
-                        'comments_count'),
-                    select(func.count(FeedCheck.id)).where(
-                        and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
                     User.id.label('user_id'),
                     User.nickname,
                     User.profile_image,
                     User.gender,
-                    case(
-                        (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                        else_=0
-                    ).label("followed"),
-                    case(
-                        (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                        else_=0
-                    ).label("is_blocked"),
                     func.ifnull(
                         case(
                             (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
@@ -446,10 +464,26 @@ class FeedRepository(AbstractFeedRepository):
                         ),
                         0
                     ).label("is_chat_blocked"),
-                    select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
-                    select(areas.c.name).where(
-                        areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label(
-                        'area'),
+                    comments_count.label('comments_count'),
+                    area.label('area'),
+                    case((User.id.in_(followings), 1), else_=0).label("followed"),
+                    follower_count.label('followers'),
+                    case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
+                    select(
+                        func.json_arrayagg(
+                            func.json_object(
+                                "id", users_aliased.id,
+                                "nickname", users_aliased.nickname,
+                                "profile_image", users_aliased.profile_image
+                            ),
+                        )
+                    ).select_from(
+                        users_aliased
+                    ).join(
+                        FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+                    ).where(
+                        FeedCheck.feed_id == Feed.id
+                    ).label('checked_users'),
 
                     func.json_arrayagg(
                         func.json_object(
@@ -588,24 +622,32 @@ class FeedRepository(AbstractFeedRepository):
                         ),
                         False
                     ).label('checked'),
-                    select(func.count(feed_comments.c.id)).where(
-                        and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label(
-                        'comments_count'),
-                    select(func.count(FeedCheck.id)).where(
-                        and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
                     User.id.label('user_id'),
                     User.nickname,
                     User.profile_image,
                     User.gender,
-                    case(
-                        (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                        else_=0
-                    ).label("followed"),
-                    case(
-                        (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                        else_=0
-                    ).label("is_blocked"),
+                    comments_count.label('comments_count'),
+                    select(
+                        func.json_arrayagg(
+                            func.json_object(
+                                "id", users_aliased.id,
+                                "nickname", users_aliased.nickname,
+                                "profile_image", users_aliased.profile_image
+                            ),
+                        )
+                    ).select_from(
+                        users_aliased
+                    ).join(
+                        FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+                    ).where(
+                        FeedCheck.feed_id == Feed.id
+                    ).label('checked_users'),
+                    area.label('area'),
+                    case((User.id.in_(followings), 1), else_=0).label("followed"),
+                    follower_count.label('followers'),
+                    case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
+
                     func.ifnull(
                         case(
                             (user_id == User.id, None),
@@ -613,10 +655,6 @@ class FeedRepository(AbstractFeedRepository):
                             else_=text(f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")),
                         0
                     ).label("is_chat_blocked"),
-                    select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
-                    select(areas.c.name).where(
-                        areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label(
-                        'area'),
 
                     func.json_arrayagg(
                         func.json_object(
@@ -677,7 +715,6 @@ class FeedRepository(AbstractFeedRepository):
                             food_images.c.food_id == foods.c.id,
                             food_images.c.original_file_id == None)),
                     ).label('food'),
-
                 ).join(
                     User, User.id == Feed.user_id
                 ).join(
@@ -744,6 +781,10 @@ class FeedRepository(AbstractFeedRepository):
                     feed_candidate_query.c.id,
                     func.date_format(feed_candidate_query.c.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
                     feed_candidate_query.c.content.label('body'),
+                    feed_candidate_query.c.distance,
+                    feed_candidate_query.c.laptime,
+                    feed_candidate_query.c.distance_origin,
+                    feed_candidate_query.c.laptime_origin,
                     select(func.json_arrayagg(
                         func.json_object(
                             "order", FeedImage.order,
@@ -762,23 +803,32 @@ class FeedRepository(AbstractFeedRepository):
                         ),
                         False
                     ).label('checked'),
-                    select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == feed_candidate_query.c.id, feed_comments.c.deleted_at == None)).label('comments_count'),
-                    select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == feed_candidate_query.c.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
                     User.id.label('user_id'),
                     User.nickname,
                     User.gender,
                     User.profile_image,
-                    case(
-                        (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                        else_=0
-                    ).label("followed"),
-                    case(
-                        (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                        else_=0
-                    ).label("is_blocked"),
-                    select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
-                    select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
+                    comments_count.label('comments_count'),
+                    select(
+                        func.json_arrayagg(
+                            func.json_object(
+                                "id", users_aliased.id,
+                                "nickname", users_aliased.nickname,
+                                "profile_image", users_aliased.profile_image
+                            ),
+                        )
+                    ).select_from(
+                        users_aliased
+                    ).join(
+                        FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+                    ).where(
+                        FeedCheck.feed_id == feed_candidate_query.c.id
+                    ).label('checked_users'),
+                    area.label('area'),
+                    case((User.id.in_(followings), 1), else_=0).label("followed"),
+                    follower_count.label('followers'),
+                    case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
+
                     func.ifnull(
                         case(
                             (user_id == User.id, None), # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
@@ -852,7 +902,7 @@ class FeedRepository(AbstractFeedRepository):
                 ).join(
                     missions, missions.c.id == FeedMission.mission_id, isouter=True
                 ).join(
-                    FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+                    FeedFood, FeedFood.feed_id == feed_candidate_query.c.id, isouter=True
                 ).join(
                     foods, foods.c.id == FeedFood.food_id, isouter=True
                 ).join(
@@ -985,7 +1035,20 @@ class FeedRepository(AbstractFeedRepository):
         return 0 if total_count is None else total_count
 
     def get_checked_feeds_by_user(self, user_id: int, page_cursor: int, limit: int):
-        feed_likes_aliased = aliased(FeedCheck)
+        # feed_likes_aliased = aliased(FeedCheck)
+        users_aliased = aliased(User)
+
+        # area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        comments_count = select(
+            func.count(feed_comments.c.id)
+        ).where(and_(
+            feed_comments.c.feed_id == Feed.id,
+            feed_comments.c.deleted_at == None
+        ))
+        # follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        # followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+
         sql = select(
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
@@ -1003,16 +1066,31 @@ class FeedRepository(AbstractFeedRepository):
                     "resized", func.json_array()
                 )
             )).where(feed_images.c.feed_id == Feed.id).label("images"),
-            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
-            select(func.count(feed_likes_aliased.id)).where(and_(feed_likes_aliased.feed_id == Feed.id, feed_likes_aliased.deleted_at == None)).label('checks_count'),
 
             users.c.id.label('user_id'),
             users.c.nickname,
             users.c.profile_image,
-            case(
-                (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                else_=0
-            ).label("is_blocked"),
+
+            comments_count.label('comments_count'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                users_aliased
+            ).join(
+                FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+            ).where(
+                FeedCheck.feed_id == Feed.id
+            ).label('checked_users'),
+            # area.label('area'),
+            # case((User.id.in_(followings), 1), else_=0).label("followed"),
+            # follower_count.label('followers'),
+            case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
 
             func.json_arrayagg(
                 func.json_object(
@@ -1127,6 +1205,19 @@ class FeedRepository(AbstractFeedRepository):
         return result
 
     def get_feeds_by_user(self, user_id: int, page_cursor: int, limit: int) -> list:
+        users_aliased = aliased(User)
+
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        comments_count = select(
+            func.count(feed_comments.c.id)
+        ).where(and_(
+            feed_comments.c.feed_id == Feed.id,
+            feed_comments.c.deleted_at == None
+        ))
+        follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+
         sql = select(
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
@@ -1149,21 +1240,33 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
-            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
-            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
 
             User.id.label('user_id'),
             User.nickname,
             User.profile_image,
             User.gender,
-            case(
-                (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                else_=0
-            ).label("followed"),
-            case(
-                (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                else_=0
-            ).label("is_blocked"),
+
+            comments_count.label('comments_count'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                users_aliased
+            ).join(
+                FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+            ).where(
+                FeedCheck.feed_id == Feed.id
+            ).label('checked_users'),
+            area.label('area'),
+            case((User.id.in_(followings), 1), else_=0).label("followed"),
+            follower_count.label('followers'),
+            case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
+
             func.ifnull(
                 case(
                     (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
@@ -1172,8 +1275,6 @@ class FeedRepository(AbstractFeedRepository):
                 ),
                 0
             ).label("is_chat_blocked"),
-            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
-            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
 
             func.json_arrayagg(
                 func.json_object(
@@ -1275,6 +1376,19 @@ class FeedRepository(AbstractFeedRepository):
         return total_count
 
     def get_feeds_by_mission(self, mission_id: int, user_id: int, page_cursor: int, limit: int) -> list:
+        users_aliased = aliased(User)
+
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        comments_count = select(
+            func.count(feed_comments.c.id)
+        ).where(and_(
+            feed_comments.c.feed_id == Feed.id,
+            feed_comments.c.deleted_at == None
+        ))
+        follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+
         sql = select(
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
@@ -1296,21 +1410,30 @@ class FeedRepository(AbstractFeedRepository):
                 (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
-            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
-            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
-
+            comments_count.label('comments_count'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                    users_aliased
+            ).join(
+                FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+            ).where(
+                FeedCheck.feed_id == Feed.id
+            ).label('checked_users'),
             User.id.label('user_id'),
             User.nickname,
             User.profile_image,
             User.gender,
-            case(
-                (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                else_=0
-            ).label("followed"),
-            case(
-                (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                else_=0
-            ).label("is_blocked"),
+            area.label('area'),
+            case((User.id.in_(followings), 1), else_=0).label("followed"),
+            follower_count.label('followers'),
+            case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
             func.ifnull(
                 case(
                     (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
@@ -1318,8 +1441,6 @@ class FeedRepository(AbstractFeedRepository):
                 ),
                 0
             ).label("is_chat_blocked"),
-            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
-            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
 
             func.json_arrayagg(
                 func.json_object(
@@ -1367,11 +1488,11 @@ class FeedRepository(AbstractFeedRepository):
                         "mimeType", food_images.c.mime_type,
                         "pathname", food_images.c.path,
                         "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
-                        'mimeType', fi.mime_type,
-                        'pathname', fi.path,
-                        'width', fi.width,
-                        'height', fi.height
-                    )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                            'mimeType', fi.mime_type,
+                            'pathname', fi.path,
+                            'width', fi.width,
+                            'height', fi.height
+                        )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
                     )
                 )).where(and_(
                     food_images.c.food_id == foods.c.id,
