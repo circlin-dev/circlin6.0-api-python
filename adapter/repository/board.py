@@ -387,7 +387,19 @@ class BoardRepository(AbstractBoardRepository):
         return result
 
     def count_number_of_board_of_following_users(self, target_user_id: int, category_id: int) -> int:
-        pass
+        followings = select(follows.c.target_id).where(follows.c.user_id == target_user_id)
+        condition = and_(
+            Board.user_id.in_(followings),
+            Board.deleted_at == None,
+        ) if category_id == 0 else \
+            and_(
+                Board.user_id.in_(followings),
+                Board.board_category_id == category_id,
+                Board.deleted_at == None,
+            )
+        sql = select(func.count(Board.id)).where(condition)
+        total_count = self.session.execute(sql).scalar()
+        return total_count
 
     def update(self, board: Board):
         sql = update(
