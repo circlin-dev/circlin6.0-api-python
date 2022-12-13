@@ -144,8 +144,8 @@ class FeedRepository(AbstractFeedRepository):
             ).label('mission'),
 
             func.json_object(
-                "type", FeedProduct.type,
                 "id", FeedProduct.id,
+                "type", FeedProduct.type,
                 "brand", func.IF(FeedProduct.type == 'inside', select(brands.c.name_ko).where(brands.c.id == products.c.brand_id), outside_products.c.brand),
                 "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
                 "image", func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
@@ -308,6 +308,7 @@ class FeedRepository(AbstractFeedRepository):
                     )
                 )
             ).label('mission'),
+
             func.json_object(
                 "type", FeedProduct.type,
                 "id", FeedProduct.id,
@@ -317,6 +318,30 @@ class FeedRepository(AbstractFeedRepository):
                 "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
                 "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
             ).label('product'),
+
+            func.json_object(
+                "id", foods.c.id,
+                "largeCategoryTitle", foods.c.large_category_title,
+                "title", foods.c.title,
+                "brand", food_brands.c.title,
+                "images", select(func.json_arrayagg(
+                    func.json_object(
+                        "width", food_images.c.width,
+                        "height", food_images.c.height,
+                        "type", food_images.c.type,
+                        "mimeType", food_images.c.mime_type,
+                        "pathname", food_images.c.path,
+                        "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                    'mimeType', fi.mime_type,
+                    'pathname', fi.path,
+                    'width', fi.width,
+                    'height', fi.height
+                    )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                    )
+                )).where(and_(
+                    food_images.c.food_id == foods.c.id,
+                    food_images.c.original_file_id == None)),
+            ).label('food'),
         ).select_from(
             feed_candidate_query
         ).join(
@@ -325,6 +350,12 @@ class FeedRepository(AbstractFeedRepository):
             FeedMission, FeedMission.feed_id == feed_candidate_query.c.id, isouter=True
         ).join(
             missions, missions.c.id == FeedMission.mission_id, isouter=True
+        ).join(
+            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+        ).join(
+            foods, foods.c.id == FeedFood.food_id, isouter=True
+        ).join(
+            food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
         ).join(
             FeedProduct, FeedProduct.feed_id == feed_candidate_query.c.id, isouter=True
         ).join(
@@ -367,6 +398,10 @@ class FeedRepository(AbstractFeedRepository):
                     Feed.id,
                     func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
                     Feed.content.label('body'),
+                    Feed.distance,
+                    Feed.laptime,
+                    Feed.distance_origin,
+                    Feed.laptime_origin,
                     select(func.json_arrayagg(
                         func.json_object(
                             "order", FeedImage.order,
@@ -451,6 +486,30 @@ class FeedRepository(AbstractFeedRepository):
                         "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
                     ).label('product'),
 
+                    func.json_object(
+                        "id", foods.c.id,
+                        "largeCategoryTitle", foods.c.large_category_title,
+                        "title", foods.c.title,
+                        "brand", food_brands.c.title,
+                        "images", select(func.json_arrayagg(
+                            func.json_object(
+                                "width", food_images.c.width,
+                                "height", food_images.c.height,
+                                "type", food_images.c.type,
+                                "mimeType", food_images.c.mime_type,
+                                "pathname", food_images.c.path,
+                                "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                        'mimeType', fi.mime_type,
+                        'pathname', fi.path,
+                        'width', fi.width,
+                        'height', fi.height
+                        )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                            )
+                        )).where(and_(
+                            food_images.c.food_id == foods.c.id,
+                            food_images.c.original_file_id == None)),
+                    ).label('food'),
+
                     func.row_number().over(
                         order_by=[
                             desc(func.ifnull(
@@ -472,6 +531,12 @@ class FeedRepository(AbstractFeedRepository):
                     FeedMission, FeedMission.feed_id == Feed.id, isouter=True
                 ).join(
                     missions, missions.c.id == FeedMission.mission_id, isouter=True
+                ).join(
+                    FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+                ).join(
+                    foods, foods.c.id == FeedFood.food_id, isouter=True
+                ).join(
+                    food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
                 ).join(
                     FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
                 ).join(
@@ -501,6 +566,10 @@ class FeedRepository(AbstractFeedRepository):
                     Feed.id,
                     func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
                     Feed.content.label('body'),
+                    Feed.distance,
+                    Feed.laptime,
+                    Feed.distance_origin,
+                    Feed.laptime_origin,
                     select(func.json_arrayagg(
                         func.json_object(
                             "order", FeedImage.order,
@@ -584,12 +653,43 @@ class FeedRepository(AbstractFeedRepository):
                         "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
                         "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
                     ).label('product'),
+
+                    func.json_object(
+                        "id", foods.c.id,
+                        "largeCategoryTitle", foods.c.large_category_title,
+                        "title", foods.c.title,
+                        "brand", food_brands.c.title,
+                        "images", select(func.json_arrayagg(
+                            func.json_object(
+                                "width", food_images.c.width,
+                                "height", food_images.c.height,
+                                "type", food_images.c.type,
+                                "mimeType", food_images.c.mime_type,
+                                "pathname", food_images.c.path,
+                                "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                        'mimeType', fi.mime_type,
+                        'pathname', fi.path,
+                        'width', fi.width,
+                        'height', fi.height
+                        )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                            )
+                        )).where(and_(
+                            food_images.c.food_id == foods.c.id,
+                            food_images.c.original_file_id == None)),
+                    ).label('food'),
+
                 ).join(
                     User, User.id == Feed.user_id
                 ).join(
                     FeedMission, FeedMission.feed_id == Feed.id, isouter=True
                 ).join(
                     missions, missions.c.id == FeedMission.mission_id, isouter=True
+                ).join(
+                    FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+                ).join(
+                    foods, foods.c.id == FeedFood.food_id, isouter=True
+                ).join(
+                    food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
                 ).join(
                     FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
                 ).join(
@@ -719,6 +819,30 @@ class FeedRepository(AbstractFeedRepository):
                         "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
                         "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
                     ).label('product'),
+
+                    func.json_object(
+                        "id", foods.c.id,
+                        "largeCategoryTitle", foods.c.large_category_title,
+                        "title", foods.c.title,
+                        "brand", food_brands.c.title,
+                        "images", select(func.json_arrayagg(
+                            func.json_object(
+                                "width", food_images.c.width,
+                                "height", food_images.c.height,
+                                "type", food_images.c.type,
+                                "mimeType", food_images.c.mime_type,
+                                "pathname", food_images.c.path,
+                                "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                                    'mimeType', fi.mime_type,
+                                    'pathname', fi.path,
+                                    'width', fi.width,
+                                    'height', fi.height
+                                    )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                            )
+                        )).where(and_(
+                            food_images.c.food_id == foods.c.id,
+                            food_images.c.original_file_id == None)),
+                    ).label('food'),
                 ).select_from(
                     feed_candidate_query
                 ).join(
@@ -727,6 +851,12 @@ class FeedRepository(AbstractFeedRepository):
                     FeedMission, FeedMission.feed_id == feed_candidate_query.c.id, isouter=True
                 ).join(
                     missions, missions.c.id == FeedMission.mission_id, isouter=True
+                ).join(
+                    FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+                ).join(
+                    foods, foods.c.id == FeedFood.food_id, isouter=True
+                ).join(
+                    food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
                 ).join(
                     FeedProduct, FeedProduct.feed_id == feed_candidate_query.c.id, isouter=True
                 ).join(
@@ -860,6 +990,10 @@ class FeedRepository(AbstractFeedRepository):
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             Feed.content.label('body'),
+            Feed.distance,
+            Feed.laptime,
+            Feed.distance_origin,
+            Feed.laptime_origin,
             Feed.is_hidden,
             select(func.json_arrayagg(
                 func.json_object(
@@ -880,6 +1014,29 @@ class FeedRepository(AbstractFeedRepository):
                 else_=0
             ).label("is_blocked"),
 
+            func.json_arrayagg(
+                func.json_object(
+                    "id", missions.c.id,
+                    "title", missions.c.title,
+                    "emoji", select(mission_categories.c.emoji).where(
+                        mission_categories.c.id == missions.c.mission_category_id),
+                    "is_ground", missions.c.is_ground,
+                    "is_event", missions.c.is_event,
+                    "is_old_event", case(
+                        (and_(missions.c.id <= 1749, missions.c.is_event == 1), 1),
+                        else_=0
+                    ),
+                    "event_type", missions.c.event_type,
+                    "thumbnail", missions.c.thumbnail_image,
+                    "bookmarked", case(
+                        (text(
+                            f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
+                         1),
+                        else_=0
+                    )
+                )
+            ).label('mission'),
+
             func.json_object(
                 "type", FeedProduct.type,
                 "id", FeedProduct.id,
@@ -890,11 +1047,45 @@ class FeedRepository(AbstractFeedRepository):
                 "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
             ).label('product'),
 
+            func.json_object(
+                "id", foods.c.id,
+                "largeCategoryTitle", foods.c.large_category_title,
+                "title", foods.c.title,
+                "brand", food_brands.c.title,
+                "images", select(func.json_arrayagg(
+                    func.json_object(
+                        "width", food_images.c.width,
+                        "height", food_images.c.height,
+                        "type", food_images.c.type,
+                        "mimeType", food_images.c.mime_type,
+                        "pathname", food_images.c.path,
+                        "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                            'mimeType', fi.mime_type,
+                            'pathname', fi.path,
+                            'width', fi.width,
+                            'height', fi.height
+                            )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                    )
+                )).where(and_(
+                    food_images.c.food_id == foods.c.id,
+                    food_images.c.original_file_id == None)),
+            ).label('food'),
+
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
         ).join(
             FeedCheck, FeedCheck.feed_id == Feed.id
         ).join(
             users, users.c.id == Feed.user_id
+        ).join(
+            FeedMission, FeedMission.feed_id == Feed.id, isouter=True
+        ).join(
+            missions, missions.c.id == FeedMission.mission_id, isouter=True
+        ).join(
+            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+        ).join(
+            foods, foods.c.id == FeedFood.food_id, isouter=True
+        ).join(
+            food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
         ).join(
             FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
         ).join(
@@ -940,6 +1131,10 @@ class FeedRepository(AbstractFeedRepository):
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             Feed.content.label('body'),
+            Feed.distance,
+            Feed.laptime,
+            Feed.distance_origin,
+            Feed.laptime_origin,
             select(func.json_arrayagg(
                 func.json_object(
                     "order", FeedImage.order,
@@ -1011,6 +1206,30 @@ class FeedRepository(AbstractFeedRepository):
                 "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
             ).label('product'),
 
+            func.json_object(
+                "id", foods.c.id,
+                "largeCategoryTitle", foods.c.large_category_title,
+                "title", foods.c.title,
+                "brand", food_brands.c.title,
+                "images", select(func.json_arrayagg(
+                    func.json_object(
+                        "width", food_images.c.width,
+                        "height", food_images.c.height,
+                        "type", food_images.c.type,
+                        "mimeType", food_images.c.mime_type,
+                        "pathname", food_images.c.path,
+                        "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                            'mimeType', fi.mime_type,
+                            'pathname', fi.path,
+                            'width', fi.width,
+                            'height', fi.height
+                        )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                    )
+                )).where(and_(
+                    food_images.c.food_id == foods.c.id,
+                    food_images.c.original_file_id == None)),
+            ).label('food'),
+
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
         ).join(
             User, User.id == Feed.user_id
@@ -1018,6 +1237,12 @@ class FeedRepository(AbstractFeedRepository):
             FeedMission, FeedMission.feed_id == Feed.id, isouter=True
         ).join(
             missions, missions.c.id == FeedMission.mission_id, isouter=True
+        ).join(
+            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+        ).join(
+            foods, foods.c.id == FeedFood.food_id, isouter=True
+        ).join(
+            food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
         ).join(
             FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
         ).join(
@@ -1054,6 +1279,10 @@ class FeedRepository(AbstractFeedRepository):
             Feed.id,
             func.date_format(Feed.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             Feed.content.label('body'),
+            Feed.distance,
+            Feed.laptime,
+            Feed.distance_origin,
+            Feed.laptime_origin,
             Feed.is_hidden,
             select(func.json_arrayagg(
                 func.json_object(
@@ -1092,11 +1321,82 @@ class FeedRepository(AbstractFeedRepository):
             select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
             select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
 
+            func.json_arrayagg(
+                func.json_object(
+                    "id", missions.c.id,
+                    "title", missions.c.title,
+                    "emoji",
+                    select(mission_categories.c.emoji).where(mission_categories.c.id == missions.c.mission_category_id),
+                    "is_ground", missions.c.is_ground,
+                    "is_event", missions.c.is_event,
+                    "is_old_event", case(
+                        (and_(missions.c.id <= 1749, missions.c.is_event == 1), 1),
+                        else_=0
+                    ),
+                    "event_type", missions.c.event_type,
+                    "thumbnail", missions.c.thumbnail_image,
+                    "bookmarked", case(
+                        (
+                        text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
+                        1),
+                        else_=0
+                    )
+                )
+            ).label('mission'),
+
+            func.json_object(
+                "type", FeedProduct.type,
+                "id", FeedProduct.id,
+                "brand", func.IF(FeedProduct.type == 'inside', select(brands.c.name_ko).where(brands.c.id == products.c.brand_id), outside_products.c.brand),
+                "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
+                "image", func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
+                "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
+                "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
+            ).label('product'),
+
+            func.json_object(
+                "id", foods.c.id,
+                "largeCategoryTitle", foods.c.large_category_title,
+                "title", foods.c.title,
+                "brand", food_brands.c.title,
+                "images", select(func.json_arrayagg(
+                    func.json_object(
+                        "width", food_images.c.width,
+                        "height", food_images.c.height,
+                        "type", food_images.c.type,
+                        "mimeType", food_images.c.mime_type,
+                        "pathname", food_images.c.path,
+                        "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
+                        'mimeType', fi.mime_type,
+                        'pathname', fi.path,
+                        'width', fi.width,
+                        'height', fi.height
+                    )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
+                    )
+                )).where(and_(
+                    food_images.c.food_id == foods.c.id,
+                    food_images.c.original_file_id == None)),
+            ).label('food'),
+
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
         ).join(
             User, User.id == Feed.user_id
         ).join(
             FeedMission, FeedMission.feed_id == Feed.id, isouter=True
+        ).join(
+            missions, missions.c.id == FeedMission.mission_id, isouter=True
+        ).join(
+            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
+        ).join(
+            foods, foods.c.id == FeedFood.food_id, isouter=True
+        ).join(
+            food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
+        ).join(
+            FeedProduct, FeedProduct.feed_id == Feed.id, isouter=True
+        ).join(
+            products, products.c.id == FeedProduct.product_id, isouter=True
+        ).join(
+            outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
         ).where(
             and_(
                 FeedMission.mission_id == mission_id,

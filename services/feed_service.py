@@ -24,6 +24,9 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
         id=feed.id,
         createdAt=feed.created_at,
         body=feed.body,
+        distance=None if feed.distance is None
+        else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
+        else f'{round(feed.distance, 2)} km',
         images=json.loads(feed.images),
         user=dict(
             id=feed.user_id,
@@ -35,7 +38,7 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
             gender=feed.gender,
             isBlocked=True if feed.is_blocked == 1 else False,
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
-        ),
+        ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
         checksCount=feed.checks_count,
         checked=True if feed.checked == 1 else False,
@@ -49,7 +52,8 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
             thumbnail=mission['thumbnail'],
             bookmarked=True if mission['bookmarked'] == 1 else False,
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
-        product=json.loads(feed.product),
+        product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
+        food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
         cursor=feed.cursor,
     ) for feed in newsfeeds]
 
@@ -83,7 +87,10 @@ def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedReposit
         id=feed.id,
         createdAt=feed.created_at,
         body=feed.body,
-        images=json.loads(feed.images),
+        distance=None if feed.distance is None
+        else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
+        else f'{round(feed.distance, 2)} km',
+        images=[] if feed.images is None else json.loads(feed.images),
         user=dict(
             id=feed.user_id,
             nickname=feed.nickname,
@@ -94,7 +101,7 @@ def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedReposit
             gender=feed.gender,
             isBlocked=True if feed.is_blocked == 1 else False,
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
-        ),
+        ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
         checksCount=feed.checks_count,
         checked=True if feed.checked == 1 else False,
@@ -108,7 +115,8 @@ def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedReposit
             thumbnail=mission['thumbnail'],
             bookmarked=True if mission['bookmarked'] == 1 else False,
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
-        product=json.loads(feed.product)
+        product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
+        food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
     ) for feed in recommendation]
     return entries
 
@@ -146,10 +154,10 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
             id=feed.id,
             createdAt=feed.created_at,
             body=feed.body,
-            images=[] if feed.images is None else json.loads(feed.images),
             distance=None if feed.distance is None
             else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
             else f'{round(feed.distance, 2)} km',
+            images=[] if feed.images is None else json.loads(feed.images),
             checked=feed.checked,
             commentsCount=feed.comments_count,
             checksCount=feed.checks_count,
@@ -164,7 +172,7 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
                 isChatBlocked=True if feed.is_chat_blocked == 1 else False,
                 area=feed.area,
                 followers=feed.followers,
-            ),
+            ) if feed.user_id is not None else None,
             missions=[dict(
                 id=mission['id'],
                 title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
@@ -175,8 +183,8 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
                 thumbnail=mission['thumbnail'],
                 bookmarked=True if mission['bookmarked'] == 1 else False,
             ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
-            product=json.loads(feed.product),
-            food=json.loads(feed.food),
+            product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
+            food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
         ) if feed is not None else None
 
         return {'result': True, 'data': feed_dict}
@@ -419,7 +427,7 @@ def update_comment(feed_comment: FeedComment, feed_comment_repo: AbstractFeedCom
         result['status_code'] = 403
         return result
     else:
-        repo.update(feed_comment)
+        feed_comment_repo.update(feed_comment)
         return {'result': True}
 
 

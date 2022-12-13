@@ -52,7 +52,7 @@ def get_notification_list(user_id: int, page_cursor: int, limit: int, notificati
             userId=notification.user_id,
             gender=notification.gender,
             followed=True if notification.followed == 1 else False,
-            profileImage=notification.profile_image,
+            profile=notification.profile_image,
             type=notification.type,
             message=replace_notification_message_variable(message_type, value_dict_for_message), # notification['message']
             missionImage=notification.mission_image,

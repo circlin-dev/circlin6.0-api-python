@@ -56,7 +56,7 @@ def get_board_list(user_id: int, category_id: int, page_cursor: int, limit: int,
                 followers=board.followers,
                 isBlocked=True if board.is_blocked == 1 else False,
                 area=board.area,
-            ),
+            ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
             likesCount=board.likes_count,
             liked=True if board.liked == 1 else False,
@@ -90,7 +90,7 @@ def get_a_board(board_id: int, user_id: int, board_repo: AbstractBoardRepository
                 followers=board.followers,
                 isBlocked=True if board.is_blocked == 1 else False,
                 area=board.area
-            ),
+            ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
             likesCount=board.likes_count,
             liked=True if board.liked == 1 else False,
@@ -209,7 +209,7 @@ def get_comments(board_id: int, page_cursor: int, limit: int, user_id: int, boar
             userId=comment.user_id,
             isBlocked=True if comment.is_blocked == 1 else False,
             nickname=comment.nickname,
-            profileImage=comment.profile_image,
+            profile=comment.profile_image,
             gender=comment.gender,
             cursor=comment.cursor
         ) for comment in comments

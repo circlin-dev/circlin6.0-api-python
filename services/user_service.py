@@ -63,7 +63,7 @@ def get_boards_by_user(target_user_id: int, category_id: int, page_cursor: int, 
                 followers=board.followers,
                 isBlocked=True if board.is_blocked == 1 else False,
                 area=board.area,
-            ),
+            ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
             likesCount=board.likes_count,
             liked=True if board.liked == 1 else False,
@@ -95,7 +95,7 @@ def get_boards_of_following_users(target_user_id: int, category_id: int, page_cu
                 followers=board.followers,
                 isBlocked=True if board.is_blocked == 1 else False,
                 area=board.area,
-            ),
+            ) if board.user_id is not None else None,
             boardCategoryId=board.board_category_id,
             likesCount=board.likes_count,
             liked=True if board.liked == 1 else False,
@@ -117,8 +117,11 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
         id=feed.id,
         createdAt=feed.created_at,
         body=feed.body,
+        distance=None if feed.distance is None
+        else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
+        else f'{round(feed.distance, 2)} km',
+        images=[] if feed.images is None else json.loads(feed.images),
         isShow=True if feed.is_hidden == 0 else False,
-        images=json.loads(feed.images),
         user=dict(
             id=feed.user_id,
             nickname=feed.nickname,
@@ -129,7 +132,7 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
             gender=feed.gender,
             isBlocked=True if feed.is_blocked == 1 else False,
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
-        ),
+        ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
         checksCount=feed.checks_count,
         checked=True if feed.checked == 1 else False,
@@ -143,7 +146,8 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
             thumbnail=mission['thumbnail'],
             bookmarked=True if mission['bookmarked'] == 1 else False,
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
-        product=json.loads(feed.product),
+        product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
+        food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
         cursor=feed.cursor,
     ) for feed in feeds]
 
@@ -161,17 +165,31 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
         id=feed.id,
         createdAt=feed.created_at,
         body=feed.body,
+        distance=None if feed.distance is None
+        else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
+        else f'{round(feed.distance, 2)} km',
+        images=[] if feed.images is None else json.loads(feed.images),
         isShow=True if feed.is_hidden == 0 else False,
-        images=json.loads(feed.images),
         user=dict(
             id=feed.user_id,
             nickname=feed.nickname,
             profile=feed.profile_image,
             isBlocked=True if feed.is_blocked == 1 else False,
-        ),
+        ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
         checksCount=feed.checks_count,
-        product=json.loads(feed.product),
+        missions=[dict(
+            id=mission['id'],
+            title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
+            isEvent=True if mission['is_event'] == 1 else False,
+            isOldEvent=True if mission['is_old_event'] == 1 else False,
+            isGround=True if mission['is_ground'] == 1 else False,
+            eventType=mission['event_type'],
+            thumbnail=mission['thumbnail'],
+            bookmarked=True if mission['bookmarked'] == 1 else False,
+        ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
+        product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
+        food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
         cursor=feed.cursor,
     ) for feed in feeds]
 
