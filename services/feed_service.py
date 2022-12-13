@@ -85,50 +85,6 @@ def feed_is_available_to_other(feed: Feed) -> bool:
     return feed_is_visible(feed) is True and feed_is_undeleted(feed) is True
 
 
-def get_recently_most_checked_feeds(user_id: int, feed_repo: AbstractFeedRepository) -> list:
-    recommendation = feed_repo.get_recently_most_checked_feeds(user_id)
-    entries: list = [dict(
-        id=feed.id,
-        createdAt=feed.created_at,
-        body=feed.body,
-        distance=None if feed.distance is None
-        else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
-        else f'{round(feed.distance, 2)} km',
-        images=[] if feed.images is None else json.loads(feed.images),
-        user=dict(
-            id=feed.user_id,
-            nickname=feed.nickname,
-            profile=feed.profile_image,
-            followed=True if feed.followed == 1 else False,
-            area=feed.area,
-            followers=feed.followers,
-            gender=feed.gender,
-            isBlocked=True if feed.is_blocked == 1 else False,
-            isChatBlocked=True if feed.is_chat_blocked == 1 else False
-        ) if feed.user_id is not None else None,
-        commentsCount=feed.comments_count,
-        checkedUsers=[dict(
-            id=user['id'],
-            nickname=user['nickname'],
-            profile=user['profile_image']
-        ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
-        checked=True if feed.checked == 1 else False,
-        missions=[dict(
-            id=mission['id'],
-            title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
-            isEvent=True if mission['is_event'] == 1 else False,
-            isOldEvent=True if mission['is_old_event'] == 1 else False,
-            isGround=True if mission['is_ground'] == 1 else False,
-            eventType=mission['event_type'],
-            thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False,
-        ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
-        product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
-        food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
-    ) for feed in recommendation]
-    return entries
-
-
 def get_like_count_of_the_feed(feed_id: int, repo: AbstractFeedCheckRepository) -> int:
     return repo.count_number_of_like(feed_id)
 

@@ -415,29 +415,3 @@ def get_newsfeed():
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
         return json.dumps(failed_response(error_message), ensure_ascii=False), 405
-
-
-@api.route('/feed/recently-most-checked', methods=['GET'])
-def get_recently_most_checked_feeds():
-    user_id: [int, None] = authenticate(request, db_session)
-    if user_id is None:
-        db_session.close()
-        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
-
-    if request.method == 'GET':
-        feed_mappers()
-        feed_repo: FeedRepository = FeedRepository(db_session)
-        feeds_for_recommendation: list = feed_service.get_recently_most_checked_feeds(user_id, feed_repo)
-        clear_mappers()
-
-        result: dict = {
-            'result': True,
-            'data': feeds_for_recommendation,
-            'totalCount': len(feeds_for_recommendation)
-        }
-        db_session.close()
-        return json.dumps(result, ensure_ascii=False), 200
-    else:
-        db_session.close()
-        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
-        return json.dumps(failed_response(error_message), ensure_ascii=False), 405

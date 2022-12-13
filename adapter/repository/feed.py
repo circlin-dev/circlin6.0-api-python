@@ -19,10 +19,6 @@ class AbstractFeedRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_recently_most_checked_feeds(self, user_id: int) -> list:
-        pass
-
-    @abc.abstractmethod
     def get_newsfeeds(self, user_id: int, page_cursor: int, limit: int) -> list:
         pass
 
@@ -224,171 +220,6 @@ class FeedRepository(AbstractFeedRepository):
         result = self.session.execute(sql).first()
         return result
 
-    def get_recently_most_checked_feeds(self, user_id: int) -> list:
-        """
-        - feed_candidate_query: feed_candidate_query 추천 피드 id 후보를 뽑는 곳이다.
-            가장 내부의 nested_query로부터 당일 발생한 모든 feed_check 데이터를 조회한다(= A).
-            그리고 A 데이터를 다음 로직에 의해 정제해 추천 피드 후보군을 얻고, 그 결과를 feeds 테이블(Feed 객체)와 INNER JOIN 한다.
-            (1) 내가 팔로잉하지 않는 Feed 작성자의 피드만 남긴다.
-            (2) (1) 중 삭제되지 않은 피드만 남긴다.
-            (3) (2) 중 숨김처리 되지 않은 피드만 최종적으로 남긴다.
-        
-        - sql: feed_candidate_query 나온 피드 id 후보들에 feeds 테이블을 join하여 실제 피드 데이터를 조회한다.
-            단, 'feed_candidate_query.c.column'에서 c.column은 feeeds 테이블의 컬럼을 의미한다.
-            이것은 sqlalchemy 문법을 준수하기 위함이다. 가독성이 다소 떨어지므로 개선의 대상이나, sqlalchemy에 조금 더 익숙해져야 할 수 있을 것 같다.
-        """
-        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
-
-        nested_query = select(
-            FeedCheck.id,
-            FeedCheck.feed_id
-        ).where(
-            and_(
-                func.TIMESTAMPDIFF(text("DAY"), FeedCheck.created_at, func.now()) == 0,
-                FeedCheck.created_at >= func.DATE(func.now()),
-                FeedCheck.deleted_at == None
-            )
-        ).group_by(FeedCheck.feed_id).order_by(desc(FeedCheck.id)).alias("t")
-
-        feed_candidate_query = select(
-            Feed
-        ).select_from(
-            nested_query
-        ).join(
-            Feed, Feed.id == text("t.feed_id")  # FeedCheck.feed_id
-        ).where(
-            and_(
-                Feed.user_id.not_in(followings),
-                Feed.deleted_at == None,
-                Feed.is_hidden == 0
-            )
-        ).group_by(
-            Feed.user_id
-        ).order_by(
-            desc(func.count(text("t.id"))),
-            Feed.user_id
-        ).limit(10)
-
-        sql = select(
-            feed_candidate_query.c.id,
-            func.date_format(feed_candidate_query.c.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
-            feed_candidate_query.c.content.label('body'),
-            select(func.json_arrayagg(
-                func.json_object(
-                    "order", FeedImage.order,
-                    "mimeType", FeedImage.type,
-                    "pathname", FeedImage.image,
-                    "resized", func.json_array()
-                )
-            )).select_from(FeedImage).where(FeedImage.feed_id == feed_candidate_query.c.id).label("images"),
-            User.id.label('user_id'),
-            User.nickname,
-            User.profile_image,
-            case(
-                (text(f"users.id IN (SELECT f1.target_id FROM follows f1 WHERE f1.user_id={user_id})"), 1),
-                else_=0
-            ).label("followed"),
-            case(
-                (text(f"users.id IN (SELECT b1.target_id FROM blocks b1 WHERE b1.user_id={user_id})"), 1),
-                else_=0
-            ).label("is_blocked"),
-            select(func.count(follows.c.id)).where(follows.c.target_id == User.id).label('followers'),
-            select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1).label('area'),
-            func.ifnull(
-                case(
-                    (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
-                    else_=text(f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
-                ),
-                0
-            ).label("is_chat_blocked"),
-            User.gender,
-            case(
-                (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = {feed_candidate_query.c.id} AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
-                else_=0
-            ).label('checked'),
-            select(func.count(feed_comments.c.id)).where(and_(feed_comments.c.feed_id == Feed.id, feed_comments.c.deleted_at == None)).label('comments_count'),
-            select(func.count(FeedCheck.id)).where(and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)).label('checks_count'),
-
-            func.json_arrayagg(
-                func.json_object(
-                    "id", missions.c.id,
-                    "title", missions.c.title,
-                    "emoji", select(mission_categories.c.emoji).where(mission_categories.c.id == missions.c.mission_category_id),
-                    "is_ground", missions.c.is_ground,
-                    "is_event", missions.c.is_event,
-                    "is_old_event", case(
-                        (and_(missions.c.id <= 1749, missions.c.is_event == 1), 1),
-                        else_=0
-                    ),
-                    "event_type", missions.c.event_type,
-                    "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", case(
-                        (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"), 1),
-                        else_=0
-                    )
-                )
-            ).label('mission'),
-
-            func.json_object(
-                "type", FeedProduct.type,
-                "id", FeedProduct.id,
-                "brand", func.IF(FeedProduct.type == 'inside', select(brands.c.name_ko).where(brands.c.id == products.c.brand_id), outside_products.c.brand),
-                "title", func.IF(FeedProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
-                "image", func.IF(FeedProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
-                "url", func.IF(FeedProduct.type == 'inside', None, outside_products.c.url),
-                "price", func.IF(FeedProduct.type == 'inside', products.c.price, outside_products.c.price),
-            ).label('product'),
-
-            func.json_object(
-                "id", foods.c.id,
-                "largeCategoryTitle", foods.c.large_category_title,
-                "title", foods.c.title,
-                "brand", food_brands.c.title,
-                "images", select(func.json_arrayagg(
-                    func.json_object(
-                        "width", food_images.c.width,
-                        "height", food_images.c.height,
-                        "type", food_images.c.type,
-                        "mimeType", food_images.c.mime_type,
-                        "pathname", food_images.c.path,
-                        "resized", text(f"""(SELECT IFNULL(JSON_ARRAYAGG(JSON_OBJECT(
-                    'mimeType', fi.mime_type,
-                    'pathname', fi.path,
-                    'width', fi.width,
-                    'height', fi.height
-                    )), JSON_ARRAY()) FROM food_images fi WHERE fi.original_file_id = food_images.id)""")
-                    )
-                )).where(and_(
-                    food_images.c.food_id == foods.c.id,
-                    food_images.c.original_file_id == None)),
-            ).label('food'),
-        ).select_from(
-            feed_candidate_query
-        ).join(
-            User, User.id == feed_candidate_query.c.user_id
-        ).join(
-            FeedMission, FeedMission.feed_id == feed_candidate_query.c.id, isouter=True
-        ).join(
-            missions, missions.c.id == FeedMission.mission_id, isouter=True
-        ).join(
-            FeedFood, FeedFood.feed_id == Feed.id, isouter=True
-        ).join(
-            foods, foods.c.id == FeedFood.food_id, isouter=True
-        ).join(
-            food_brands, foods.c.brand_id == food_brands.c.id, isouter=True
-        ).join(
-            FeedProduct, FeedProduct.feed_id == feed_candidate_query.c.id, isouter=True
-        ).join(
-            products, products.c.id == FeedProduct.product_id, isouter=True
-        ).join(
-            outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
-        ).group_by(
-            feed_candidate_query.c.id
-        ).order_by(desc(feed_candidate_query.c.id))
-
-        result = self.session.execute(sql)
-        return result
-
     def get_newsfeeds(self, user_id: int, page_cursor: int, limit: int) -> list:
         '''
         (1) current_number_of_following < 10 이면 newsfeed + 추천 피드를 함께 보내줘야 한다.
@@ -396,6 +227,19 @@ class FeedRepository(AbstractFeedRepository):
         (2) 반면, current_number_of_following >= 10 이면 newsfeed만 보낸다.
         이때, newsfeed 조회 쿼리에는 cursor를 생성하는 쿼리가 추가되어야 한다.
         이 때문에 함수 코드가 다소 길어졌다.
+
+
+        - feed_candidate_query: feed_candidate_query 추천 피드 id 후보를 뽑는 곳이다.
+            가장 내부의 nested_query로부터 당일 발생한 모든 feed_check 데이터를 조회한다(= A).
+            그리고 A 데이터를 다음 로직에 의해 정제해 추천 피드 후보군을 얻고, 그 결과를 feeds 테이블(Feed 객체)와 INNER JOIN 한다.
+            (1) 내가 팔로잉하지 않는 Feed 작성자의 피드만 남긴다.
+            (2) (1) 중 삭제되지 않은 피드만 남긴다.
+            (3) (2) 중 숨김처리 되지 않은 피드만 최종적으로 남긴다.
+
+        - sql: feed_candidate_query 나온 피드 id 후보들에 feeds 테이블을 join하여 실제 피드 데이터를 조회한다.
+            단, 'feed_candidate_query.c.column'에서 c.column은 feeeds 테이블의 컬럼을 의미한다.
+            이것은 sqlalchemy 문법을 준수하기 위함이다. 가독성이 다소 떨어지므로 개선의 대상이나, sqlalchemy에 조금 더 익숙해져야 할 수 있을 것 같다.
+
         :param user_id:
         :param page_cursor:
         :param limit:
