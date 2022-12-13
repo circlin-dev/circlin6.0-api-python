@@ -4,6 +4,7 @@ from domain.user import User
 
 import abc
 from sqlalchemy import select, update, insert, desc, and_, case, text, func
+from sqlalchemy.orm import aliased
 
 
 class AbstractBoardRepository(abc.ABC):
@@ -66,6 +67,7 @@ class BoardRepository(AbstractBoardRepository):
 
     def get_one(self, board_id: int, user_id: int) -> Board:
         # subqueries
+        users_aliased = aliased(User)
         area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
         block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
         comments_count = select(
@@ -76,7 +78,6 @@ class BoardRepository(AbstractBoardRepository):
         ))
         follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
         followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
-        likes_count = select(func.count(BoardLike.id)).where(BoardLike.board_id == Board.id)
 
         sql = select(
             Board.id,
@@ -108,8 +109,22 @@ class BoardRepository(AbstractBoardRepository):
             ).label('images'),
             follower_count.label('followers'),
             area.label('area'),
-            likes_count.label('likes_count'),
-            comments_count.label('comments_count')
+            comments_count.label('comments_count'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                users_aliased
+            ).join(
+                BoardLike, BoardLike.user_id == users_aliased.id, isouter=True
+            ).where(
+                BoardLike.board_id == Board.id
+            ).label('liked_users'),
         ).select_from(
             Board
         ).join(
@@ -143,6 +158,7 @@ class BoardRepository(AbstractBoardRepository):
                 Board.board_category_id == category_id
             )
         # subqueries
+        users_aliased = aliased(User)
         area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
         block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
         comments_count = select(
@@ -153,7 +169,6 @@ class BoardRepository(AbstractBoardRepository):
         ))
         follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
         followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
-        likes_count = select(func.count(BoardLike.id)).where(BoardLike.board_id == Board.id)
 
         sql = select(
             Board.id,
@@ -185,8 +200,23 @@ class BoardRepository(AbstractBoardRepository):
             ).label('images'),
             follower_count.label('followers'),
             area.label('area'),
-            likes_count.label('likes_count'),
             comments_count.label('comments_count'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                users_aliased
+            ).join(
+                BoardLike, BoardLike.user_id == users_aliased.id, isouter=True
+            ).where(
+                BoardLike.board_id == Board.id
+            ).label('liked_users'),
+
         ).select_from(
             Board
         ).join(
@@ -233,6 +263,7 @@ class BoardRepository(AbstractBoardRepository):
                 Board.id < page_cursor,
             )
         # subqueries
+        users_aliased = aliased(User)
         area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
         block_targets = select(blocks.c.target_id).where(blocks.c.user_id == target_user_id)
         comments_count = select(
@@ -243,7 +274,6 @@ class BoardRepository(AbstractBoardRepository):
         ))
         follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
         followings = select(follows.c.target_id).where(follows.c.user_id == target_user_id)
-        likes_count = select(func.count(BoardLike.id)).where(BoardLike.board_id == Board.id)
 
         sql = select(
             Board.id,
@@ -275,8 +305,22 @@ class BoardRepository(AbstractBoardRepository):
             ).label('images'),
             follower_count.label('followers'),
             area.label('area'),
-            likes_count.label('likes_count'),
             comments_count.label('comments_count'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                users_aliased
+            ).join(
+                BoardLike, BoardLike.user_id == users_aliased.id, isouter=True
+            ).where(
+                BoardLike.board_id == Board.id
+            ).label('liked_users'),
         ).select_from(
             Board
         ).join(
@@ -311,6 +355,7 @@ class BoardRepository(AbstractBoardRepository):
 
     def get_list_of_following_users(self, target_user_id: int, category_id: int, page_cursor: int, limit: int) -> list:
         # subqueries
+        users_aliased = aliased(User)
         area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
         block_targets = select(blocks.c.target_id).where(blocks.c.user_id == target_user_id)
         comments_count = select(
@@ -321,7 +366,6 @@ class BoardRepository(AbstractBoardRepository):
         ))
         follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
         followings = select(follows.c.target_id).where(follows.c.user_id == target_user_id)
-        likes_count = select(func.count(BoardLike.id)).where(BoardLike.board_id == Board.id)
         condition = and_(
             Board.user_id.in_(followings),
             Board.deleted_at == None,
@@ -366,7 +410,21 @@ class BoardRepository(AbstractBoardRepository):
             ).label('images'),
             follower_count.label('followers'),
             area.label('area'),
-            likes_count.label('likes_count'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", users_aliased.id,
+                        "nickname", users_aliased.nickname,
+                        "profile_image", users_aliased.profile_image
+                    ),
+                )
+            ).select_from(
+                users_aliased
+            ).join(
+                BoardLike, BoardLike.user_id == users_aliased.id, isouter=True
+            ).where(
+                BoardLike.board_id == Board.id
+            ).label('liked_users'),
             comments_count.label('comments_count'),
         ).select_from(
             Board

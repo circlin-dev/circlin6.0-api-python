@@ -45,8 +45,6 @@ blocks = Table(
     Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), index=True, comment='차단 요청자'),
     Column("target_id", BIGINT(unsigned=True), ForeignKey('users.id'), comment='user_id에 해당하는 유저가 차단하고자하는 상대 유저'),
-# user = relationship('User', primaryjoin='Block.user_id == User.id')
-# user1 = relationship('User', primaryjoin='Block.user_id == User.id')
 )
 
 # endregion
