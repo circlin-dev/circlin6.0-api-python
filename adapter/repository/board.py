@@ -1,5 +1,5 @@
-from adapter.orm import board_images
-from domain.board import Board, BoardImage
+from adapter.orm import areas, blocks, board_comments, board_images, follows
+from domain.board import Board, BoardImage, BoardLike
 from domain.user import User
 
 import abc
@@ -16,11 +16,11 @@ class AbstractBoardRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_list(self, user_id: int, page_cursor: int, limit: int) -> list:
+    def get_list(self, user_id: int, category_id: int, page_cursor: int, limit: int) -> list:
         pass
 
     @abc.abstractmethod
-    def count_number_of_board(self) -> int:
+    def count_number_of_board(self, category_id: int) -> int:
         pass
 
     @abc.abstractmethod
@@ -45,31 +45,34 @@ class BoardRepository(AbstractBoardRepository):
             body=new_board.body,
             is_show=new_board.is_show
         )
-        result = self.session.execute(sql)  # =====> inserted row의 id값을 반환해야 한다.
-
+        result = self.session.execute(sql)
         return result.inserted_primary_key[0]
 
     def get_one(self, board_id: int, user_id: int) -> Board:
+        # subqueries
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        comments_count = select(
+            func.count(board_comments.c.id)
+        ).where(and_(
+            board_comments.c.board_id == Board.id,
+            board_comments.c.deleted_at == None
+        ))
+        follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+        likes_count = select(func.count(BoardLike.id)).where(BoardLike.board_id == Board.id)
+
         sql = select(
             Board.id,
             Board.body,
             func.date_format(Board.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             User.id.label('user_id'),
             User.profile_image,
-            case(
-                (text(f"users.id in (SELECT target_id FROM follows WHERE user_id={user_id})"), 1),
-                else_=0
-            ).label("followed"),
+            case((User.id.in_(followings), 1), else_=0).label("followed"),
             User.nickname,
-            case(
-                (text(f"users.id in (SELECT target_id FROM blocks WHERE user_id={user_id})"), 1),
-                else_=0
-            ).label("is_blocked"),
+            case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
             Board.board_category_id,
-            case(
-                (text(f"{user_id} in (SELECT user_id FROM board_likes WHERE board_id = boards.id)"), 1),
-                else_=0
-            ).label('liked'),
+            case((text(f"{user_id} in (SELECT user_id FROM board_likes WHERE board_id = boards.id)"), 1), else_=0).label('liked'),
             Board.is_show,
             Board.deleted_at,
             func.ifnull(
@@ -87,10 +90,10 @@ class BoardRepository(AbstractBoardRepository):
                 ),
                 func.json_array()
             ).label('images'),
-            text(f"(SELECT COUNT(*) FROM follows f WHERE f.target_id = users.id) AS followers"),  # user.followers
-            text(f"(SELECT a.name AS area FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1) AS area"),  # user.area
-            text("(SELECT COUNT(*) AS likes_count FROM board_likes bl WHERE bl.board_id = boards.id) AS likes_count"),  # likesCount
-            text("(SELECT COUNT(*) AS comments_count FROM board_comments bcm WHERE bcm.board_id = boards.id AND bcm.deleted_at IS NULL) AS comments_count"),  # commentsCount
+            follower_count.label('followers'),
+            area.label('area'),
+            likes_count.label('likes_count'),
+            comments_count.label('comments_count')
         ).select_from(
             Board
         ).join(
@@ -100,7 +103,6 @@ class BoardRepository(AbstractBoardRepository):
         ).where(
             and_(
                 Board.id == board_id,
-                Board.is_show == 1,
                 Board.deleted_at == None,
                 BoardImage.original_file_id == None
             )
@@ -112,27 +114,42 @@ class BoardRepository(AbstractBoardRepository):
         result = self.session.execute(sql).first()
         return result
 
-    def get_list(self, user_id: int, page_cursor: int, limit: int) -> list:
+    def get_list(self, user_id: int, category_id: int, page_cursor: int, limit: int) -> list:
+        condition = and_(
+            Board.deleted_at == None,
+            Board.id < page_cursor,
+            BoardImage.original_file_id == None
+        ) if category_id == 0 else \
+            and_(
+                Board.deleted_at == None,
+                Board.id < page_cursor,
+                BoardImage.original_file_id == None,
+                Board.board_category_id == category_id
+            )
+        # subqueries
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        comments_count = select(
+            func.count(board_comments.c.id)
+        ).where(and_(
+            board_comments.c.board_id == Board.id,
+            board_comments.c.deleted_at == None
+        ))
+        follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+        likes_count = select(func.count(BoardLike.id)).where(BoardLike.board_id == Board.id)
+
         sql = select(
             Board.id,
             Board.body,
             func.date_format(Board.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             User.id.label('user_id'),
             User.profile_image,
-            case(
-                (text(f"users.id in (SELECT target_id FROM follows WHERE user_id={user_id})"), 1),
-                else_=0
-            ).label("followed"),
+            case((User.id.in_(followings), 1), else_=0).label("followed"),
             User.nickname,
-            case(
-                (text(f"users.id in (SELECT target_id FROM blocks WHERE user_id={user_id})"), 1),
-                else_=0
-            ).label("is_blocked"),
+            case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
             Board.board_category_id,
-            case(
-                (text(f"{user_id} in (SELECT user_id FROM board_likes WHERE board_id = boards.id)"), 1),
-                else_=0
-            ).label('liked'),
+            case((text(f"{user_id} in (SELECT user_id FROM board_likes WHERE board_id = boards.id)"), 1), else_=0).label('liked'),
             Board.is_show,
             func.concat(func.lpad(Board.id, 15, '0')).label('cursor'),
             func.ifnull(
@@ -150,10 +167,10 @@ class BoardRepository(AbstractBoardRepository):
                 ),
                 func.json_array()
             ).label('images'),
-            text(f"(SELECT COUNT(*) FROM follows f WHERE f.target_id = users.id) AS followers"),  # user.followers
-            text(f"(SELECT a.name AS area FROM areas a WHERE a.code = CONCAT(SUBSTRING(users.area_code, 1, 5), '00000') LIMIT 1) AS area"),  # user.area
-            text("(SELECT COUNT(*) AS likes_count FROM board_likes bl WHERE bl.board_id = boards.id) AS likes_count"),  # likesCount
-            text("(SELECT COUNT(*) AS comments_count FROM board_comments bcm WHERE bcm.board_id = boards.id AND bcm.deleted_at IS NULL) AS comments_count"),  # commentsCount
+            follower_count.label('followers'),
+            area.label('area'),
+            likes_count.label('likes_count'),
+            comments_count.label('comments_count'),
         ).select_from(
             Board
         ).join(
@@ -161,11 +178,7 @@ class BoardRepository(AbstractBoardRepository):
         ).join(
             BoardImage, Board.id == BoardImage.board_id, isouter=True
         ).where(
-            and_(
-                Board.deleted_at == None,
-                Board.id < page_cursor,
-                BoardImage.original_file_id == None
-            )
+            condition
         ).group_by(
             Board.id
         ).order_by(
@@ -176,8 +189,16 @@ class BoardRepository(AbstractBoardRepository):
 
         return result
 
-    def count_number_of_board(self) -> int:
-        sql = select(func.count(Board.id)).where(Board.deleted_at == None)
+    def count_number_of_board(self, category_id: int) -> int:
+        condition = and_(
+            Board.deleted_at == None,
+        ) if category_id == 0 else \
+            and_(
+                Board.deleted_at == None,
+                Board.board_category_id == category_id
+            )
+
+        sql = select(func.count(Board.id)).where(condition)
         total_count = self.session.execute(sql).scalar()
         return total_count
 

@@ -65,25 +65,15 @@ def slack_error_notification(
 # region etc
 def get_query_strings_from_request(request, param, init_value):
     if request.args.get(param) is None or request.args.get(param).strip() in ['', 'null', 'undefined']:
-        if param == 'word':
-            result = init_value
-        elif param == 'limit':
-            result = init_value
-        elif param == 'cursor':
-            result = init_value
-        elif param == 'page':
+        if param in ['category', 'cursor', 'limit', 'page', 'word']:
             result = init_value
         else:
             result = ''
     else:
-        if param == 'word':
+        if param in ['category', 'cursor', 'limit', 'page']:
+            result = int(request.args.get(param))
+        elif param == 'word':
             result = request.args.get(param)
-        elif param == 'limit':
-            result = int(request.args.get(param))
-        elif param == 'cursor':
-            result = int(request.args.get(param))
-        elif param == 'page':
-            result = int(request.args.get(param))
         else:
             result = ''
     return result
