@@ -1,9 +1,15 @@
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.mission_category import AbstractMissionCategoryRepository
 from adapter.repository.mission_comment import AbstractMissionCommentRepository
+from adapter.repository.mission_stat import AbstractMissionStatRepository
 from domain.mission import MissionCategory
 
 import json
+
+
+def check_if_user_is_carrying_out_this_mission(user_id: int, mission_id: int, mission_stat_repo: AbstractMissionStatRepository):
+    result = mission_stat_repo.get_one_excluding_ended(mission_id, user_id)
+    return True if result == 1 else False
 
 
 def get_mission_categories(mission_category_repo: AbstractMissionCategoryRepository, favorite_mission_categories: list):
@@ -67,6 +73,16 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
             isChatBlocked=True if feed.is_chat_blocked == 1 else False
         ) if feed.user_id is not None else None,
         commentsCount=feed.comments_count,
+        missions=[dict(
+            id=mission['id'],
+            title=mission['title'] if mission['emoji'] is None else f"{mission['emoji']}{mission['title']}",
+            isEvent=True if mission['is_event'] == 1 else False,
+            isOldEvent=True if mission['is_old_event'] == 1 else False,
+            isGround=True if mission['is_ground'] == 1 else False,
+            eventType=mission['event_type'],
+            thumbnail=mission['thumbnail'],
+            bookmarked=True if mission['bookmarked'] == 1 else False
+        ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         checkedUsers=[dict(
             id=user['id'],
             nickname=user['nickname'],

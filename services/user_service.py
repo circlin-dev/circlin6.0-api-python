@@ -4,6 +4,7 @@ from adapter.repository.user_favorite_category import AbstractUserFavoriteCatego
 from adapter.repository.user import AbstractUserRepository
 from domain.user import UserFavoriteCategory, User
 from helper.function import failed_response
+from services.mission_service import check_if_user_is_carrying_out_this_mission
 import json
 
 
@@ -156,7 +157,7 @@ def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: Abs
             isGround=True if mission['is_ground'] == 1 else False,
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False,
+            bookmarked=True if mission['bookmarked'] == 1 else False
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
         food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
@@ -202,7 +203,7 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
             isGround=True if mission['is_ground'] == 1 else False,
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False,
+            bookmarked=True if mission['bookmarked'] == 1 else False
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
         food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,

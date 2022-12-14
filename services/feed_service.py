@@ -13,6 +13,7 @@ from domain.user import User
 from helper.constant import BASIC_COMPENSATION_AMOUNT_PER_REASON, PUSH_TITLE_FEED, REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from helper.function import failed_response
 from services import notification_service, point_service, push_service
+from services.mission_service import check_if_user_is_carrying_out_this_mission
 
 from datetime import datetime, timedelta
 import json
@@ -54,7 +55,7 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
             isGround=True if mission['is_ground'] == 1 else False,
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False,
+            bookmarked=True if mission['bookmarked'] == 1 else False
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
         food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
@@ -149,7 +150,7 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
                 isGround=True if mission['is_ground'] == 1 else False,
                 eventType=mission['event_type'],
                 thumbnail=mission['thumbnail'],
-                bookmarked=True if mission['bookmarked'] == 1 else False,
+                bookmarked=True if mission['bookmarked'] == 1 else False
             ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
             product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
             food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,

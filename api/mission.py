@@ -103,9 +103,9 @@ def mission_feeds(mission_id: int):
         page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
         feed_mappers()
-        repo: FeedRepository = FeedRepository(db_session)
-        feeds: list = mission_service.get_feeds_by_mission(mission_id, page_cursor, limit, user_id, repo)
-        number_of_feeds: int = mission_service.get_feed_count_of_the_mission(mission_id, repo)
+        feed_repo: FeedRepository = FeedRepository(db_session)
+        feeds: list = mission_service.get_feeds_by_mission(mission_id, page_cursor, limit, user_id, feed_repo)
+        number_of_feeds: int = mission_service.get_feed_count_of_the_mission(mission_id, feed_repo)
         clear_mappers()
 
         last_cursor: [str, None] = None if len(feeds) <= 0 else feeds[-1]['cursor']  # 배열 원소의 cursor string
