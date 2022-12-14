@@ -32,8 +32,8 @@ def feed(feed_id: int):
 
     if request.method == 'GET':
         feed_mappers()
-        repo: FeedRepository = FeedRepository(db_session)
-        data: dict = feed_service.get_a_feed(feed_id, user_id, repo)
+        feed_repo: FeedRepository = FeedRepository(db_session)
+        data: dict = feed_service.get_a_feed(feed_id, user_id, feed_repo)
         clear_mappers()
         db_session.close()
 
@@ -61,7 +61,7 @@ def feed(feed_id: int):
             new_body: [str, None] = data['body']
             new_is_hidden: [int, None] = int(data['isHidden'])
             feed_mappers()
-            repo: FeedRepository = FeedRepository(db_session)
+            feed_repo: FeedRepository = FeedRepository(db_session)
             new_feed = Feed(
                 id=feed_id,
                 user_id=user_id,
@@ -73,7 +73,7 @@ def feed(feed_id: int):
                 laptime=None,
                 laptime_origin=None
             )
-            update_feed: dict = feed_service.update_feed(new_feed, user_id, repo)
+            update_feed: dict = feed_service.update_feed(new_feed, user_id, feed_repo)
             clear_mappers()
 
             if update_feed['result']:
@@ -85,7 +85,7 @@ def feed(feed_id: int):
                 return json.dumps({key: value for key, value in update_feed.items() if key != 'status_code'}, ensure_ascii=False), update_feed['status_code']
     elif request.method == 'DELETE':
         feed_mappers()
-        repo: FeedRepository = FeedRepository(db_session)
+        feed_repo: FeedRepository = FeedRepository(db_session)
         target_feed = Feed(
             id=feed_id,
             user_id=user_id,
@@ -97,7 +97,7 @@ def feed(feed_id: int):
             laptime=None,
             laptime_origin=None
         )
-        delete_feed: dict = feed_service.delete_feed(target_feed, user_id, repo)
+        delete_feed: dict = feed_service.delete_feed(target_feed, user_id, feed_repo)
         clear_mappers()
 
         if delete_feed['result']:
@@ -146,9 +146,9 @@ def feed_comment(feed_id: int):
         page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
         feed_comment_mappers()
-        repo: FeedCommentRepository = FeedCommentRepository(db_session)
-        comments: list = feed_service.get_comments(feed_id, page_cursor, limit, user_id, repo)
-        number_of_comment: int = feed_service.get_comment_count_of_the_feed(feed_id, repo)
+        feed_comment_repo: FeedCommentRepository = FeedCommentRepository(db_session)
+        comments: list = feed_service.get_comments(feed_id, page_cursor, limit, user_id, feed_comment_repo)
+        number_of_comment: int = feed_service.get_comment_count_of_the_feed(feed_id, feed_comment_repo)
         clear_mappers()
 
         last_cursor: [str, None] = None if len(comments) <= 0 else comments[-1]['cursor']  # 배열 원소의 cursor string
@@ -214,8 +214,8 @@ def feed_comment(feed_id: int):
 def test_feed_comment_point_calculate(feed_id: int):
     user_id: [int, None] = authenticate(request, db_session)
     point_history_mappers()
-    repo = PointHistoryRepository(db_session)
-    result = feed_service.can_the_user_get_feed_comment_point(feed_id, user_id, repo)
+    point_history_repo = PointHistoryRepository(db_session)
+    result = feed_service.can_the_user_get_feed_comment_point(feed_id, user_id, point_history_repo)
     clear_mappers()
     db_session.close()
 
@@ -248,7 +248,7 @@ def feed_comment_manipulate(feed_id: int, feed_comment_id: int):
         else:
             new_comment = params['comment']
             feed_comment_mappers()
-            repo: FeedCommentRepository = FeedCommentRepository(db_session)
+            feed_comment_repo: FeedCommentRepository = FeedCommentRepository(db_session)
             new_feed_comment: FeedComment = FeedComment(
                 id=feed_comment_id,
                 user_id=user_id,
@@ -258,7 +258,7 @@ def feed_comment_manipulate(feed_id: int, feed_comment_id: int):
                 group=0,
                 deleted_at=None
             )
-            update_comment: dict = feed_service.update_comment(new_feed_comment, repo)
+            update_comment: dict = feed_service.update_comment(new_feed_comment, feed_comment_repo)
             clear_mappers()
             if update_comment['result']:
                 db_session.commit()

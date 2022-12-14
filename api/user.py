@@ -228,9 +228,9 @@ def get_user_feeds(target_user_id: int):
         page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
 
         feed_mappers()
-        repo: FeedRepository = FeedRepository(db_session)
-        feeds: list = user_service.get_feeds_by_user(target_user_id, page_cursor, limit, repo)
-        number_of_feeds: int = user_service.get_feed_count_of_the_user(target_user_id, repo)
+        feed_repo: FeedRepository = FeedRepository(db_session)
+        feeds: list = user_service.get_feeds_by_user(target_user_id, page_cursor, limit, feed_repo)
+        number_of_feeds: int = user_service.get_feed_count_of_the_user(target_user_id, feed_repo)
         clear_mappers()
 
         db_session.close()

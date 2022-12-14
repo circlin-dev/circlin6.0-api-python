@@ -1,11 +1,11 @@
-from adapter.orm import areas, blocks, brands, feed_comments, feed_images, feed_likes, food_brands, food_images, follows, foods, missions, mission_categories, outside_products, products, users
+from adapter.orm import areas, blocks, brands, feed_comments, feed_images, feed_likes, food_brands, food_images, follows, foods, missions, mission_categories, mission_stats, outside_products, products, users
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.user import User
 from helper.cache import cache
 from helper.constant import INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_ASCENDING_PAGE_CURSOR
 
 import abc
-from sqlalchemy import select, delete, insert, update, join, desc, and_, case, func, text
+from sqlalchemy import select, delete, exists, insert, update, join, desc, and_, case, func, text
 from sqlalchemy.orm import aliased
 
 
@@ -152,10 +152,17 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", case(
-                        (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"), 1),
-                        else_=0
-                    )
+                    "bookmarked", select(exists(
+                        select(
+                            mission_stats
+                        ).where(
+                            and_(
+                                mission_stats.c.mission_id == missions.c.id,
+                                mission_stats.c.user_id == user_id,
+                                mission_stats.c.ended_at == None
+                            )
+                        ).limit(1)
+                    ))
                 )
             ).label('mission'),
 
@@ -227,7 +234,6 @@ class FeedRepository(AbstractFeedRepository):
         (2) 반면, current_number_of_following >= 10 이면 newsfeed만 보낸다.
         이때, newsfeed 조회 쿼리에는 cursor를 생성하는 쿼리가 추가되어야 한다.
         이 때문에 함수 코드가 다소 길어졌다.
-
 
         - feed_candidate_query: feed_candidate_query 추천 피드 id 후보를 뽑는 곳이다.
             가장 내부의 nested_query로부터 당일 발생한 모든 feed_check 데이터를 조회한다(= A).
@@ -343,10 +349,17 @@ class FeedRepository(AbstractFeedRepository):
                             ),
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
-                            "bookmarked", case(
-                                (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"), 1),
-                                else_=0
-                            )
+                            "bookmarked", select(exists(
+                                select(
+                                    mission_stats
+                                ).where(
+                                    and_(
+                                        mission_stats.c.mission_id == missions.c.id,
+                                        mission_stats.c.user_id == user_id,
+                                        mission_stats.c.ended_at == None
+                                    )
+                                ).limit(1)
+                            ))
                         )
                     ).label('mission'),
 
@@ -514,10 +527,17 @@ class FeedRepository(AbstractFeedRepository):
                             ),
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
-                            "bookmarked", case(
-                                (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),1),
-                                else_=0
-                            )
+                            "bookmarked", select(exists(
+                                select(
+                                    mission_stats
+                                ).where(
+                                    and_(
+                                        mission_stats.c.mission_id == missions.c.id,
+                                        mission_stats.c.user_id == user_id,
+                                        mission_stats.c.ended_at == None
+                                    )
+                                ).limit(1)
+                            ))
                         )
                     ).label('mission'),
 
@@ -695,12 +715,17 @@ class FeedRepository(AbstractFeedRepository):
                             ),
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
-                            "bookmarked", case(
-                                (text(
-                                    f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
-                                    1),
-                                else_=0
-                            )
+                            "bookmarked", select(exists(
+                                select(
+                                    mission_stats
+                                ).where(
+                                    and_(
+                                        mission_stats.c.mission_id == missions.c.id,
+                                        mission_stats.c.user_id == user_id,
+                                        mission_stats.c.ended_at == None
+                                    )
+                                ).limit(1)
+                            ))
                         )
                     ).label('mission'),
 
@@ -879,10 +904,10 @@ class FeedRepository(AbstractFeedRepository):
         return 0 if total_count is None else total_count
 
     def get_checked_feeds_by_user(self, user_id: int, page_cursor: int, limit: int):
-        # feed_likes_aliased = aliased(FeedCheck)
+        feed_likes_aliased = aliased(FeedCheck)
         users_aliased = aliased(User)
 
-        # area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
         block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
         comments_count = select(
             func.count(feed_comments.c.id)
@@ -890,8 +915,8 @@ class FeedRepository(AbstractFeedRepository):
             feed_comments.c.feed_id == Feed.id,
             feed_comments.c.deleted_at == None
         ))
-        # follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
-        # followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+        follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
 
         sql = select(
             Feed.id,
@@ -927,13 +952,13 @@ class FeedRepository(AbstractFeedRepository):
             ).select_from(
                 users_aliased
             ).join(
-                FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
+                feed_likes_aliased, feed_likes_aliased.user_id == users_aliased.id, isouter=True
             ).where(
-                FeedCheck.feed_id == Feed.id
+                feed_likes_aliased.feed_id == Feed.id
             ).label('checked_users'),
-            # area.label('area'),
-            # case((User.id.in_(followings), 1), else_=0).label("followed"),
-            # follower_count.label('followers'),
+            area.label('area'),
+            case((User.id.in_(followings), 1), else_=0).label("followed"),
+            follower_count.label('followers'),
             case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
 
             func.json_arrayagg(
@@ -950,12 +975,17 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", case(
-                        (text(
-                            f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
-                         1),
-                        else_=0
-                    )
+                    "bookmarked", select(exists(
+                        select(
+                            mission_stats
+                        ).where(
+                            and_(
+                                mission_stats.c.mission_id == missions.c.id,
+                                mission_stats.c.user_id == user_id,
+                                mission_stats.c.ended_at == None
+                            )
+                        ).limit(1)
+                    ))
                 )
             ).label('mission'),
 
@@ -995,9 +1025,7 @@ class FeedRepository(AbstractFeedRepository):
 
             func.concat(func.lpad(Feed.id, 15, '0')).label('cursor'),
         ).join(
-            FeedCheck, FeedCheck.feed_id == Feed.id
-        ).join(
-            users, users.c.id == Feed.user_id
+            User, User.id == Feed.user_id
         ).join(
             FeedMission, FeedMission.feed_id == Feed.id, isouter=True
         ).join(
@@ -1016,8 +1044,14 @@ class FeedRepository(AbstractFeedRepository):
             outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
         ).where(
             and_(
-                FeedCheck.user_id == user_id,
-                FeedCheck.deleted_at == None,
+                Feed.id.in_(
+                    select(FeedCheck.feed_id).where(
+                        and_(
+                            FeedCheck.user_id == {user_id},
+                            FeedCheck.deleted_at == None
+                        )
+                    )
+                ),
                 User.deleted_at == None,
                 Feed.deleted_at == None,
                 Feed.id < page_cursor,
@@ -1124,8 +1158,7 @@ class FeedRepository(AbstractFeedRepository):
                 func.json_object(
                     "id", missions.c.id,
                     "title", missions.c.title,
-                    "emoji",
-                    select(mission_categories.c.emoji).where(mission_categories.c.id == missions.c.mission_category_id),
+                    "emoji", select(mission_categories.c.emoji).where(mission_categories.c.id == missions.c.mission_category_id),
                     "is_ground", missions.c.is_ground,
                     "is_event", missions.c.is_event,
                     "is_old_event", case(
@@ -1134,10 +1167,17 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", case(
-                        (text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"), 1),
-                        else_=0
-                    )
+                    "bookmarked", select(exists(
+                        select(
+                            mission_stats
+                        ).where(
+                            and_(
+                                mission_stats.c.mission_id == missions.c.id,
+                                mission_stats.c.user_id == user_id,
+                                mission_stats.c.ended_at == None
+                            )
+                        ).limit(1)
+                    ))
                 )
             ).label('mission'),
 
@@ -1300,12 +1340,17 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", case(
-                        (
-                        text(f"(SELECT COUNT(*) FROM mission_stats WHERE mission_id = missions.id AND user_id = {user_id} AND ended_at IS NULL) > 0"),
-                        1),
-                        else_=0
-                    )
+                    "bookmarked", select(exists(
+                        select(
+                            mission_stats
+                        ).where(
+                            and_(
+                                mission_stats.c.mission_id == missions.c.id,
+                                mission_stats.c.user_id == user_id,
+                                mission_stats.c.ended_at == None
+                            )
+                        ).limit(1)
+                    ))
                 )
             ).label('mission'),
 
