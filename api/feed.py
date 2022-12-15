@@ -38,11 +38,7 @@ def feed(feed_id: int):
         db_session.close()
 
         if data['result']:
-            result: dict = {
-                'result': True,
-                'data': data
-            }
-            return json.dumps(result, ensure_ascii=False), 200
+            return json.dumps(data, ensure_ascii=False), 200
         else:
             return json.dumps({key: value for key, value in data.items() if key != 'status_code'}, ensure_ascii=False), data['status_code']
 

@@ -123,7 +123,7 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
             else f'{str(round(feed.distance, 2))} L' if feed.laptime is None and feed.distance_origin is None and feed.laptime_origin is None
             else f'{round(feed.distance, 2)} km',
             images=[] if feed.images is None else json.loads(feed.images),
-            checked=feed.checked,
+            checked=True if feed.checked == 1 else False,
             commentsCount=feed.comments_count,
             checkedUsers=[dict(
                 id=user['id'],
