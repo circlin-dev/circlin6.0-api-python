@@ -26,6 +26,10 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def update_password(self, target_user: User, decoded_hashed_new_password: str):
+        pass
+
+    @abc.abstractmethod
     def delete(self, target_user) -> User:
         pass
 
@@ -73,6 +77,16 @@ class UserRepository(AbstractUserRepository):
             User.id == target_user.id
         ).values(
             point=point
+        )
+        return self.session.execute(sql)
+
+    def update_password(self, target_user: User, decoded_hashed_new_password: str):
+        sql = update(
+            User
+        ).where(
+            User.id == target_user.id
+        ).values(
+            password=decoded_hashed_new_password
         )
         return self.session.execute(sql)
 

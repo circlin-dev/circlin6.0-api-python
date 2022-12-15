@@ -45,6 +45,77 @@ def get_all_users():
     return json.dumps(entries, ensure_ascii=False), 200
 
 
+@api.route('/user/password/reissue-temporary', methods=['POST'])
+def issue_temporary_password():
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    # 임시 비밀번호 생성 & 이메일로 통지
+    if request.method == 'POST':
+        params = json.loads(request.get_data())
+        if 'email' not in params.keys():
+            db_session.close()
+            error_message = f'{ERROR_RESPONSE[400]} (email)'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        else:
+            email: str = params['email']
+            # login_method == 'email' 인지 확인 필요
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/user/password', methods=['PATCH'])
+def update_password():
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    # 비밀번호 변경
+    if request.method == 'PATCH':
+        params = json.loads(request.get_data())
+
+        if 'currentPassword' not in params.keys() or params['currentPassword'].strip() == '':
+            db_session.close()
+            error_message = f'{ERROR_RESPONSE[400]} (currentPassword)'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'newPassword' not in params.keys() or params['newPassword'].strip() == '':
+            db_session.close()
+            error_message = f'{ERROR_RESPONSE[400]} (newPassword)'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'newPasswordValidation' not in params.keys() or params['newPasswordValidation'].strip() == '':
+            db_session.close()
+            error_message = f'{ERROR_RESPONSE[400]} (newPasswordValidation)'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        else:
+            current_password: str = params['currentPassword']
+            new_password: str = params['newPassword']
+            new_password_validation: str = params['newPasswordValidation']
+
+            user_mappers()
+            user_repo: UserRepository = UserRepository(db_session)
+            update_user_password: dict = user_service.update_password(user_id, current_password, new_password, new_password_validation, user_repo)
+            clear_mappers()
+
+            if update_user_password['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(update_user_password, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in update_user_password.items() if key != 'status_code'}, ensure_ascii=False), update_user_password['status_code']
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+
+
 @api.route('/user/<int:target_user_id>/favoriteCategory', methods=['GET', 'POST', 'DELETE'])
 def user_favorite_category(target_user_id: int):
     user_id = authenticate(request, db_session)
