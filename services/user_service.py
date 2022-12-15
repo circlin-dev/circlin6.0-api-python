@@ -4,7 +4,8 @@ from adapter.repository.user_favorite_category import AbstractUserFavoriteCatego
 from adapter.repository.user import AbstractUserRepository
 from domain.user import UserFavoriteCategory, User
 from helper.function import failed_response
-from services.mission_service import check_if_user_is_carrying_out_this_mission
+
+import bcrypt
 import json
 
 
@@ -13,41 +14,74 @@ def get_a_user(user_id: int, repo: AbstractUserRepository) -> User:
     return user
 
 
-def chosen_category(category_id: int, my_category_list: list) -> bool:
-    return category_id in my_category_list
+# region authentication
+def encode_string(string: str, method: str) -> bytes:
+    return string.encode(method)
 
 
-def get_favorite_mission_categories(user_id: int, repo) -> list:
-    my_category_list = repo.get_favorites(user_id)
-    return my_category_list
+def decode_string(hashed_password: bytes, method: str) -> str:
+    return hashed_password.decode(method)
 
 
-def add_to_favorite_mission_category(new_mission_category: UserFavoriteCategory, repo: AbstractUserFavoriteCategoryRepository) -> dict:
-    my_category_list = repo.get_favorites(new_mission_category.user_id)
+def generate_hashed_password(string: str, method: str) -> bytes:
+    # (1) Input string ascii 인코딩
+    ascii_encoded_password = string.encode(method)
+    # (2) 암호화
+    return bcrypt.hashpw(ascii_encoded_password, bcrypt.gensalt(10))
 
-    if chosen_category(new_mission_category.mission_category_id, my_category_list):
-        error_message = f"이미 내 목표로 설정한 목표를 중복 추가할 수 없습니다!"
+
+def encode_password_and_check_if_same(password_string: str, current_password_database: str, method: str) -> bool:
+    # (1) Input string, DB string ascii 인코딩
+    encoded__password_input: bytes = encode_string(password_string, method)
+    encoded_current_password_database: bytes = encode_string(current_password_database, method)
+    return bcrypt.checkpw(encoded__password_input, encoded_current_password_database)
+
+
+def update_password(user_id: int, current_password_input: str, new_password_input: str, new_password_validation: str, user_repo: AbstractUserRepository) -> dict:
+    target_user: User = user_repo.get_one(user_id)
+
+    if target_user is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+
+    decoded_hashed_current_password_database: str = target_user.password
+
+    if target_user.login_method != 'email':
+        error_message = '이메일로 가입한 유저가 아닙니다. SNS 로그인으로 시작하신 유저는 비밀번호를 변경할 수 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif not encode_password_and_check_if_same(current_password_input, target_user.password, 'ascii'):
+        error_message = '입력하신 현재 비밀번호가 실제 현재 비밀번호와 일치하지 않습니다. 확인 후 다시 시도해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif current_password_input == new_password_input or current_password_input == new_password_validation:
+        error_message = '입력하신 새 비밀번호 또는 확인용 새 비밀번호가 입력하신 현재 비밀번호와 같습니다. 확인 후 다시 시도해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif encode_password_and_check_if_same(new_password_input, target_user.password, 'ascii') or encode_password_and_check_if_same(new_password_validation, target_user.password, 'ascii'):
+        error_message = '입력하신 새 비밀번호 또는 확인용 새 비밀번호가 실제 현재 비밀번호와 같습니다. 확인 후 다시 시도해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif new_password_input != new_password_validation:
+        error_message = "입력하신 '새 비밀번호'와 '확인용 새 비밀번호'가 서로 다릅니다. 동일하게 입력한 후 다시 시도해 주세요."
         result = failed_response(error_message)
         result['status_code'] = 400
         return result
     else:
-        repo.add(new_mission_category)
+        hashed_new_password_input: bytes = generate_hashed_password(new_password_input, 'ascii')
+        decoded_hashed_new_password_input: str = decode_string(hashed_new_password_input, 'ascii')
+        user_repo.update_password(target_user, decoded_hashed_new_password_input)
         return {'result': True}
+# endregion
 
 
-def delete_from_favorite_mission_category(mission_category_to_delete: UserFavoriteCategory, repo: AbstractUserFavoriteCategoryRepository) -> dict:
-    my_category_list = repo.get_favorites(mission_category_to_delete.user_id)
-
-    if not chosen_category(mission_category_to_delete.mission_category_id, my_category_list):
-        error_message = '내 목표로 설정하지 않은 목표를 삭제할 수 없습니다!'
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-    else:
-        repo.delete(mission_category_to_delete)
-        return {'result': True}
-
-
+# region board
 def get_boards_by_user(target_user_id: int, category_id: int, page_cursor: int, limit: int, board_repo: AbstractBoardRepository) -> list:
     board_list = board_repo.get_list_by_user(target_user_id, category_id, page_cursor, limit)
     entries = [
@@ -118,8 +152,10 @@ def get_boards_of_following_users(target_user_id: int, category_id: int, page_cu
 
 def get_board_count_of_following_users(user_id: int, category_id: int, board_repo: AbstractBoardRepository) -> int:
     return board_repo.count_number_of_board_of_following_users(user_id, category_id)
+# endregion
 
 
+# region feed
 def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
     feeds = feed_repo.get_feeds_by_user(user_id, page_cursor, limit)
     entries: list = [dict(
@@ -216,9 +252,49 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
 def get_checked_feed_count_of_the_user(user_id: int, feed_repo: AbstractFeedRepository) -> int:
     count = feed_repo.count_number_of_checked_feed_of_user(user_id)
     return count
+# endregion
 
 
+# region mission
+def chosen_category(category_id: int, my_category_list: list) -> bool:
+    return category_id in my_category_list
+
+
+def get_favorite_mission_categories(user_id: int, repo) -> list:
+    my_category_list = repo.get_favorites(user_id)
+    return my_category_list
+
+
+def add_to_favorite_mission_category(new_mission_category: UserFavoriteCategory, repo: AbstractUserFavoriteCategoryRepository) -> dict:
+    my_category_list = repo.get_favorites(new_mission_category.user_id)
+
+    if chosen_category(new_mission_category.mission_category_id, my_category_list):
+        error_message = f"이미 내 목표로 설정한 목표를 중복 추가할 수 없습니다!"
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        repo.add(new_mission_category)
+        return {'result': True}
+
+
+def delete_from_favorite_mission_category(mission_category_to_delete: UserFavoriteCategory, repo: AbstractUserFavoriteCategoryRepository) -> dict:
+    my_category_list = repo.get_favorites(mission_category_to_delete.user_id)
+
+    if not chosen_category(mission_category_to_delete.mission_category_id, my_category_list):
+        error_message = '내 목표로 설정하지 않은 목표를 삭제할 수 없습니다!'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        repo.delete(mission_category_to_delete)
+        return {'result': True}
+# endregion
+
+
+# region point
 def update_users_current_point(user_id, point: int, user_repo: AbstractUserRepository):
     target_user = user_repo.get_one(user_id)
     user_repo.update_current_point(target_user, int(point))
     return True
+# endregion

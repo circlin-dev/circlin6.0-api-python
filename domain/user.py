@@ -8,15 +8,20 @@ class User:
     def __init__(
             self,
             id: int or None,
+            login_method: str,
+            sns_email: str,
+            email: str,
             nickname: str or None,
             greeting: str or None,
             gender: str or None,
             point: int,
             profile_image: str,
             invite_code: str,
-
     ):
         self.id = id
+        self.login_method = login_method
+        self.sns_email = sns_email
+        self.email = email
         self.nickname = nickname
         self.greeting = greeting
         self.gender = gender
