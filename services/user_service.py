@@ -1,15 +1,37 @@
 from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.feed import AbstractFeedRepository
+from adapter.repository.feed_like import AbstractFeedCheckRepository
+from adapter.repository.point_history import AbstractPointHistoryRepository
 from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from adapter.repository.user import AbstractUserRepository
 from domain.user import UserFavoriteCategory, User
+from services import point_service
+from helper.constant import REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from helper.function import failed_response
 
 import bcrypt
 import json
 
 
-def get_user_data(user_id: int, user_repo: AbstractUserRepository, user_favorite_category_repo: AbstractUserFavoriteCategoryRepository):
+def get_user_data(
+        user_id: int,
+        user_repo: AbstractUserRepository,
+        user_favorite_category_repo: AbstractUserFavoriteCategoryRepository,
+        point_history_repo: AbstractPointHistoryRepository,
+        feed_like_repo: AbstractFeedCheckRepository
+):
+    """
+    (1) amountOfPointsUserReceivedToday (int): 오늘 하루 ‘유저‘의 체크 행위에 의해 '유저'가 지급받은 '포인트 액수'
+    (2) amountOfPointGivenToUserYesterday (int): 어제 하루 ‘유저‘의 체크를 한/받은 행위 + 댓글 이벤트에 의해 '유저'가 지급받은 '포인트 액수'
+    (3) checkCountOfUserYesterday (int): 어제 하루 ‘유저‘의 체크를 한 행위 '횟수'
+    (4) checkCountOfFollowersToUserYesterday (int): 어제 하루 유저가 '팔로워'에게 체크 받은 '횟수'(전일 받은 체크 수)
+        - (3), (4)의 횟수 = 포인트가 지급된 체크 중 취소되지 않은 것의 수 + 포인트 지급되지 않은 체크 중 취소되지 않은 것의 수
+    (5) amountOfPointUserReceivedToday: 오늘 하루 ‘유저‘가 팔로워의 '유저' 피드 체크, 피드 체크, 댓글 이벤트로 획득한 ‘포인트‘(int)
+    (6) availablePointToday (int): # 오늘 ‘유저’가 팔로워의 '유저' 피드 체크, 피드 체크, 댓글 이벤트로 더 획득할 수 있는 포인트
+    :param user_id: int
+    :return: userData
+    """
+
     target_user: User = user_repo.user_data(user_id)
 
     if target_user is None:
@@ -18,14 +40,42 @@ def get_user_data(user_id: int, user_repo: AbstractUserRepository, user_favorite
         result['status_code'] = 400
         return result
     else:
-        user_favorite_category: list = user_favorite_category_repo.get_favorites(target_user.id)
-        user_favorite_category: list = [dict(
+        user_favorite_categories: list = user_favorite_category_repo.get_favorites(target_user.id)
+        user_favorite_categories: list = [dict(
             id=category.id,
             title=category.title
-        ) for category in user_favorite_category] if user_favorite_category is not None else []
+        ) for category in user_favorite_categories] if user_favorite_categories is not None else []
+
+        number_of_feed_writer_received_point_today: int = feed_like_repo.get_point_paid_like_count(target_user)
+        available_point_today, current_gathered_point = point_service.points_available_to_receive_for_the_rest_of_the_day(
+            target_user.id,
+            REASONS_HAVE_DAILY_REWARD_RESTRICTION,
+            'today',
+            point_history_repo
+        )
+        available_point_yesterday, yesterday_gathered_point = point_service.points_available_to_receive_for_the_rest_of_the_day(
+            target_user.id,
+            REASONS_HAVE_DAILY_REWARD_RESTRICTION,
+            'yesterday',
+            point_history_repo
+        )
+
+
+        # amount_of_points_user_received_by_check_today = point_history_repo.calculate_daily_gathered_point_by_reasons(target_user.id, [])
+        # sql = select(
+        #     func.sum(point_histories.c.point)
+        # ).where(
+        #     and_(
+        #         point_histories.c.user_id == user_id,
+        #         func.TIMESTAMPDIFF(text("DAY"), point_histories.c.created_at, func.now()) == 0,
+        #         point_histories.c.created_at >= func.DATE(func.now()),
+        #         point_histories.c.reason.in_(reasons)
+        #     )
+        # )
+        # result = self.session.execute(sql).scalar()
 
         user_dict: dict = dict(
-            # id=target_user.id,
+            id=target_user.id,
             area=target_user.area,
             agree1=True if target_user.agree1 == 1 else False,
             agree2=True if target_user.agree2 == 1 else False,
@@ -36,7 +86,15 @@ def get_user_data(user_id: int, user_repo: AbstractUserRepository, user_favorite
             agreePushMission=True if target_user.agree_push_mission == 1 else False,
             badge=json.loads(target_user.badge),
             birthday=target_user.birthday,
-            category=user_favorite_category,
+            category=user_favorite_categories,
+
+            numberOfFeedWriterReceivedPointToday=number_of_feed_writer_received_point_today,
+            amountOfPointsUserReceivedToday=current_gathered_point,
+            availablePointToday=available_point_today,
+            numberOfChecksUserDidYesterday=target_user.number_of_checks_user_did_yesterday,
+            numberOfChecksUserReceivedYesterday=target_user.number_of_checks_user_received_yesterday,
+            amountOfPointsGivenToUserYesterday=yesterday_gathered_point,
+
             gender=target_user.gender,
             greeting=target_user.greeting,
             inviteCode=target_user.invite_code,

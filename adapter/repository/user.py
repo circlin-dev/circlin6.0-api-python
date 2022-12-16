@@ -1,9 +1,9 @@
-from adapter.orm import areas, notifications, user_stats, user_wallpapers
+from adapter.orm import areas, feeds, feed_likes, notifications, point_histories, user_stats, user_wallpapers
 from domain.user import User, UserFavoriteCategory, UserStat
 
 import abc
 from sqlalchemy.sql import func
-from sqlalchemy import select, and_, update
+from sqlalchemy import select, and_, text, update
 
 
 class AbstractUserRepository(abc.ABC):
@@ -58,14 +58,38 @@ class UserRepository(AbstractUserRepository):
             areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')
         ).limit(1)
 
+        number_of_checks_user_did_yesterday = select(
+            func.count(feed_likes.c.id)
+        ).where(
+            and_(
+                feed_likes.c.user_id == User.id,
+                feed_likes.c.deleted_at == None,
+                func.TIMESTAMPDIFF(text("DAY"), func.now(), func.DATE(feed_likes.c.created_at)) == -1,
+            )
+        )
+
+        number_of_checks_user_received_yesterday = select(
+            func.count(feed_likes.c.id)
+        ).join(
+            feeds, feed_likes.c.feed_id == feeds.c.id
+        ).where(
+            and_(
+                feeds.c.user_id == User.id,
+                feed_likes.c.deleted_at == None,
+                func.TIMESTAMPDIFF(text("DAY"), func.now(), func.DATE(feed_likes.c.created_at)) == -1
+            )
+        )
+
         unread_notifications_count = select(
             func.count(notifications.c.id)
-        ).where(and_(
-            notifications.c.target_id == user_id,
-            notifications.c.read_at == None
-        ))
+        ).where(
+            and_(
+                notifications.c.target_id == User.id,
+                notifications.c.read_at == None
+            )
+        )
 
-        unread_messages_count = ()
+        # unread_messages_count = ()
 
         sql = select(
             User.id,
@@ -94,8 +118,13 @@ class UserRepository(AbstractUserRepository):
             ).label('wallpapers'),
             func.json_object(
                 'notifications', unread_notifications_count,
-                'messages', unread_messages_count,
-            ).label('badge')
+                'messages', 1,
+            ).label('badge'),
+
+            number_of_checks_user_did_yesterday.label('number_of_checks_user_did_yesterday'),
+            number_of_checks_user_received_yesterday.label('number_of_checks_user_received_yesterday')
+        ).select_from(
+            User
         ).join(
             user_stats, user_stats.c.user_id == User.id, isouter=True
         ).join(

@@ -383,7 +383,7 @@ def add_comment(new_feed_comment: FeedComment,
             received_point = True
 
     available_point, current_gathered_point = point_service.points_available_to_receive_for_the_rest_of_the_day(
-        commented_user.id, REASONS_HAVE_DAILY_REWARD_RESTRICTION, point_history_repo)
+        commented_user.id, REASONS_HAVE_DAILY_REWARD_RESTRICTION, 'today', point_history_repo)
 
     result = {
         'result': True,
@@ -506,7 +506,7 @@ def increase_like(
     number_of_feed_writer_received_point: int = feed_like_repo.get_point_paid_like_count(user_who_likes_this_feed)
 
     feed_writer_receive_point: bool = False  # 대상 에게 포인트 지급 여부
-    amount_of_point_user_received: int = 0
+    amount_of_points_user_received: int = 0
 
     if target_feed is None or feed_is_available_to_other(target_feed) is False:
         error_message = '존재하지 않거나, 숨김처리 되었거나, 삭제된 피드입니다.'
@@ -528,11 +528,13 @@ def increase_like(
             available_point_of_user, current_gathered_point_of_user = point_service.points_available_to_receive_for_the_rest_of_the_day(
                 user_who_likes_this_feed.id,
                 REASONS_HAVE_DAILY_REWARD_RESTRICTION,
+                'today',
                 point_history_repo
             )
             available_point_of_feed_writer, current_gathered_point_of_feed_writer = point_service.points_available_to_receive_for_the_rest_of_the_day(
                 target_feed.user_id,
                 REASONS_HAVE_DAILY_REWARD_RESTRICTION,
+                'today',
                 point_history_repo
             )
 
@@ -607,7 +609,7 @@ def increase_like(
                     reason_for_point = "feed_check_reward"
                     foreign_key_value_of_point_history = {'feed_id': target_feed.id}
 
-                    amount_of_point_user_received = point_service.give_point(
+                    amount_of_points_user_received = point_service.give_point(
                         user_who_likes_this_feed,
                         reason_for_point,
                         BASIC_COMPENSATION_AMOUNT_PER_REASON[reason_for_point],
@@ -622,7 +624,7 @@ def increase_like(
                         type=reason_for_point,
                         user_id=None,
                         read_at=None,
-                        variables={'point': amount_of_point_user_received, 'point2': available_point_of_user - amount_of_point_user_received},
+                        variables={'point': amount_of_points_user_received, 'point2': available_point_of_user - amount_of_points_user_received},
                     )
                     notification_service.create_notification(notification, notification_repo)
                 else:
@@ -636,13 +638,13 @@ def increase_like(
         feed_like_repo.add(feed_like)
 
         available_point_of_user, current_gathered_point_of_user = point_service.points_available_to_receive_for_the_rest_of_the_day(
-            user_who_likes_this_feed.id, REASONS_HAVE_DAILY_REWARD_RESTRICTION, point_history_repo)
+            user_who_likes_this_feed.id, REASONS_HAVE_DAILY_REWARD_RESTRICTION, 'today', point_history_repo)
 
         result = {
             'result': True,
             'feedWriterReceivedPoint': feed_writer_receive_point,  # 이번 reqeust를 통해 ‘피드 작성자‘에게 포인트가 지급되었는지 여부
             'numberOfFeedWriterReceivedPoint': number_of_feed_writer_received_point,  # 이번 reqeust를 수행한 결과 오늘 하루 ‘유저‘의 체크 행위에 의해 포인트를 지급받은 ‘피드 작성자 수’
-            'amountOfPointsUserReceived': amount_of_point_user_received,  # 이번 reqeust를 수행한 결과 ‘유저‘가 획득한 포인트
+            'amountOfPointsUserReceived': amount_of_points_user_received,  # 이번 reqeust를 수행한 결과 ‘유저‘가 획득한 포인트
             'availablePointOfUser': available_point_of_user,  # 이번 reqeust를 수행한 결과 오늘 ‘유저’가 더 획득할 수 있는 포인트
         }
         return result

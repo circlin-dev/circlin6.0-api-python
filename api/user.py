@@ -3,6 +3,8 @@ from adapter.database import db_session
 from adapter.orm import board_mappers, feed_mappers, user_mappers, user_favorite_category_mappers
 from adapter.repository.board import BoardRepository
 from adapter.repository.feed import FeedRepository
+from adapter.repository.feed_like import FeedCheckRepository
+from adapter.repository.point_history import PointHistoryRepository
 from adapter.repository.user import UserRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
 from domain.user import UserFavoriteCategory
@@ -24,10 +26,12 @@ def get_a_user():
         return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
-        user_mappers()
+        feed_mappers()  # Have no idea why user_mappers() raises mapper error at number_of_feed_writer_received_point_today: int = feed_like_repo.get_point_paid_like_count(target_user)
+        feed_like_repo: FeedCheckRepository = FeedCheckRepository(db_session)
+        point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
         user_favorite_category_repo: UserFavoriteCategoryRepository = UserFavoriteCategoryRepository(db_session)
-        get_user_data: dict = user_service.get_user_data(user_id, user_repo, user_favorite_category_repo)
+        get_user_data: dict = user_service.get_user_data(user_id, user_repo, user_favorite_category_repo, point_history_repo, feed_like_repo)
         clear_mappers()
 
         if get_user_data['result']:

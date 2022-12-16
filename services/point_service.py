@@ -18,14 +18,14 @@ def does_the_reason_have_upper_limit_on_receiving_per_day(reason: str):
     return True if reason in REASONS_HAVE_DAILY_REWARD_RESTRICTION else False
 
 
-def points_available_to_receive_for_the_rest_of_the_day(user_id: int, reasons: list, point_history_repo: AbstractPointHistoryRepository):
+def points_available_to_receive_for_the_rest_of_the_day(user_id: int, reasons: list, date: str, point_history_repo: AbstractPointHistoryRepository):
     """
     :param user_id:
     :param reasons: 포인트 지급/회수 사유
     :param point_history_repo:
     :return: 오늘 하루 reasons 배열에 해당하는 사유로 획득할 수 있는 남은 금액, 획득한 포인트의 총합(current_gathered_point)
     """
-    current_gathered_point: int = point_history_repo.calculate_daily_gathered_point_by_reasons(user_id, reasons)
+    current_gathered_point: int = point_history_repo.calculate_daily_gathered_point_by_reasons(user_id, reasons, date)
     available_point: int = DAILY_POINT_LIMIT_FOR_FEED_CHECK_FEED_COMMENT - current_gathered_point
     return available_point, current_gathered_point
 
@@ -33,7 +33,6 @@ def points_available_to_receive_for_the_rest_of_the_day(user_id: int, reasons: l
 def determine_foreign_key_by_reason(target_user: User, reason: str, amount: int, foreign_key_value: dict) -> PointHistory:
     # feed
     if reason in ["feed_check", "feed_check_reward", "feed_upload_product", "feed_upload_place"]:
-        foreign_key: str = "feed_id"
         new_point_history: PointHistory = PointHistory(
             user_id=target_user.id,
             point=amount,
@@ -105,7 +104,7 @@ def give_point(target_user: User, reason: str, request_point: int or None, forei
     # 당일 지급액 상한선이 걸려있는 지급 사유의 경우, 현재 기준으로 획득 가능한 포인트 금액으로 조정
     if reason in BASIC_COMPENSATION_AMOUNT_PER_REASON.keys():
         if does_the_reason_have_upper_limit_on_receiving_per_day(reason):
-            current_available_amount, current_gathered_point = points_available_to_receive_for_the_rest_of_the_day(target_user.id, REASONS_HAVE_DAILY_REWARD_RESTRICTION, point_history_repo)
+            current_available_amount, current_gathered_point = points_available_to_receive_for_the_rest_of_the_day(target_user.id, REASONS_HAVE_DAILY_REWARD_RESTRICTION, 'today', point_history_repo)
             amount = calculate_real_compensate_amount_with_daily_limit(current_available_amount, current_gathered_point, BASIC_COMPENSATION_AMOUNT_PER_REASON[reason])
         else:
             amount = BASIC_COMPENSATION_AMOUNT_PER_REASON[reason]
