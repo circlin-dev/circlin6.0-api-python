@@ -154,8 +154,9 @@ def get_board_count_of_following_users(user_id: int, category_id: int, board_rep
 
 
 # region feed
-def get_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
-    feeds = feed_repo.get_feeds_by_user(user_id, page_cursor, limit)
+def get_feeds_by_user(target_user_id: int, request_user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
+    feeds = feed_repo.get_feeds_by_user(target_user_id, request_user_id, page_cursor, limit)
+
     entries: list = [dict(
         id=feed.id,
         createdAt=feed.created_at,
