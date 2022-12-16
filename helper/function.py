@@ -1,7 +1,9 @@
+# from app import app
 from adapter.orm import user_mappers
 from adapter.repository.user import UserRepository
 from helper.constant import JWT_AUDIENCE, SLACK_NOTIFICATION_WEBHOOK
 from flask import abort
+# from flask_mail import Mail, Message
 import json
 import jwt
 import re
@@ -345,6 +347,39 @@ def replace_notification_link_by_type(touch_area_direction: str, notification_ty
     else:
         return None
 # endregion
+
+
+# region SMTP
+# def send_temporary_password_by_email(temp_password: str, recipients: str):
+#     mail = Mail()
+#     app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+#     app.config['MAIL_PORT'] = 465
+#     app.config['MAIL_USERNAME'] = 'circlindev@circlin.co.kr'
+#     app.config['MAIL_PASSWORD'] = 'circlinDev2019!'
+#     app.config['MAIL_USE_TLS'] = False
+#     app.config['MAIL_USE_SSL'] = True
+#     mail.init_app(app)
+#
+#     html_message = f"""
+# 안녕하세요, 고객님! 써클인 입니다.<br>
+# 비밀번호 찾기를 요청하신 고객님께 임시 비밀번호를 발송 드립니다.<br>
+# <b>직접 비밀번호 찾기를 요청하신 것이 아니라면</b>, <b>카카오톡 채널 -> '써클인'</b>을 검색하셔서 채팅 상담으로 신고해 주시기 바랍니다.<br>
+#
+# 아래와 같이 임시 비밀번호를 발급해 드리오니, 임시 비밀번호를 이용하여 앱에 로그인하신 후,<br>
+# <b>마이페이지</b> -> <b>옵션</b> -> <b>비밀번호 변경</b> 을 통해 패스워드를 반드시 변경해주시기 바랍니다.<br>
+# <b>{temp_password}</b><br>
+# 더욱 더 노력하는 써클인이 되겠습니다<br>
+# 감사합니다.
+# """
+#     message = Message(
+#         subject='[써클인] 임시 비밀번호 발급 안내 메일',
+#         html=html_message,
+#         sender='circlindev@circlin.co.kr',
+#         recipients=[recipients]
+#     )
+#     mail.send(message)
+#     return True
+# # endregion
 
 
 # # region 알림(notification)

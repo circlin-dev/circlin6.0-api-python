@@ -63,21 +63,31 @@ def get_all_users():
 
 @api.route('/user/password/reissue-temporary', methods=['POST'])
 def issue_temporary_password():
-    user_id: [int, None] = authenticate(request, db_session)
-    if user_id is None:
-        db_session.close()
-        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+    # user_id: [int, None] = authenticate(request, db_session)
+    # if user_id is None:
+    #     db_session.close()
+    #     return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     # 임시 비밀번호 생성 & 이메일로 통지
     if request.method == 'POST':
         params = json.loads(request.get_data())
-        if 'email' not in params.keys():
+        if 'email' not in params.keys() or params['email'] is None or params['email'].strip() == '':
             db_session.close()
             error_message = f'{ERROR_RESPONSE[400]} (email)'
             return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
             email: str = params['email']
-            # login_method == 'email' 인지 확인 필요
+            user_repo: UserRepository = UserRepository(db_session)
+            issue_temporary_password_and_send_email = user_service.issue_temporary_password_and_send_email(email, user_repo)
+            clear_mappers()
+
+            if issue_temporary_password_and_send_email['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(issue_temporary_password_and_send_email, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in issue_temporary_password_and_send_email.items() if key != 'status_code'}, ensure_ascii=False), issue_temporary_password_and_send_email['status_code']
     else:
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
@@ -137,13 +147,13 @@ def withdraw():
         db_session.close()
         return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
-    data: dict = json.loads(request.get_data())
-    if 'reason' not in data.keys():
+    params: dict = json.loads(request.get_data())
+    if 'reason' not in params.keys():
         db_session.close()
         error_message = f'{ERROR_RESPONSE[400]} (reason)'
         return json.dumps(failed_response(error_message), ensure_ascii=False), 400
     else:
-        reason = data['reason']
+        reason = params['reason']
         user_mappers()
         user_repo: UserRepository = UserRepository(db_session)
         withdraw = user_service.withdraw(user_id, reason, user_repo)

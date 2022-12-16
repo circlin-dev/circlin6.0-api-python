@@ -3,6 +3,7 @@ from helper.cache import cache
 from helper.function import failed_response, slack_error_notification
 from flask import Flask, request
 from flask_cors import CORS
+from flask_mail import Mail
 import json
 import logging
 import os
@@ -57,6 +58,15 @@ CORS(app, supports_credentials=True)
 
 # API configuration
 app.register_blueprint(api, url_prefix='/api')
+
+# SMTP configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'circlindev@circlin.co.kr'
+app.config['MAIL_PASSWORD'] = 'circlinDev2019!'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+mail = Mail(app)
 
 
 # Logging configuration    # Deactivate here at development environment
