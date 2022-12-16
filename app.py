@@ -12,6 +12,33 @@ from werkzeug.exceptions import HTTPException, default_exceptions
 
 app = Flask(__name__)
 
+# Cache configuration
+cache_config = {
+    "DEBUG": True,          # some Flask specific configs
+    "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
+    "CACHE_DIR": os.getenv("CACHE_DIR") or f"./_cache",
+    "CACHE_DEFAULT_TIMEOUT": 5 * 60
+}
+cache.init_app(app=app, config=cache_config)
+
+
+# CORS configuration
+CORS(app, supports_credentials=True)
+
+
+# API configuration
+app.register_blueprint(api, url_prefix='/api')
+
+# SMTP configuration
+app.config['MAIL_SERVER'] = 'smtp.gmail.com'
+app.config['MAIL_PORT'] = 465
+app.config['MAIL_USERNAME'] = 'circlindev@circlin.co.kr'
+app.config['MAIL_PASSWORD'] = 'circlinDev2019!'
+app.config['MAIL_USE_TLS'] = False
+app.config['MAIL_USE_SSL'] = True
+mail = Mail(app)
+app.mail = mail
+
 
 @app.errorhandler(Exception)
 def internal_error(error):
@@ -40,33 +67,6 @@ def internal_error(error):
         type=error_type,
     )
     return json.dumps(failed_response(error_message), ensure_ascii=False), status_code
-
-
-# Cache configuration
-cache_config = {
-    "DEBUG": True,          # some Flask specific configs
-    "CACHE_TYPE": "FileSystemCache",  # Flask-Caching related configs
-    "CACHE_DIR": os.getenv("CACHE_DIR") or f"./_cache",
-    "CACHE_DEFAULT_TIMEOUT": 5 * 60
-}
-cache.init_app(app=app, config=cache_config)
-
-
-# CORS configuration
-CORS(app, supports_credentials=True)
-
-
-# API configuration
-app.register_blueprint(api, url_prefix='/api')
-
-# SMTP configuration
-app.config['MAIL_SERVER'] = 'smtp.gmail.com'
-app.config['MAIL_PORT'] = 465
-app.config['MAIL_USERNAME'] = 'circlindev@circlin.co.kr'
-app.config['MAIL_PASSWORD'] = 'circlinDev2019!'
-app.config['MAIL_USE_TLS'] = False
-app.config['MAIL_USE_SSL'] = True
-mail = Mail(app)
 
 
 # Logging configuration    # Deactivate here at development environment
