@@ -33,7 +33,7 @@ class AbstractFeedCheckRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_current_like_count_of_user(self, user: User) -> int:
+    def get_point_paid_like_count(self, user: User) -> int:
         pass
 
     @abc.abstractmethod
@@ -141,7 +141,7 @@ class FeedCheckRepository(AbstractFeedCheckRepository):
         total_count = self.session.execute(sql).scalar()
         return total_count
 
-    def get_current_like_count_of_user(self, user: User) -> int:
+    def get_point_paid_like_count(self, user: User) -> int:
         sql = select(
             func.count(FeedCheck.id)
         ).where(

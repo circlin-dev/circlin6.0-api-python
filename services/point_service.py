@@ -23,7 +23,7 @@ def points_available_to_receive_for_the_rest_of_the_day(user_id: int, reasons: l
     :param user_id:
     :param reasons: 포인트 지급/회수 사유
     :param point_history_repo:
-    :return: 오늘 하루 reasons 배열에 해당하는 사유로 획득한 포인트의 총합
+    :return: 오늘 하루 reasons 배열에 해당하는 사유로 획득할 수 있는 남은 금액, 획득한 포인트의 총합(current_gathered_point)
     """
     current_gathered_point: int = point_history_repo.calculate_daily_gathered_point_by_reasons(user_id, reasons)
     available_point: int = DAILY_POINT_LIMIT_FOR_FEED_CHECK_FEED_COMMENT - current_gathered_point
