@@ -45,3 +45,30 @@ class UserFavoriteCategory:
         self.id = id
         self.user_id = user_id
         self.mission_category_id = mission_category_id
+
+
+class UserStat:
+    def __init__(
+            self,
+            user_id: int,
+            birthday: str or None,
+            height: float or None,
+            weight: float or None,
+            bmi: float or None,
+            yesterday_feeds_count: int or None
+    ):
+        self.user_id = user_id
+        self.birthday = birthday
+        self.height = height
+        self.weight = weight
+        self.bmi = bmi
+        self.yesterday_feeds_count: yesterday_feeds_count
+
+
+class UserWallpaper:
+    def __init__(self, id: int or None, created_at: str, user_id: int, title: str, image: str):
+        self.id = id
+        self.created_at = created_at
+        self.user_id = user_id
+        self.title = title
+        self.image = image

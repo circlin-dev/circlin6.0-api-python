@@ -16,18 +16,30 @@ import json
 from sqlalchemy.orm import clear_mappers
 
 
-@api.route('/user')
+@api.route('/user', methods=['GET'])
 def get_a_user():
-    user_mappers()
-    repo = UserRepository(db_session)
-    user = repo.get_one(user_id=64477)["User"]
-    entries = dict(id=user.id,
-                   created_at=user.created_at.strftime('%Y/%m/%d'),
-                   updated_at=user.updated_at.strftime('%Y/%m/%d'),
-                   nickname=user.nickname,
-                   ) if user is not None else {}
-    clear_mappers()
-    return json.dumps(entries, ensure_ascii=False), 200
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if request.method == 'GET':
+        user_mappers()
+        user_repo: UserRepository = UserRepository(db_session)
+        user_favorite_category_repo: UserFavoriteCategoryRepository = UserFavoriteCategoryRepository(db_session)
+        get_user_data: dict = user_service.get_user_data(user_id, user_repo, user_favorite_category_repo)
+        clear_mappers()
+
+        if get_user_data['result']:
+            db_session.close()
+            return json.dumps(get_user_data, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in get_user_data.items() if key != 'status_code'}, ensure_ascii=False), get_user_data['status_code']
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/users')

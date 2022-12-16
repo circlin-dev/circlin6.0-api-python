@@ -1,5 +1,6 @@
-import abc
+from adapter.orm import mission_categories, user_favorite_categories
 from domain.user import UserFavoriteCategory
+import abc
 from sqlalchemy import select, delete, insert, desc
 
 
@@ -32,13 +33,14 @@ class UserFavoriteCategoryRepository(AbstractUserFavoriteCategoryRepository):
 
     def get_favorites(self, user_id) -> list:
         sql = select(
-            UserFavoriteCategory.mission_category_id
+            mission_categories.c.id,
+            mission_categories.c.title,
+        ).join(
+            user_favorite_categories, user_favorite_categories.c.mission_category_id == mission_categories.c.id
         ).where(
-            UserFavoriteCategory.user_id == user_id
-        ).order_by(
-            desc(UserFavoriteCategory.mission_category_id)
+            user_favorite_categories.c.user_id == user_id
         )
-        result = self.session.execute(sql).scalars().all()   # version2.x 스타일!
+        result = self.session.execute(sql).all()   # version2.x 스타일!
         return result
 
     def delete(self, favorite_category):

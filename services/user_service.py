@@ -9,6 +9,49 @@ import bcrypt
 import json
 
 
+def get_user_data(user_id: int, user_repo: AbstractUserRepository, user_favorite_category_repo: AbstractUserFavoriteCategoryRepository):
+    target_user: User = user_repo.user_data(user_id)
+
+    if target_user is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        user_favorite_category: list = user_favorite_category_repo.get_favorites(target_user.id)
+        user_favorite_category: list = [dict(
+            id=category.id,
+            title=category.title
+        ) for category in user_favorite_category] if user_favorite_category is not None else []
+
+        user_dict: dict = dict(
+            # id=target_user.id,
+            area=target_user.area,
+            agree1=True if target_user.agree1 == 1 else False,
+            agree2=True if target_user.agree2 == 1 else False,
+            agree3=True if target_user.agree3 == 1 else False,
+            agree4=True if target_user.agree4 == 1 else False,
+            agree5=True if target_user.agree5 == 1 else False,
+            agreePush=True if target_user.agree_push == 1 else False,
+            agreePushMission=True if target_user.agree_push_mission == 1 else False,
+            badge=json.loads(target_user.badge),
+            birthday=target_user.birthday,
+            category=user_favorite_category,
+            gender=target_user.gender,
+            greeting=target_user.greeting,
+            inviteCode=target_user.invite_code,
+            nickname=target_user.nickname,
+            point=target_user.point,
+            profile=target_user.profile_image,
+            wallpapers=json.loads(target_user.wallpapers) if json.loads(target_user.wallpapers)[0]['id'] is not None else []
+        )
+        result = {
+            'result': True,
+            'data': user_dict
+        }
+        return result
+
+
 def get_a_user(user_id: int, repo: AbstractUserRepository) -> User:
     user: User = repo.get_one(user_id)
     return user
