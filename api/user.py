@@ -130,6 +130,32 @@ def update_password():
         return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
+@api.route('/user/withdraw', methods=['DELETE'])
+def withdraw():
+    user_id = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    data: dict = json.loads(request.get_data())
+    if 'reason' not in data.keys():
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (reason)'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+    else:
+        reason = data['reason']
+        user_mappers()
+        user_repo: UserRepository = UserRepository(db_session)
+        withdraw = user_service.withdraw(user_id, reason, user_repo)
+        clear_mappers()
+
+        if withdraw['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(withdraw, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in withdraw.items() if key != 'status_code'}, ensure_ascii=False), withdraw['status_code']
 
 
 @api.route('/user/<int:target_user_id>/favoriteCategory', methods=['GET', 'POST', 'DELETE'])

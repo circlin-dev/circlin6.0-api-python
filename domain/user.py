@@ -1,3 +1,9 @@
+class DeleteUser:
+    def __init__(self, user_id: int, reason: str or None):
+        self.user_id = user_id
+        self.reason = reason
+
+
 class Follow:
     def __init__(self, user_id: int, target_id: int):
         self.user_id = user_id
