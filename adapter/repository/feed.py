@@ -128,7 +128,7 @@ class FeedRepository(AbstractFeedRepository):
             ).join(
                 FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
             ).where(
-                FeedCheck.feed_id == Feed.id
+                and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)
             ).label('checked_users'),
             func.ifnull(
                 case(
@@ -332,7 +332,7 @@ class FeedRepository(AbstractFeedRepository):
                     ).join(
                         FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
                     ).where(
-                        FeedCheck.feed_id == Feed.id
+                        and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)
                     ).label('checked_users'),
 
                     func.json_arrayagg(
@@ -498,7 +498,7 @@ class FeedRepository(AbstractFeedRepository):
                     ).join(
                         FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
                     ).where(
-                        FeedCheck.feed_id == Feed.id
+                        and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)
                     ).label('checked_users'),
                     area.label('area'),
                     case((User.id.in_(followings), 1), else_=0).label("followed"),
@@ -686,7 +686,7 @@ class FeedRepository(AbstractFeedRepository):
                     ).join(
                         FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
                     ).where(
-                        FeedCheck.feed_id == feed_candidate_query.c.id
+                        and_(FeedCheck.feed_id == feed_candidate_query.c.id, FeedCheck.deleted_at == None)
                     ).label('checked_users'),
                     area.label('area'),
                     case((User.id.in_(followings), 1), else_=0).label("followed"),
@@ -954,7 +954,7 @@ class FeedRepository(AbstractFeedRepository):
             ).join(
                 feed_likes_aliased, feed_likes_aliased.user_id == users_aliased.id, isouter=True
             ).where(
-                feed_likes_aliased.feed_id == Feed.id
+                and_(feed_likes_aliased.feed_id == Feed.id, feed_likes_aliased.deleted_at == None)
             ).label('checked_users'),
             area.label('area'),
             case((User.id.in_(followings), 1), else_=0).label("followed"),
@@ -1138,7 +1138,7 @@ class FeedRepository(AbstractFeedRepository):
             ).join(
                 FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
             ).where(
-                FeedCheck.feed_id == Feed.id
+                and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)
             ).label('checked_users'),
             area.label('area'),
             case((User.id.in_(followings), 1), else_=0).label("followed"),
@@ -1308,7 +1308,7 @@ class FeedRepository(AbstractFeedRepository):
             ).join(
                 FeedCheck, FeedCheck.user_id == users_aliased.id, isouter=True
             ).where(
-                FeedCheck.feed_id == Feed.id
+                and_(FeedCheck.feed_id == Feed.id, FeedCheck.deleted_at == None)
             ).label('checked_users'),
             User.id.label('user_id'),
             User.nickname,
