@@ -92,9 +92,9 @@ def update_password():
             error_message = f'{ERROR_RESPONSE[400]} (newPasswordValidation)'
             return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
-            current_password: str = params['currentPassword']
-            new_password: str = params['newPassword']
-            new_password_validation: str = params['newPasswordValidation']
+            current_password: str = str(params['currentPassword'])
+            new_password: str = str(params['newPassword'])
+            new_password_validation: str = str(params['newPasswordValidation'])
 
             user_mappers()
             user_repo: UserRepository = UserRepository(db_session)

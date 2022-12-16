@@ -46,8 +46,6 @@ def update_password(user_id: int, current_password_input: str, new_password_inpu
         result['status_code'] = 400
         return result
 
-    decoded_hashed_current_password_database: str = target_user.password
-
     if target_user.login_method != 'email':
         error_message = '이메일로 가입한 유저가 아닙니다. SNS 로그인으로 시작하신 유저는 비밀번호를 변경할 수 없습니다.'
         result = failed_response(error_message)
