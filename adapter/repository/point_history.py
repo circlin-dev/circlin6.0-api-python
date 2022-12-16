@@ -15,7 +15,7 @@ class AbstractPointHistoryRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def calculate_daily_gathered_point_by_reasons(self, user_id: int, reasons: list) -> int:
+    def calculate_daily_gathered_point_by_reasons(self, user_id: int, reasons: list, date: str) -> int:
         pass
 
     @abc.abstractmethod
@@ -80,19 +80,34 @@ class PointHistoryRepository(AbstractPointHistoryRepository):
     def get_list(self, user_id: int, page_cursor: int, limit: int) -> list:
         pass
 
-    def calculate_daily_gathered_point_by_reasons(self, user_id: int, reasons: list) -> int:
-        sql = select(
-            func.sum(point_histories.c.point)
-        ).where(
-            and_(
-                point_histories.c.user_id == user_id,
-                func.TIMESTAMPDIFF(text("DAY"), point_histories.c.created_at, func.now()) == 0,
-                point_histories.c.created_at >= func.DATE(func.now()),
-                point_histories.c.reason.in_(reasons)
+    def calculate_daily_gathered_point_by_reasons(self, user_id: int, reasons: list, date: str) -> int:
+        if date == 'today':
+            sql = select(
+                func.sum(point_histories.c.point)
+            ).where(
+                and_(
+                    point_histories.c.user_id == user_id,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(point_histories.c.created_at), func.now()) == 0,
+                    point_histories.c.created_at >= func.DATE(func.now()),
+                    point_histories.c.reason.in_(reasons)
+                )
             )
-        )
-        result = self.session.execute(sql).scalar()
-        return 0 if result is None else int(result)
+            result = self.session.execute(sql).scalar()
+            return 0 if result is None else int(result)
+        elif date == 'yesterday':
+            sql = select(
+                func.sum(point_histories.c.point)
+            ).where(
+                and_(
+                    point_histories.c.user_id == user_id,
+                    func.TIMESTAMPDIFF(text("DAY"), func.now(), func.DATE(point_histories.c.created_at)) == -1,
+                    point_histories.c.reason.in_(reasons)
+                )
+            )
+            result = self.session.execute(sql).scalar()
+            return 0 if result is None else int(result)
+        else:
+            return 0
 
     def calculate_feed_comment_point_by_feed_id_and_user_id(self, feed_id: int, user_id: int) -> int:
         sql = select(

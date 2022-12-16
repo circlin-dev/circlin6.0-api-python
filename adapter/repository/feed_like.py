@@ -88,7 +88,7 @@ class FeedCheckRepository(AbstractFeedCheckRepository):
                 FeedCheck.deleted_at == None,
                 FeedCheck.user_id == user_who_likes_the_feed.id,
                 FeedCheck.point > 0,
-                func.TIMESTAMPDIFF(text("DAY"), FeedCheck.created_at, func.now()) == 0,
+                func.TIMESTAMPDIFF(text("DAY"), func.DATE(FeedCheck.created_at), func.now()) == 0,
                 FeedCheck.created_at >= func.DATE(func.now()),
                 Feed.user_id == target_feed.user_id
             )
@@ -149,7 +149,7 @@ class FeedCheckRepository(AbstractFeedCheckRepository):
                 FeedCheck.user_id == user.id,
                 FeedCheck.point > 0,
                 FeedCheck.created_at >= func.DATE(func.now()),
-                func.TIMESTAMPDIFF(text("DAY"), FeedCheck.created_at, func.now()) == 0,
+                func.TIMESTAMPDIFF(text("DAY"), func.DATE(FeedCheck.created_at), func.now()) == 0,
                 FeedCheck.deleted_at == None
             )
         )

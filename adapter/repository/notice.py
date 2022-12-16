@@ -56,7 +56,7 @@ class NoticeRepository(AbstractNoticeRepository):
             Notice.is_show,
             Notice.deleted_at,
             case(
-                (func.TIMESTAMPDIFF(text("DAY"), Notice.created_at, func.now()) <= 7, 1),
+                (func.TIMESTAMPDIFF(text("DAY"), func.DATE(Notice.created_at), func.now()) <= 7, 1),
                 else_=0
             ).label("is_recent"),
             func.json_arrayagg(
@@ -86,7 +86,7 @@ class NoticeRepository(AbstractNoticeRepository):
             func.date_format(Notice.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             Notice.title,
             case(
-                (func.TIMESTAMPDIFF(text("DAY"), Notice.created_at, func.now()) <= 7, 1),
+                (func.TIMESTAMPDIFF(text("DAY"), func.DATE(Notice.created_at), func.now()) <= 7, 1),
                 else_=0
             ).label("is_recent"),
             func.concat(func.lpad(Notice.id, 15, '0')).label('cursor'),
