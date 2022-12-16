@@ -35,7 +35,7 @@ class AbstractFeedRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_feeds_by_user(self, user_id: int, page_cursor: int, limit: int) -> list:
+    def get_feeds_by_user(self, target_user_id: int, request_user_id: int, page_cursor: int, limit: int) -> list:
         pass
 
     @abc.abstractmethod
@@ -1082,11 +1082,11 @@ class FeedRepository(AbstractFeedRepository):
         result = self.session.execute(sql).scalar()
         return result
 
-    def get_feeds_by_user(self, user_id: int, page_cursor: int, limit: int) -> list:
+    def get_feeds_by_user(self, target_user_id: int, request_user_id: int, page_cursor: int, limit: int) -> list:
         users_aliased = aliased(User)
 
         area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
-        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == user_id)
+        block_targets = select(blocks.c.target_id).where(blocks.c.user_id == request_user_id)
         comments_count = select(
             func.count(feed_comments.c.id)
         ).where(and_(
@@ -1094,7 +1094,7 @@ class FeedRepository(AbstractFeedRepository):
             feed_comments.c.deleted_at == None
         ))
         follower_count = select(func.count(follows.c.id)).where(follows.c.target_id == User.id)
-        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+        followings = select(follows.c.target_id).where(follows.c.user_id == request_user_id)
 
         sql = select(
             Feed.id,
@@ -1115,7 +1115,7 @@ class FeedRepository(AbstractFeedRepository):
             Feed.is_hidden,
             func.date_format(Feed.deleted_at, '%Y/%m/%d %H:%i:%s').label('deleted_at'),
             case(
-                (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {user_id} AND deleted_at IS NULL) > 0"), 1),
+                (text(f"(SELECT COUNT(*) FROM feed_likes WHERE feed_id = feeds.id AND user_id = {request_user_id} AND deleted_at IS NULL) > 0"), 1),
                 else_=0
             ).label('checked'),
 
@@ -1147,9 +1147,9 @@ class FeedRepository(AbstractFeedRepository):
 
             func.ifnull(
                 case(
-                    (user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
+                    (request_user_id == User.id, None),  # user_id == User.id 일 때 아래 서브쿼리에서 에러 발생(Error: Subquery returns more than 1 rows)
                     else_=text(
-                        f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
+                        f"(SELECT cu1.is_block FROM chat_users cu1, chat_users cu2 WHERE cu1.chat_room_id = cu2.chat_room_id AND cu1.user_id={request_user_id} AND cu2.user_id=users.id AND cu1.deleted_at IS NULL)")
                 ),
                 0
             ).label("is_chat_blocked"),
@@ -1173,7 +1173,7 @@ class FeedRepository(AbstractFeedRepository):
                         ).where(
                             and_(
                                 mission_stats.c.mission_id == missions.c.id,
-                                mission_stats.c.user_id == user_id,
+                                mission_stats.c.user_id == request_user_id,
                                 mission_stats.c.ended_at == None
                             )
                         ).limit(1)
@@ -1236,7 +1236,7 @@ class FeedRepository(AbstractFeedRepository):
             outside_products, outside_products.c.id == FeedProduct.outside_product_id, isouter=True
         ).where(
             and_(
-                Feed.user_id == user_id,
+                Feed.user_id == target_user_id,
                 Feed.deleted_at == None,
                 Feed.id < page_cursor,
             )
@@ -1245,6 +1245,7 @@ class FeedRepository(AbstractFeedRepository):
         ).order_by(desc(Feed.id)).limit(limit)
 
         result = self.session.execute(sql)
+
         return result
 
     def count_number_of_feed_of_user(self, user_id: int) -> int:
