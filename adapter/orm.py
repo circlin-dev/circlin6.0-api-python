@@ -10,7 +10,7 @@ from domain.notification import Notification
 from domain.point_history import PointHistory
 from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
-from domain.user import Follow, User, UserFavoriteCategory, UserStat, UserWallpaper
+from domain.user import DeleteUser, Follow, User, UserFavoriteCategory, UserStat, UserWallpaper
 from domain.version import Version
 
 from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, Table, TIMESTAMP, text
@@ -150,7 +150,19 @@ common_codes = Table(
     Column("content_en", VARCHAR(255)),
     Column("description", VARCHAR(255))
 )
+# endregion
 
+
+# region deleted users
+delete_users = Table(
+    "delete_users",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("reason", TEXT, comment='탈퇴사유')
+)
 
 # endregion
 
@@ -893,6 +905,18 @@ def common_code_mappers():
         properties={"notifications": relationship(notifications)}
     )
     return mapper
+# endregion
+
+
+# region deleted users
+def delete_user_mappers():
+    mapper = mapper_registry.map_imperatively(
+        DeleteUser,
+        delete_users,
+        properties={"users": relationship(User)}
+    )
+    return mapper
+
 # endregion
 
 

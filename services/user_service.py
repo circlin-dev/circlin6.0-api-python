@@ -177,6 +177,12 @@ def update_password(user_id: int, current_password_input: str, new_password_inpu
         decoded_hashed_new_password_input: str = decode_string(hashed_new_password_input, 'ascii')
         user_repo.update_password(target_user, decoded_hashed_new_password_input)
         return {'result': True}
+
+
+def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
+    user_repo.delete(user_id, reason)
+
+    return {'result': True}
 # endregion
 
 

@@ -1,9 +1,9 @@
-from adapter.orm import areas, feeds, feed_likes, notifications, point_histories, user_stats, user_wallpapers
+from adapter.orm import areas, delete_users, feeds, feed_likes, notifications, point_histories, user_stats, user_wallpapers
 from domain.user import User, UserFavoriteCategory, UserStat
 
 import abc
 from sqlalchemy.sql import func
-from sqlalchemy import select, and_, text, update
+from sqlalchemy import and_, insert, select, text, update
 
 
 class AbstractUserRepository(abc.ABC):
@@ -36,7 +36,7 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def delete(self, target_user) -> User:
+    def delete(self, user_id: int, reason: str or None):
         pass
 
     @abc.abstractmethod
@@ -180,13 +180,13 @@ class UserRepository(AbstractUserRepository):
         )
         return self.session.execute(sql)
 
-    def delete(self, target_user):
-        return self.session.query(User).filter_by(id=target_user.id).update(
-            {
-                "deleted_at": func.Now()
-            },
-            synchronize_session="fetch"
-        )
+    def delete(self, user_id: int, reason: str or None):
+        sql = update(User).where(User.id == user_id).values(deleted_at=func.now())
+        self.session.execute(sql)
+
+        sql = insert(delete_users).values(user_id=user_id, reason=reason)
+        self.session.execute(sql)
+        return True
 
     def get_push_target(self, targets: list) -> list:
         sql = select(
