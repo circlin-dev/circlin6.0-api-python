@@ -1,5 +1,4 @@
-from app import mail
-from flask_mail import Mail, Message
+# from app import mail
 from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
@@ -12,6 +11,8 @@ from helper.constant import REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from helper.function import failed_response
 
 import bcrypt
+from flask import current_app
+from flask_mail import Message
 import json
 
 
@@ -198,10 +199,10 @@ def send_temporary_password_by_email(temp_password: str, recipients: str):
     message = Message(
         subject='[써클인] 임시 비밀번호 발급 안내 메일',
         html=html_message,
-        sender='circlindev@circlin.co.kr',
+        sender=current_app.config.get('MAIL_USERNAME'),  # 'circlindev@circlin.co.kr',
         recipients=[recipients]
     )
-    mail.send(message)
+    current_app.mail.send(message)
     return True
 # endregion
 
