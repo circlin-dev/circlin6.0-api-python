@@ -1,5 +1,7 @@
+from adapter.orm import areas, notifications, user_stats, user_wallpapers
+from domain.user import User, UserFavoriteCategory, UserStat
+
 import abc
-from domain.user import User, UserFavoriteCategory
 from sqlalchemy.sql import func
 from sqlalchemy import select, and_, update
 
@@ -7,6 +9,10 @@ from sqlalchemy import select, and_, update
 class AbstractUserRepository(abc.ABC):
     @abc.abstractmethod
     def add(self, new_version):
+        pass
+
+    @abc.abstractmethod
+    def user_data(self, user_id: int):
         pass
 
     @abc.abstractmethod
@@ -45,14 +51,69 @@ class UserRepository(AbstractUserRepository):
     def add(self, version):
         self.session.add(version)
 
-    def get_one(self, user_id: int):
+    def user_data(self, user_id: int):
+        area = select(
+            areas.c.name
+        ).where(
+            areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')
+        ).limit(1)
+
+        unread_notifications_count = select(
+            func.count(notifications.c.id)
+        ).where(and_(
+            notifications.c.target_id == user_id,
+            notifications.c.read_at == None
+        ))
+
+        unread_messages_count = ()
+
         sql = select(
-            User
+            User.id,
+            User.agree1,
+            User.agree2,
+            User.agree3,
+            User.agree4,
+            User.agree5,
+            User.agree_push,
+            User.agree_push_mission,
+            area.label('area'),
+            func.date_format(user_stats.c.birthday, '%Y/%m/%d').label('birthday'),
+            User.gender,
+            User.greeting,
+            User.invite_code,
+            User.nickname,
+            User.point,
+            User.profile_image,
+            func.json_arrayagg(
+                func.json_object(
+                    'id', user_wallpapers.c.id,
+                    'createdAt', func.date_format(user_wallpapers.c.created_at, '%Y/%m/%d %H:%i:%s'),
+                    'title', user_wallpapers.c.title,
+                    'path', user_wallpapers.c.image
+                )
+            ).label('wallpapers'),
+            func.json_object(
+                'notifications', unread_notifications_count,
+                'messages', unread_messages_count,
+            ).label('badge')
+        ).join(
+            user_stats, user_stats.c.user_id == User.id, isouter=True
+        ).join(
+            user_wallpapers, user_wallpapers.c.user_id == User.id, isouter=True
         ).where(
             and_(
                 User.id == user_id,
-                User.deleted_at == None
+                User.deleted_at == None,
             )
+        ).limit(1)
+        result = self.session.execute(sql).first()
+        return result
+
+    def get_one(self, user_id: int) -> User:
+        sql = select(
+            User
+        ).where(
+            and_(User.id == user_id, User.deleted_at == None)
         ).limit(1)
         result = self.session.execute(sql).scalars().first()
         return result

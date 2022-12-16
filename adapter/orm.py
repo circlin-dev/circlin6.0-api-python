@@ -10,10 +10,10 @@ from domain.notification import Notification
 from domain.point_history import PointHistory
 from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
-from domain.user import Follow, User, UserFavoriteCategory
+from domain.user import Follow, User, UserFavoriteCategory, UserStat, UserWallpaper
 from domain.version import Version
 
-from sqlalchemy import Table, Column, Integer, TIMESTAMP, text, Float, ForeignKey, JSON
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, Table, TIMESTAMP, text
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, INTEGER
 from sqlalchemy.orm import registry, relationship
 
@@ -733,6 +733,35 @@ user_favorite_categories = Table(
     Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("mission_category_id", BIGINT(unsigned=True), ForeignKey('mission_categories.id'), nullable=False, index=True)
 )
+
+
+user_stats = Table(
+    "user_stats",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", ForeignKey('users.id'), nullable=False, index=True),
+    Column("birthday", DateTime, comment='생년월일'),
+    Column("height", Float(8, True)),
+    Column("weight", Float(8, True)),
+    Column("bmi", Float(8, True)),
+    Column("yesterday_feeds_count", INTEGER, nullable=False, server_default=text("'0'"), comment='어제 체크해야했던 피드 수'),
+)
+
+
+user_wallpapers = Table(
+    "user_wallpapers",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", ForeignKey('users.id'), nullable=False, index=True),
+    Column("title", VARCHAR(255), comment='스킨 이름'),
+    Column("image", VARCHAR(255), nullable=False),
+    Column("thumbnail_image", VARCHAR(255)),
+    Column("deleted_at", TIMESTAMP),
+)
 # endregion
 
 
@@ -1334,6 +1363,18 @@ def user_favorite_category_mappers():
         }
     )
     return user_favorite_category_mapper
+
+
+def user_stat_mappers():
+    mapper_registry.map_imperatively(User, users)
+    user_stat_mapper = mapper_registry.map_imperatively(UserStat, user_stats, properties={"users": relationship(User)})
+    return user_stat_mapper
+
+
+def user_wallpaper_mappers():
+    mapper_registry.map_imperatively(User, users)
+    user_wallpaper_mapper = mapper_registry.map_imperatively(UserWallpaper, user_wallpapers, properties={"users": relationship(User)})
+    return user_wallpaper_mapper
 # endregion
 
 
