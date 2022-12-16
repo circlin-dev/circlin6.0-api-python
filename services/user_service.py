@@ -1,3 +1,5 @@
+from app import mail
+from flask_mail import Mail, Message
 from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
@@ -59,20 +61,6 @@ def get_user_data(
             'yesterday',
             point_history_repo
         )
-
-
-        # amount_of_points_user_received_by_check_today = point_history_repo.calculate_daily_gathered_point_by_reasons(target_user.id, [])
-        # sql = select(
-        #     func.sum(point_histories.c.point)
-        # ).where(
-        #     and_(
-        #         point_histories.c.user_id == user_id,
-        #         func.TIMESTAMPDIFF(text("DAY"), point_histories.c.created_at, func.now()) == 0,
-        #         point_histories.c.created_at >= func.DATE(func.now()),
-        #         point_histories.c.reason.in_(reasons)
-        #     )
-        # )
-        # result = self.session.execute(sql).scalar()
 
         user_dict: dict = dict(
             id=target_user.id,
@@ -177,6 +165,45 @@ def update_password(user_id: int, current_password_input: str, new_password_inpu
         decoded_hashed_new_password_input: str = decode_string(hashed_new_password_input, 'ascii')
         user_repo.update_password(target_user, decoded_hashed_new_password_input)
         return {'result': True}
+
+
+def issue_temporary_password_and_send_email(email: str, user_repo: AbstractUserRepository):
+    """
+    (1) 전달된 email로 get a user
+    (2) login_method == 'email' 인지 확인 필요 - 아닐 경우 고객센터로 문의 유도
+    (3) 임시 비밀번호 생성 (문자열 -> 인코딩 -> 암호화)
+    (4) 임시 비밀번호(문자열)를 입력받은 메일로 발송
+    (5) 임시 비밀번호로 비밀번호 업데이트 (암호화 -> 디코딩 -> UPDATE)
+    :param email:
+    :param user_repo:
+    :return:
+    """
+    temp_password = 'skdisk12!!'
+    send_temporary_password_by_email(temp_password, email)
+    return {'result': True}
+
+
+def send_temporary_password_by_email(temp_password: str, recipients: str):
+    html_message = f"""
+안녕하세요, 고객님! 써클인 입니다.<br>
+비밀번호 찾기를 요청하신 고객님께 임시 비밀번호를 발송 드립니다.<br><br>
+임시 비밀번호: <b>{temp_password}</b><br><br>
+발급해드린 임시 비밀번호를 이용하여 패스워드를 반드시 변경해주시기 바랍니다.<br>
+써클인 앱에 로그인하신 후 [<b>마이페이지</b> -> <b>옵션</b> -> <b>비밀번호 변경</b>] 을 통해 패스워드를 변경하실 수 있습니다.<br><br>
+<b>직접 비밀번호 찾기를 요청하신 것이 아니라면</b>,<br>
+<b>카카오톡 채널 -> '써클인'</b>을 검색하셔서 채팅 상담을 통해 신고해 주시기 바랍니다.<br><br>
+더욱 더 노력하는 써클인이 되겠습니다<br>
+감사합니다.
+"""
+    message = Message(
+        subject='[써클인] 임시 비밀번호 발급 안내 메일',
+        html=html_message,
+        sender='circlindev@circlin.co.kr',
+        recipients=[recipients]
+    )
+    mail.send(message)
+    return True
+# endregion
 
 
 def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
