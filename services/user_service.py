@@ -229,7 +229,7 @@ def issue_temporary_password_and_send_email(email: str, user_repo: AbstractUserR
 
 def send_temporary_password_by_email(temp_password: str, recipients: list):
     html_message = f"""
-안녕하세요, 고객님!! 써클인 입니다.<br>
+안녕하세요, 고객님! 써클인 입니다.<br>
 비밀번호 찾기를 요청하신 고객님께 임시 비밀번호를 발송 드립니다.<br><br>
 임시 비밀번호: <b>{temp_password}</b><br><br>
 발급해드린 임시 비밀번호를 이용하여 패스워드를 반드시 변경해주시기 바랍니다.<br>

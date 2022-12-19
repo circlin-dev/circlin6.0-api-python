@@ -273,7 +273,7 @@ class FeedRepository(AbstractFeedRepository):
             followings_number = select(func.count(follows.c.target_id)).where(follows.c.user_id == user_id)
             current_number_of_following = self.session.execute(followings_number).scalar()
 
-            if current_number_of_following >= 10:
+            if current_number_of_following < 10:
                 # newsfeed only
                 customized_sort_query = select(
                     Feed.id,
@@ -301,6 +301,7 @@ class FeedRepository(AbstractFeedRepository):
                         ),
                         False
                     ).label('checked'),
+                    comments_count.label('comments_count'),
 
                     User.id.label('user_id'),
                     User.nickname,
@@ -314,7 +315,6 @@ class FeedRepository(AbstractFeedRepository):
                         ),
                         0
                     ).label("is_chat_blocked"),
-                    comments_count.label('comments_count'),
                     area.label('area'),
                     case((User.id.in_(followings), 1), else_=0).label("followed"),
                     follower_count.label('followers'),
@@ -623,7 +623,8 @@ class FeedRepository(AbstractFeedRepository):
                 ).group_by(FeedCheck.feed_id).order_by(desc(FeedCheck.id)).alias("t")
 
                 feed_candidate_query = select(
-                    Feed
+                    Feed,
+                    comments_count.label('comments_count')
                 ).select_from(
                     nested_query
                 ).join(
@@ -667,12 +668,12 @@ class FeedRepository(AbstractFeedRepository):
                         ),
                         False
                     ).label('checked'),
-
                     User.id.label('user_id'),
                     User.nickname,
-                    User.gender,
                     User.profile_image,
-                    comments_count.label('comments_count'),
+                    User.gender,
+                    feed_candidate_query.c.comments_count,
+                    # comments_count.label('comments_count'),
                     select(
                         func.json_arrayagg(
                             func.json_object(
