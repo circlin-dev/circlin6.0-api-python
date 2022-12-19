@@ -273,7 +273,7 @@ class FeedRepository(AbstractFeedRepository):
             followings_number = select(func.count(follows.c.target_id)).where(follows.c.user_id == user_id)
             current_number_of_following = self.session.execute(followings_number).scalar()
 
-            if current_number_of_following < 10:
+            if current_number_of_following >= 10:
                 # newsfeed only
                 customized_sort_query = select(
                     Feed.id,
@@ -940,6 +940,7 @@ class FeedRepository(AbstractFeedRepository):
             users.c.id.label('user_id'),
             users.c.nickname,
             users.c.profile_image,
+            area.label('area'),
 
             comments_count.label('comments_count'),
             select(
@@ -957,7 +958,6 @@ class FeedRepository(AbstractFeedRepository):
             ).where(
                 and_(feed_likes_aliased.feed_id == Feed.id, feed_likes_aliased.deleted_at == None)
             ).label('checked_users'),
-            area.label('area'),
             case((User.id.in_(followings), 1), else_=0).label("followed"),
             follower_count.label('followers'),
             case((User.id.in_(block_targets), 1), else_=0).label("is_blocked"),
