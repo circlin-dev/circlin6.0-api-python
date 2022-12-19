@@ -399,6 +399,8 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
         isShow=True if feed.is_hidden == 0 else False,
         user=dict(
             id=feed.user_id,
+            area=feed['area'],
+            followers=feed.followers,
             nickname=feed.nickname,
             profile=feed.profile_image,
             isBlocked=True if feed.is_blocked == 1 else False,
@@ -407,7 +409,7 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
         checkedUsers=[dict(
             id=user['id'],
             nickname=user['nickname'],
-            profile=user['profile_image']
+            profile=user['profile_image'],
         ) for user in json.loads(feed.checked_users)] if feed.checked_users is not None else [],
         missions=[dict(
             id=mission['id'],
