@@ -487,5 +487,3 @@ def replace_notification_link_by_type(touch_area_direction: str, notification_ty
 #     connection.close()
 #     return True
 # # endregion
-
-
