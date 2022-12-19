@@ -118,7 +118,6 @@ def board_patch_delete(board_id: int):
         clear_mappers()
 
         if get_a_board['result']:
-            db_session.commit()
             db_session.close()
             return json.dumps(get_a_board, ensure_ascii=False), 200
         else:
