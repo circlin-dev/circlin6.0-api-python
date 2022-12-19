@@ -1053,7 +1053,7 @@ def feed_product_mappers():
 # region follow
 def follow_mappers():
     mapper_registry.map_imperatively(User, users)
-    mapper = mapper_registry.map_imperatively(Follow, follows, properties={"users": relationship(User)})
+    mapper = mapper_registry.map_imperatively(Follow, follows, properties={"users": relationship(User, primaryjoin='Follow.user_id == User.id')})
     return mapper
 # endregion
 

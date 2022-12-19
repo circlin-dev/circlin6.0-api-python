@@ -28,6 +28,7 @@ def block():
         block_list: list = block_service.get_list(user_id, page_cursor, limit, block_repo)
         blocked_user_count: int = block_service.count_number_of_blocked_user(user_id, block_repo)
         clear_mappers()
+        db_session.close()
 
         last_cursor: [str, None] = None if len(block_list) <= 0 else block_list[-1]['cursor']  # 배열 원소의 cursor string
 
