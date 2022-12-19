@@ -14,6 +14,8 @@ import bcrypt
 from flask import current_app
 from flask_mail import Message
 import json
+import random
+import string
 
 
 def get_user_data(
@@ -168,6 +170,15 @@ def update_password(user_id: int, current_password_input: str, new_password_inpu
         return {'result': True}
 
 
+def generate_random_password():
+    length: int = 8
+    pool: str = string.digits + string.ascii_letters
+    random_password: str = ''
+    for i in range(length):
+        random_password += random.choice(pool)
+    return random_password
+
+
 def issue_temporary_password_and_send_email(email: str, user_repo: AbstractUserRepository):
     """
     (1) 전달된 email로 get a user
@@ -175,18 +186,50 @@ def issue_temporary_password_and_send_email(email: str, user_repo: AbstractUserR
     (3) 임시 비밀번호 생성 (문자열 -> 인코딩 -> 암호화)
     (4) 임시 비밀번호(문자열)를 입력받은 메일로 발송
     (5) 임시 비밀번호로 비밀번호 업데이트 (암호화 -> 디코딩 -> UPDATE)
+
+    - flask_mail로 보낼 때 다음 사항은 파악이 불가하다.
+        (1) 이메일 전송 성공 여부: Google mail에서 이메일 발송 실패 여부를 받을 수는 있으나, flask_mail은 발송만 하고 발송 결과를 추적하지 않는다.
+            - 따라서 유효하지 않은 이메일 주소(수신이 불가한 상태인 주소)를 구분할 수는 없다.
+            - 따라서 유저가 올바르지 않은 형식의 이메일 주소(ex. invalid domain: myemail@test.com)를 입력한 상태라면,
+                API 결과는 True일지라도 실제로 이메일은 발송되지 않는다.
     :param email:
     :param user_repo:
     :return:
     """
-    temp_password = 'skdisk12!!'
-    send_temporary_password_by_email(temp_password, email)
-    return {'result': True}
+
+    target_user = user_repo.get_one_by_email(email)
+
+    if target_user is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+
+    elif target_user.login_method != 'email':
+        error_message = "이메일로 가입한 유저가 아닙니다. 가입하신 SNS 유형이 기억나지 않으신다면 카카오톡 채널 '써클인'으로 문의해 주세요."
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+
+    else:
+        temporary_password = generate_random_password()
+        sending_failed = send_temporary_password_by_email(temporary_password, [email])
+
+        if not sending_failed:  # <주의!> 발송 실패 시 메시지를 리턴하고, 성공적이면 None을 리턴함.
+            hashed_temporary_password: bytes = generate_hashed_password(temporary_password, 'ascii')
+            decoded_temporary_password: str = decode_string(hashed_temporary_password, 'ascii')
+            user_repo.update_password(target_user, decoded_temporary_password)
+            return {'result': True}
+        else:
+            error_message = "임시 비밀번호를 발송하지 못했습니다. 이 문제가 계속 발생한다면 카카오톡 채널 '써클인'으로 문의해 주세요."
+            result = failed_response(error_message)
+            result['status_code'] = 500
+            return result
 
 
-def send_temporary_password_by_email(temp_password: str, recipients: str):
+def send_temporary_password_by_email(temp_password: str, recipients: list):
     html_message = f"""
-안녕하세요, 고객님! 써클인 입니다.<br>
+안녕하세요, 고객님!! 써클인 입니다.<br>
 비밀번호 찾기를 요청하신 고객님께 임시 비밀번호를 발송 드립니다.<br><br>
 임시 비밀번호: <b>{temp_password}</b><br><br>
 발급해드린 임시 비밀번호를 이용하여 패스워드를 반드시 변경해주시기 바랍니다.<br>
@@ -200,16 +243,17 @@ def send_temporary_password_by_email(temp_password: str, recipients: str):
         subject='[써클인] 임시 비밀번호 발급 안내 메일',
         html=html_message,
         sender=current_app.config.get('MAIL_USERNAME'),  # 'circlindev@circlin.co.kr',
-        recipients=[recipients]
+        recipients=recipients
     )
-    current_app.mail.send(message)
-    return True
+
+    # <주의!> 발송 실패 시 AssertionError를 일으키고, 성공적이면 None을 리턴함.
+    result = current_app.mail.send(message)
+    return result
 # endregion
 
 
 def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
     user_repo.delete(user_id, reason)
-
     return {'result': True}
 # endregion
 

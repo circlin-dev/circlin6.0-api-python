@@ -76,6 +76,7 @@ def issue_temporary_password():
             error_message = f'{ERROR_RESPONSE[400]} (email)'
             return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
+            user_mappers()
             email: str = params['email']
             user_repo: UserRepository = UserRepository(db_session)
             issue_temporary_password_and_send_email = user_service.issue_temporary_password_and_send_email(email, user_repo)
