@@ -5,4 +5,4 @@ api = Blueprint('api', __name__)
 CORS(api, supports_credentials=True)
 
 
-from . import board, feed, food, mission, notice, notification, user, version
+from . import board, block, feed, follow, food, mission, notice, notification, report, user, version
