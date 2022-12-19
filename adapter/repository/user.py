@@ -20,6 +20,14 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_one_by_email(self, email: str) -> User:
+        pass
+
+    @abc.abstractmethod
+    def get_one_by_nickname(self, nickname: str) -> User:
+        pass
+
+    @abc.abstractmethod
     def get_list(self) -> User:
         pass
 
@@ -144,13 +152,31 @@ class UserRepository(AbstractUserRepository):
         ).where(
             and_(User.id == user_id, User.deleted_at == None)
         ).limit(1)
-        result = self.session.execute(sql).scalars().first()
-        return result
+        user = self.session.execute(sql).scalars().first()
+        return user
+
+    def get_one_by_email(self, email: str) -> User:
+        sql = select(
+            User
+        ).where(
+            and_(User.email == email, User.deleted_at == None)
+        ).limit(1)
+        user = self.session.execute(sql).scalars().first()
+        return user
+
+    def get_one_by_nickname(self, nickname: str) -> User:
+        sql = select(
+            User
+        ).where(
+            and_(User.nickname == nickname, User.deleted_at == None)
+        ).limit(1)
+        user = self.session.execute(sql).scalars().first()
+        return user
 
     def get_list(self):
         sql = select(User).limit(10)
-        result = self.session.execute(sql).scalars().all()
-        return result
+        users = self.session.execute(sql).scalars().all()
+        return users
 
     def update(self, target_user, nickname):
         return self.session.query(User).filter_by(id=target_user.id).update(
