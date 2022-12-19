@@ -10,6 +10,7 @@ from domain.notification import Notification
 from domain.point_history import PointHistory
 from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
+from domain.report import Report
 from domain.user import DeleteUser, Follow, User, UserFavoriteCategory, UserStat, UserWallpaper
 from domain.version import Version
 
@@ -682,6 +683,24 @@ push_histories = Table(
 )
 # endregion
 
+
+# region report
+reports = Table(
+    "reports",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), index=True, comment='신고자 user id'),
+    Column("target_feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), index=True, comment='피드 신고 시 feed id값'),
+    Column("target_user_id", BIGINT(unsigned=True), ForeignKey('users.id'), index=True, comment='유저 신고 시 user id값'),
+    Column("target_mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), index=True, comment='미션 신고 시 mission id값'),
+    Column("target_feed_comment_id", BIGINT(unsigned=True), ForeignKey('feed_comments.id'), index=True, comment='피드 댓글 신고 시 feed_comment id값'),
+    Column("target_notice_comment_id", BIGINT(unsigned=True), ForeignKey('notice_comments.id'), index=True, comment='공지사항 댓글 신고 시 notice_comment id값'),
+    Column("target_mission_comment_id", BIGINT(unsigned=True), ForeignKey('mission_comments.id'), index=True, comment='미션 댓글 신고 시 mission_comment id값'),
+    Column("reason", TEXT(collation='utf8mb4_unicode_ci')),
+)
+# endregion
 
 # region user
 users = Table(
@@ -1365,6 +1384,30 @@ def push_history_mappers():
         }
     )
     return mapper
+# endregion
+
+
+# region
+def report_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper_registry.map_imperatively(Mission, missions)
+    mapper_registry.map_imperatively(FeedComment, feed_comments)
+    mapper_registry.map_imperatively(NoticeComment, notice_comments)
+    mapper_registry.map_imperatively(MissionComment, mission_comments)
+    mapper = mapper_registry.map_imperatively(
+        Report,
+        reports,
+        properties={
+            "users": relationship(User, primaryjoin='Report.user_id == User.id'),
+            "feeds": relationship(Feed),
+            "missions": relationship(Mission),
+            "feed_comments": relationship(FeedComment),
+            "notice_comments": relationship(NoticeComment),
+            "mission_comments": relationship(MissionComment),
+        }
+    )
+
 # endregion
 
 
