@@ -1,9 +1,10 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import board_mappers, feed_mappers, user_mappers, user_favorite_category_mappers
+from adapter.orm import board_mappers, feed_mappers, follow_mappers, user_mappers, user_favorite_category_mappers
 from adapter.repository.board import BoardRepository
 from adapter.repository.feed import FeedRepository
 from adapter.repository.feed_like import FeedCheckRepository
+from adapter.repository.follow import FollowRepository
 from adapter.repository.point_history import PointHistoryRepository
 from adapter.repository.user import UserRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
@@ -19,7 +20,7 @@ from sqlalchemy.orm import clear_mappers
 
 
 @api.route('/user', methods=['GET'])
-def get_a_user():
+def get_user_data():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
@@ -31,15 +32,15 @@ def get_a_user():
         point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
         user_favorite_category_repo: UserFavoriteCategoryRepository = UserFavoriteCategoryRepository(db_session)
-        get_user_data: dict = user_service.get_user_data(user_id, user_repo, user_favorite_category_repo, point_history_repo, feed_like_repo)
+        user_data: dict = user_service.get_user_data(user_id, user_repo, user_favorite_category_repo, point_history_repo, feed_like_repo)
         clear_mappers()
 
-        if get_user_data['result']:
+        if user_data['result']:
             db_session.close()
-            return json.dumps(get_user_data, ensure_ascii=False), 200
+            return json.dumps(user_data, ensure_ascii=False), 200
         else:
             db_session.close()
-            return json.dumps({key: value for key, value in get_user_data.items() if key != 'status_code'}, ensure_ascii=False), get_user_data['status_code']
+            return json.dumps({key: value for key, value in user_data.items() if key != 'status_code'}, ensure_ascii=False), user_data['status_code']
     else:
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
@@ -109,11 +110,6 @@ def update_password():
 
 @api.route('/user/password/reissue-temporary', methods=['POST'])
 def issue_temporary_password():
-    # user_id: [int, None] = authenticate(request, db_session)
-    # if user_id is None:
-    #     db_session.close()
-    #     return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
-
     # 임시 비밀번호 생성 & 이메일로 통지
     if request.method == 'POST':
         params = json.loads(request.get_data())
@@ -148,25 +144,58 @@ def withdraw():
         db_session.close()
         return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
-    params: dict = json.loads(request.get_data())
-    if 'reason' not in params.keys():
-        db_session.close()
-        error_message = f'{ERROR_RESPONSE[400]} (reason)'
-        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+    if request.method == 'DELETE':
+        params: dict = json.loads(request.get_data())
+        if 'reason' not in params.keys():
+            db_session.close()
+            error_message = f'{ERROR_RESPONSE[400]} (reason)'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        else:
+            reason = params['reason']
+            user_mappers()
+            user_repo: UserRepository = UserRepository(db_session)
+            withdrawing = user_service.withdraw(user_id, reason, user_repo)
+            clear_mappers()
+
+            if withdrawing['result']:
+                db_session.commit()
+                db_session.close()
+                return json.dumps(withdrawing, ensure_ascii=False), 200
+            else:
+                db_session.close()
+                return json.dumps({key: value for key, value in withdrawing.items() if key != 'status_code'}, ensure_ascii=False), withdrawing['status_code']
     else:
-        reason = params['reason']
-        user_mappers()
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/user/<int:target_user_id>', methods=['GET'])
+def user_page_data(target_user_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if request.method == 'GET':
+        user_mappers() if user_id == target_user_id else follow_mappers()
+
         user_repo: UserRepository = UserRepository(db_session)
-        withdraw = user_service.withdraw(user_id, reason, user_repo)
+        follow_repo: FollowRepository = FollowRepository(db_session)
+        get_user_page_data: dict = user_service.get_a_user(user_id, target_user_id, user_repo, follow_repo)
         clear_mappers()
 
-        if withdraw['result']:
+        if get_user_page_data['result']:
             db_session.commit()
             db_session.close()
-            return json.dumps(withdraw, ensure_ascii=False), 200
+            return json.dumps(get_user_page_data, ensure_ascii=False), 200
         else:
             db_session.close()
-            return json.dumps({key: value for key, value in withdraw.items() if key != 'status_code'}, ensure_ascii=False), withdraw['status_code']
+            return json.dumps({key: value for key, value in get_user_page_data.items() if key != 'status_code'}, ensure_ascii=False), get_user_page_data['status_code']
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/user/<int:target_user_id>/favoriteCategory', methods=['GET', 'POST', 'DELETE'])

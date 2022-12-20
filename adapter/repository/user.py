@@ -1,9 +1,9 @@
-from adapter.orm import areas, delete_users, feeds, feed_likes, notifications, point_histories, user_stats, user_wallpapers
+from adapter.orm import areas, delete_users, feeds, feed_likes, follows, notifications, point_histories, user_stats, user_wallpapers
 from domain.user import User, UserFavoriteCategory, UserStat
 
 import abc
 from sqlalchemy.sql import func
-from sqlalchemy import and_, insert, select, text, update
+from sqlalchemy import and_, case, insert, select, text, update
 
 
 class AbstractUserRepository(abc.ABC):
@@ -147,12 +147,29 @@ class UserRepository(AbstractUserRepository):
         return result
 
     def get_one(self, user_id: int) -> User:
+        area = select(
+            areas.c.name
+        ).where(
+            areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')
+        ).limit(1)
+        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
+
         sql = select(
-            User
+            User.id,
+            area.label('area'),
+            User.greeting,
+            User.invite_code,
+            User.login_method,
+            User.email,
+            User.nickname,
+            User.password,
+            User.profile_image,
+            User.point,
+            # case((User.id.in_(followings), 1), else_=0).label("followed"),
         ).where(
             and_(User.id == user_id, User.deleted_at == None)
         ).limit(1)
-        user = self.session.execute(sql).scalars().first()
+        user = self.session.execute(sql).first()
         return user
 
     def get_one_by_email(self, email: str) -> User:

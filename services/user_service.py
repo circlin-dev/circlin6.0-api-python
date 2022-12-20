@@ -2,6 +2,7 @@
 from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
+from adapter.repository.follow import AbstractFollowRepository
 from adapter.repository.point_history import AbstractPointHistoryRepository
 from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from adapter.repository.user import AbstractUserRepository
@@ -101,23 +102,49 @@ def get_user_data(
         return result
 
 
-def get_a_user(user_id: int, repo: AbstractUserRepository) -> User:
-    user: User = repo.get_one(user_id)
-    return user
+def get_a_user(user_id: int, target_id: int, user_repo: AbstractUserRepository, follow_repo: AbstractFollowRepository) -> dict:
+    user: User = user_repo.get_one(target_id)
+
+    if user_id == target_id:
+        user_dict = dict(
+            id=user.id,
+            area=user.area,
+            greeting=user.greeting,
+            inviteCode=user.invite_code,
+            nickname=user.nickname,
+            point=user.point,
+            profile=user.profile_image,
+        ) if user is not None else None
+    else:
+        followed = True if follow_repo.get_one(user_id, target_id) == 1 else False
+        user_dict = dict(
+            id=user.id,
+            area=user.area,
+            greeting=user.greeting,
+            inviteCode=user.invite_code,
+            nickname=user.nickname,
+            followed=followed,
+            profile=user.profile_image,
+        ) if user is not None else None
+    result: dict = {
+        "result": True,
+        "data": user_dict
+    }
+    return result
 
 
 # region authentication
-def encode_string(string: str, method: str) -> bytes:
-    return string.encode(method)
+def encode_string(original_string: str, method: str) -> bytes:
+    return original_string.encode(method)
 
 
 def decode_string(hashed_password: bytes, method: str) -> str:
     return hashed_password.decode(method)
 
 
-def generate_hashed_password(string: str, method: str) -> bytes:
+def generate_hashed_password(original_string: str, method: str) -> bytes:
     # (1) Input string ascii 인코딩
-    ascii_encoded_password = string.encode(method)
+    ascii_encoded_password = original_string.encode(method)
     # (2) 암호화
     return bcrypt.hashpw(ascii_encoded_password, bcrypt.gensalt(10))
 
