@@ -97,7 +97,6 @@ class UserRepository(AbstractUserRepository):
             )
         )
 
-        # unread_messages_count = ()
 
         sql = select(
             User.id,
@@ -124,10 +123,11 @@ class UserRepository(AbstractUserRepository):
                     'path', user_wallpapers.c.image
                 )
             ).label('wallpapers'),
-            func.json_object(
-                'notifications', unread_notifications_count,
-                'messages', 1,
-            ).label('badge'),
+
+            unread_notifications_count.label('unread_notifications_count'),
+            # func.json_object(
+            #     'messages', 1,
+            # ).label('badge'),
 
             number_of_checks_user_did_yesterday.label('number_of_checks_user_did_yesterday'),
             number_of_checks_user_received_yesterday.label('number_of_checks_user_received_yesterday')

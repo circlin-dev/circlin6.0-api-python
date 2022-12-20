@@ -1,6 +1,7 @@
 from domain.block import Block
 from domain.board import Board, BoardCategory, BoardComment, BoardImage, BoardLike
 from domain.brand import Brand
+from domain.chat import ChatMessage, ChatUser, ChatRoom
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
@@ -134,6 +135,54 @@ brands = Table(
     Column("image", VARCHAR(255)),
 )
 
+# endregion
+
+
+# region chat
+chat_messages = Table(
+    "chat_messages",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("chat_room_id", BIGINT(unsigned=True), ForeignKey('chat_rooms.id'), nullable=False, index=True),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("type", VARCHAR(255), comment='채팅 종류 (chat|chat_image|feed|feed_emoji|mission|mission_invite)'),
+    Column("message", TEXT, comment='메시지'),
+    Column("image_type", VARCHAR(255), comment='image/video'),
+    Column("image", VARCHAR(255), comment='이미지 url'),
+    Column("feed_id", BIGINT(unsigned=True), ForeignKey('feeds.id'), index=True, comment='피드 공유 및 이모지'),
+    Column("mission_id", BIGINT(unsigned=True), comment='미션 초대'),
+    Column("deleted_at", TIMESTAMP),
+)
+
+
+chat_rooms = Table(
+    "chat_rooms",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("title", VARCHAR(255)),
+    Column("is_group", TINYINT(1), nullable=False, server_default=text("'0'")),
+    Column("deleted_at", TIMESTAMP),
+)
+
+
+chat_users = Table(
+    "chat_users",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("chat_room_id", BIGINT(unsigned=True), ForeignKey('chat_rooms.id'), nullable=False, index=True),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("is_block", TINYINT(1), nullable=False, server_default=text("'0'")),
+    Column("message_notify", TINYINT(1), nullable=False, server_default=text("'1'")),
+    Column("enter_message_id", BIGINT(unsigned=True), comment='입장할 때 마지막 메시지 id'),
+    Column("read_message_id", BIGINT(unsigned=True), ForeignKey('chat_messages.id'), index=True, comment='마지막으로 읽은 메시지 id'),
+    Column("deleted_at", TIMESTAMP),
+)
 # endregion
 
 
@@ -912,6 +961,45 @@ def board_like_mappers():
 def brand_mappers():
     mapper_registry.map_imperatively(User, users)
     mapper = mapper_registry.map_imperatively(Brand, brands, properties={"users": relationship(User)})
+    return mapper
+# endregion
+
+
+# region chat
+def chat_message_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(ChatRoom, chat_rooms)
+    mapper_registry.map_imperatively(Feed, feeds)
+    mapper = mapper_registry.map_imperatively(
+        ChatMessage,
+        chat_messages,
+        properties={
+            "users": relationship(User),
+            "chat_rooms": relationship(ChatRoom),
+            "feeds": relationship(Feed)
+        }
+    )
+    return mapper
+
+
+def chat_room_mappers():
+    mapper = mapper_registry.map_imperatively(ChatRoom, chat_rooms)
+    return mapper
+
+
+def chat_user_mappers():
+    mapper_registry.map_imperatively(ChatRoom, chat_rooms)
+    mapper_registry.map_imperatively(ChatMessage, chat_messages)
+    mapper_registry.map_imperatively(User, users)
+    mapper = mapper_registry.map_imperatively(
+        ChatUser,
+        chat_users,
+        properties={
+            "chat_rooms": relationship(ChatRoom),
+            "chat_messages": relationship(ChatMessage),
+            "users": relationship(User),
+        }
+    )
     return mapper
 # endregion
 
