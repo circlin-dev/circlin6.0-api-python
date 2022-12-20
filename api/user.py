@@ -2,6 +2,7 @@ from . import api
 from adapter.database import db_session
 from adapter.orm import board_mappers, feed_mappers, follow_mappers, user_mappers, user_favorite_category_mappers
 from adapter.repository.board import BoardRepository
+from adapter.repository.chat_message import ChatMessageRepository
 from adapter.repository.feed import FeedRepository
 from adapter.repository.feed_like import FeedCheckRepository
 from adapter.repository.follow import FollowRepository
@@ -32,7 +33,8 @@ def get_user_data():
         point_history_repo: PointHistoryRepository = PointHistoryRepository(db_session)
         user_repo: UserRepository = UserRepository(db_session)
         user_favorite_category_repo: UserFavoriteCategoryRepository = UserFavoriteCategoryRepository(db_session)
-        user_data: dict = user_service.get_user_data(user_id, user_repo, user_favorite_category_repo, point_history_repo, feed_like_repo)
+        chat_message_repo: ChatMessageRepository = ChatMessageRepository(db_session)
+        user_data: dict = user_service.get_user_data(user_id, user_repo, user_favorite_category_repo, point_history_repo, feed_like_repo, chat_message_repo)
         clear_mappers()
 
         if user_data['result']:

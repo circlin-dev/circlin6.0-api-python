@@ -1,5 +1,6 @@
 # from app import mail
 from adapter.repository.board import AbstractBoardRepository
+from adapter.repository.chat_message import AbstractChatMessageRepository
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.follow import AbstractFollowRepository
@@ -7,7 +8,7 @@ from adapter.repository.point_history import AbstractPointHistoryRepository
 from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from adapter.repository.user import AbstractUserRepository
 from domain.user import UserFavoriteCategory, User
-from services import point_service
+from services import chat_service, point_service
 from helper.constant import REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from helper.function import failed_response
 
@@ -24,7 +25,8 @@ def get_user_data(
         user_repo: AbstractUserRepository,
         user_favorite_category_repo: AbstractUserFavoriteCategoryRepository,
         point_history_repo: AbstractPointHistoryRepository,
-        feed_like_repo: AbstractFeedCheckRepository
+        feed_like_repo: AbstractFeedCheckRepository,
+        chat_message_repo: AbstractChatMessageRepository,
 ):
     """
     (1) amountOfPointsUserReceivedToday (int): 오늘 하루 ‘유저‘의 체크 행위에 의해 '유저'가 지급받은 '포인트 액수'
@@ -35,6 +37,11 @@ def get_user_data(
     (5) amountOfPointUserReceivedToday: 오늘 하루 ‘유저‘가 팔로워의 '유저' 피드 체크, 피드 체크, 댓글 이벤트로 획득한 ‘포인트‘(int)
     (6) availablePointToday (int): # 오늘 ‘유저’가 팔로워의 '유저' 피드 체크, 피드 체크, 댓글 이벤트로 더 획득할 수 있는 포인트
     :param user_id: int
+    :param user_repo: AbstractUserRepository
+    :param user_favorite_category_repo: AbstractUserFavoriteCategoryRepository
+    :param point_history_repo: AbstractPointHistoryRepository
+    :param feed_like_repo: AbstractFeedCheckRepository
+    :param chat_message_repo: AbstractChatMessageRepository
     :return: userData
     """
 
@@ -66,6 +73,8 @@ def get_user_data(
             point_history_repo
         )
 
+        unread_messages_count = chat_service.count_unread_messages_by_user(target_user.id, chat_message_repo)
+
         user_dict: dict = dict(
             id=target_user.id,
             area=target_user.area,
@@ -76,7 +85,7 @@ def get_user_data(
             agree5=True if target_user.agree5 == 1 else False,
             agreePush=True if target_user.agree_push == 1 else False,
             agreePushMission=True if target_user.agree_push_mission == 1 else False,
-            badge=json.loads(target_user.badge),
+            badge=dict(notifications=target_user.unread_notifications_count, messages=unread_messages_count),
             birthday=target_user.birthday,
             category=user_favorite_categories,
 
