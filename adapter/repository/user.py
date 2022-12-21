@@ -166,6 +166,7 @@ class UserRepository(AbstractUserRepository):
             User.agree5,  # agreeSmsMarketing - SMS 마케팅 수신
             User.agree_push,
             User.agree_push_mission,
+            User.agree_ad,
             area.label('area'),
             func.date_format(user_stats.c.birthday, '%Y/%m/%d').label('birthday'),
             User.gender,
