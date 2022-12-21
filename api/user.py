@@ -64,6 +64,32 @@ def get_all_users():
     return json.dumps(entries, ensure_ascii=False), 200
 
 
+@api.route('/user/nickname', methods=['GET'])
+def check_duplicated_nickname():
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if request.method == 'GET':
+        nickname: str = request.args.get('nickname')
+        user_mappers()
+        user_repo: UserRepository = UserRepository(db_session)
+        nickname_exists = user_service.nickname_exists(nickname, user_repo)
+        clear_mappers()
+        db_session.close()
+
+        if nickname_exists:
+            error_message = f'이미 존재하는 닉네임입니다.'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        else:
+            return json.dumps({'result': True}, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
 @api.route('/user/password', methods=['PATCH'])
 def update_password():
     user_id: [int, None] = authenticate(request, db_session)

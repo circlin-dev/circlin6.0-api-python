@@ -1,4 +1,3 @@
-# from app import mail
 from adapter.repository.board import AbstractBoardRepository
 from adapter.repository.chat_message import AbstractChatMessageRepository
 from adapter.repository.feed import AbstractFeedRepository
@@ -17,9 +16,283 @@ from flask import current_app
 from flask_mail import Message
 import json
 import random
+import re
 import string
+import uuid
 
 
+# region signup
+def agreed_to_all_required_consent_items(agree_terms_and_policy: bool, agree_privacy: bool, agree_location: bool) -> bool:
+    return agree_terms_and_policy is True and agree_privacy is True and agree_location is True
+
+
+def email_format_validation(email: str) -> bool:
+    # 참고: https://dojang.io/mod/page/view.php?id=2439
+    # pattern = re.compile('^[a-zA-Z0-9+-_.]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
+    pattern = re.compile('^[0-9a-zA-Z_.-]+@([KFAN]|[0-9a-zA-Z]([-_.]?[0-9a-zA-Z])*\.[a-zA-Z]{2,3})$')
+    return True if pattern.match(email) is not None else False
+
+
+def email_exists(email: str, user_repo: AbstractUserRepository) -> bool:
+    result = user_repo.get_one_by_email(email)
+    return True if result is not None else False
+
+
+def password_format_validation(password: str) -> bool:
+    # 영문 대소문자 + 특수문자 + 숫자로 이루어진 6자 이상의 문자열
+    pattern = re.compile('^(?=.*[a-zA-Z])(?=.*\d)(?=.*[!@#$%^&*()])[a-zA-Z\d!@#$%^&*()]{6,}$')
+    return True if pattern.match(password) is not None else False
+
+
+def generate_invite_code(length: int) -> str:
+    pool: str = string.digits + string.ascii_uppercase
+    invite_code: str = ''
+    for i in range(length):
+        invite_code += random.choice(pool)
+    return invite_code
+
+
+def signup(
+        login_method: str,
+        email: str,
+        password: str or None,
+        sns_email: str or None,
+        phone_number: str or None,
+        device_type: str,
+        agree_terms_and_policy: bool,
+        agree_privacy: bool,
+        agree_location: bool,
+        agree_email_marketing: bool,
+        agree_sms_marketing: bool,
+        agree_advertisement: bool,
+        user_repo: AbstractUserRepository
+):
+    if not agreed_to_all_required_consent_items(agree_terms_and_policy, agree_privacy, agree_location):
+        error_message = '필수 동의 항목에 모두 동의해 주셔야 서비스를 이용할 수 있습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif not email_format_validation(email):
+        error_message = '입력하신 이메일 형식이 올바르지 않습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif email_exists(email, user_repo):
+        error_message = '이미 사용중인 이메일입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif login_method == 'email' and not password_format_validation(password):
+        error_message = '입력하신 비밀번호 형식이 올바르지 않습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        invite_code = generate_invite_code(10)
+        # 중복된 추천인 코드를 가진 유저가 생성되지 않게 하기
+        while user_repo.get_one_by_invite_code(invite_code) is not None:
+            invite_code = generate_invite_code(10)
+
+        if login_method == 'email':
+            # 이메일 회원가입 유저
+            hashed_password = generate_hashed_password(password, 'ascii')
+            decoded_hashed_password: str = decode_string(hashed_password, 'ascii')
+
+            new_user_id = user_repo.add(
+                login_method,
+                email,
+                decoded_hashed_password,
+                sns_email,
+                phone_number,
+                device_type,
+                agree_terms_and_policy,
+                agree_privacy,
+                agree_location,
+                agree_email_marketing,
+                agree_sms_marketing,
+                agree_advertisement,
+                invite_code,
+            )
+        else:
+            # SNS 회원가입 유저
+            new_user_id = user_repo.add(
+                login_method,
+                email,
+                password,
+                sns_email,
+                phone_number,
+                device_type,
+                agree_terms_and_policy,
+                agree_privacy,
+                agree_location,
+                agree_email_marketing,
+                agree_sms_marketing,
+                agree_advertisement,
+                invite_code,
+            )
+
+        # login_user()
+        return {'result': True, 'userId': new_user_id}
+# endregion
+
+
+# region password
+def encode_string(original_string: str, method: str) -> bytes:
+    return original_string.encode(method)
+
+
+def decode_string(hashed_password: bytes, method: str) -> str:
+    return hashed_password.decode(method)
+
+
+def generate_hashed_password(original_string: str, method: str) -> bytes:
+    # (1) Input string ascii 인코딩
+    ascii_encoded_password = original_string.encode(method)
+    # (2) 암호화
+    return bcrypt.hashpw(ascii_encoded_password, bcrypt.gensalt(10))
+
+
+def encode_password_and_check_if_same(password_string: str, current_password_database: str, method: str) -> bool:
+    # (1) Input string, DB string ascii 인코딩
+    encoded__password_input: bytes = encode_string(password_string, method)
+    encoded_current_password_database: bytes = encode_string(current_password_database, method)
+    return bcrypt.checkpw(encoded__password_input, encoded_current_password_database)
+
+
+def update_password(user_id: int, current_password_input: str, new_password_input: str, new_password_validation: str, user_repo: AbstractUserRepository) -> dict:
+    target_user: User = user_repo.get_one(user_id)
+
+    if target_user is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+
+    if target_user.login_method != 'email':
+        error_message = '이메일로 가입한 유저가 아닙니다. SNS 로그인으로 시작하신 유저는 비밀번호를 변경할 수 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif not encode_password_and_check_if_same(current_password_input, target_user.password, 'ascii'):
+        error_message = '입력하신 현재 비밀번호가 실제 현재 비밀번호와 일치하지 않습니다. 확인 후 다시 시도해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif current_password_input == new_password_input or current_password_input == new_password_validation:
+        error_message = '입력하신 새 비밀번호 또는 확인용 새 비밀번호가 입력하신 현재 비밀번호와 같습니다. 확인 후 다시 시도해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif encode_password_and_check_if_same(new_password_input, target_user.password, 'ascii') or encode_password_and_check_if_same(new_password_validation, target_user.password, 'ascii'):
+        error_message = '입력하신 새 비밀번호 또는 확인용 새 비밀번호가 실제 현재 비밀번호와 같습니다. 확인 후 다시 시도해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif new_password_input != new_password_validation:
+        error_message = "입력하신 '새 비밀번호'와 '확인용 새 비밀번호'가 서로 다릅니다. 동일하게 입력한 후 다시 시도해 주세요."
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        hashed_new_password_input: bytes = generate_hashed_password(new_password_input, 'ascii')
+        decoded_hashed_new_password_input: str = decode_string(hashed_new_password_input, 'ascii')
+        user_repo.update_password(target_user, decoded_hashed_new_password_input)
+        return {'result': True}
+
+
+def generate_random_password(length: int):
+    pool: str = string.digits + string.ascii_letters
+    random_password: str = ''
+    for i in range(length):
+        random_password += random.choice(pool)
+    return random_password
+
+
+def send_temporary_password_by_email(temp_password: str, recipients: list):
+    html_message = f"""
+안녕하세요, 고객님! 써클인 입니다.<br>
+비밀번호 찾기를 요청하신 고객님께 임시 비밀번호를 발송 드립니다.<br><br>
+임시 비밀번호: <b>{temp_password}</b><br><br>
+발급해드린 임시 비밀번호를 이용하여 패스워드를 반드시 변경해주시기 바랍니다.<br>
+써클인 앱에 로그인하신 후 [<b>마이페이지</b> -> <b>옵션</b> -> <b>비밀번호 변경</b>] 을 통해 패스워드를 변경하실 수 있습니다.<br><br>
+<b>직접 비밀번호 찾기를 요청하신 것이 아니라면</b>,<br>
+<b>카카오톡 채널 -> '써클인'</b>을 검색하셔서 채팅 상담을 통해 신고해 주시기 바랍니다.<br><br>
+더욱 더 노력하는 써클인이 되겠습니다<br>
+감사합니다.
+"""
+    message = Message(
+        subject='[써클인] 임시 비밀번호 발급 안내 메일',
+        html=html_message,
+        sender=current_app.config.get('MAIL_USERNAME'),  # 'circlindev@circlin.co.kr',
+        recipients=recipients
+    )
+
+    # <주의!> 발송 실패 시 AssertionError를 일으키고, 성공적이면 None을 리턴함.
+    result = current_app.mail.send(message)
+    return result
+
+
+def issue_temporary_password_and_send_email(email: str, user_repo: AbstractUserRepository):
+    """
+    (1) 전달된 email로 get a user
+    (2) login_method == 'email' 인지 확인 필요 - 아닐 경우 고객센터로 문의 유도
+    (3) 임시 비밀번호 생성 (문자열 -> 인코딩 -> 암호화)
+    (4) 임시 비밀번호(문자열)를 입력받은 메일로 발송
+    (5) 임시 비밀번호로 비밀번호 업데이트 (암호화 -> 디코딩 -> UPDATE)
+
+    - flask_mail로 보낼 때 다음 사항은 파악이 불가하다.
+        (1) 이메일 전송 성공 여부: Google mail에서 이메일 발송 실패 여부를 받을 수는 있으나, flask_mail은 발송만 하고 발송 결과를 추적하지 않는다.
+            - 따라서 유효하지 않은 이메일 주소(수신이 불가한 상태인 주소)를 구분할 수는 없다.
+            - 따라서 유저가 올바르지 않은 형식의 이메일 주소(ex. invalid domain: myemail@test.com)를 입력한 상태라면,
+                API 결과는 True일지라도 실제로 이메일은 발송되지 않는다.
+    :param email:
+    :param user_repo:
+    :return:
+    """
+
+    target_user = user_repo.get_one_by_email(email)
+
+    if target_user is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+
+    elif target_user.login_method != 'email':
+        error_message = "이메일로 가입한 유저가 아닙니다. 가입하신 SNS 유형이 기억나지 않으신다면 카카오톡 채널 '써클인'으로 문의해 주세요."
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+
+    else:
+        temporary_password = generate_random_password(8)
+        sending_failed = send_temporary_password_by_email(temporary_password, [email])
+
+        if not sending_failed:  # <주의!> 발송 실패 시 메시지를 리턴하고, 성공적이면 None을 리턴함.
+            hashed_temporary_password: bytes = generate_hashed_password(temporary_password, 'ascii')
+            decoded_temporary_password: str = decode_string(hashed_temporary_password, 'ascii')
+            user_repo.update_password(target_user, decoded_temporary_password)
+            return {'result': True}
+        else:
+            error_message = "임시 비밀번호를 발송하지 못했습니다. 이 문제가 계속 발생한다면 카카오톡 채널 '써클인'으로 문의해 주세요."
+            result = failed_response(error_message)
+            result['status_code'] = 500
+            return result
+# endregion
+
+
+# region user information management
+def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
+    user_repo.delete(user_id, reason)
+    return {'result': True}
+
+
+def nickname_exists(new_nickname: str, user_repo: AbstractUserRepository):
+    user = user_repo.get_one_by_nickname(new_nickname)
+    return True if user is not None else False
+
+
+# region user_data
 def get_user_data(
         user_id: int,
         user_repo: AbstractUserRepository,
@@ -109,6 +382,7 @@ def get_user_data(
             'data': user_dict
         }
         return result
+# endregion
 
 
 def get_a_user(user_id: int, target_id: int, user_repo: AbstractUserRepository, follow_repo: AbstractFollowRepository) -> dict:
@@ -145,157 +419,6 @@ def get_a_user(user_id: int, target_id: int, user_repo: AbstractUserRepository, 
             "data": user_dict
         }
     return result
-
-
-# region authentication
-def encode_string(original_string: str, method: str) -> bytes:
-    return original_string.encode(method)
-
-
-def decode_string(hashed_password: bytes, method: str) -> str:
-    return hashed_password.decode(method)
-
-
-def generate_hashed_password(original_string: str, method: str) -> bytes:
-    # (1) Input string ascii 인코딩
-    ascii_encoded_password = original_string.encode(method)
-    # (2) 암호화
-    return bcrypt.hashpw(ascii_encoded_password, bcrypt.gensalt(10))
-
-
-def encode_password_and_check_if_same(password_string: str, current_password_database: str, method: str) -> bool:
-    # (1) Input string, DB string ascii 인코딩
-    encoded__password_input: bytes = encode_string(password_string, method)
-    encoded_current_password_database: bytes = encode_string(current_password_database, method)
-    return bcrypt.checkpw(encoded__password_input, encoded_current_password_database)
-
-
-def update_password(user_id: int, current_password_input: str, new_password_input: str, new_password_validation: str, user_repo: AbstractUserRepository) -> dict:
-    target_user: User = user_repo.get_one(user_id)
-
-    if target_user is None:
-        error_message = '존재하지 않는 유저입니다.'
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-
-    if target_user.login_method != 'email':
-        error_message = '이메일로 가입한 유저가 아닙니다. SNS 로그인으로 시작하신 유저는 비밀번호를 변경할 수 없습니다.'
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-    elif not encode_password_and_check_if_same(current_password_input, target_user.password, 'ascii'):
-        error_message = '입력하신 현재 비밀번호가 실제 현재 비밀번호와 일치하지 않습니다. 확인 후 다시 시도해 주세요.'
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-    elif current_password_input == new_password_input or current_password_input == new_password_validation:
-        error_message = '입력하신 새 비밀번호 또는 확인용 새 비밀번호가 입력하신 현재 비밀번호와 같습니다. 확인 후 다시 시도해 주세요.'
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-    elif encode_password_and_check_if_same(new_password_input, target_user.password, 'ascii') or encode_password_and_check_if_same(new_password_validation, target_user.password, 'ascii'):
-        error_message = '입력하신 새 비밀번호 또는 확인용 새 비밀번호가 실제 현재 비밀번호와 같습니다. 확인 후 다시 시도해 주세요.'
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-    elif new_password_input != new_password_validation:
-        error_message = "입력하신 '새 비밀번호'와 '확인용 새 비밀번호'가 서로 다릅니다. 동일하게 입력한 후 다시 시도해 주세요."
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-    else:
-        hashed_new_password_input: bytes = generate_hashed_password(new_password_input, 'ascii')
-        decoded_hashed_new_password_input: str = decode_string(hashed_new_password_input, 'ascii')
-        user_repo.update_password(target_user, decoded_hashed_new_password_input)
-        return {'result': True}
-
-
-def generate_random_password():
-    length: int = 8
-    pool: str = string.digits + string.ascii_letters
-    random_password: str = ''
-    for i in range(length):
-        random_password += random.choice(pool)
-    return random_password
-
-
-def issue_temporary_password_and_send_email(email: str, user_repo: AbstractUserRepository):
-    """
-    (1) 전달된 email로 get a user
-    (2) login_method == 'email' 인지 확인 필요 - 아닐 경우 고객센터로 문의 유도
-    (3) 임시 비밀번호 생성 (문자열 -> 인코딩 -> 암호화)
-    (4) 임시 비밀번호(문자열)를 입력받은 메일로 발송
-    (5) 임시 비밀번호로 비밀번호 업데이트 (암호화 -> 디코딩 -> UPDATE)
-
-    - flask_mail로 보낼 때 다음 사항은 파악이 불가하다.
-        (1) 이메일 전송 성공 여부: Google mail에서 이메일 발송 실패 여부를 받을 수는 있으나, flask_mail은 발송만 하고 발송 결과를 추적하지 않는다.
-            - 따라서 유효하지 않은 이메일 주소(수신이 불가한 상태인 주소)를 구분할 수는 없다.
-            - 따라서 유저가 올바르지 않은 형식의 이메일 주소(ex. invalid domain: myemail@test.com)를 입력한 상태라면,
-                API 결과는 True일지라도 실제로 이메일은 발송되지 않는다.
-    :param email:
-    :param user_repo:
-    :return:
-    """
-
-    target_user = user_repo.get_one_by_email(email)
-
-    if target_user is None:
-        error_message = '존재하지 않는 유저입니다.'
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-
-    elif target_user.login_method != 'email':
-        error_message = "이메일로 가입한 유저가 아닙니다. 가입하신 SNS 유형이 기억나지 않으신다면 카카오톡 채널 '써클인'으로 문의해 주세요."
-        result = failed_response(error_message)
-        result['status_code'] = 400
-        return result
-
-    else:
-        temporary_password = generate_random_password()
-        sending_failed = send_temporary_password_by_email(temporary_password, [email])
-
-        if not sending_failed:  # <주의!> 발송 실패 시 메시지를 리턴하고, 성공적이면 None을 리턴함.
-            hashed_temporary_password: bytes = generate_hashed_password(temporary_password, 'ascii')
-            decoded_temporary_password: str = decode_string(hashed_temporary_password, 'ascii')
-            user_repo.update_password(target_user, decoded_temporary_password)
-            return {'result': True}
-        else:
-            error_message = "임시 비밀번호를 발송하지 못했습니다. 이 문제가 계속 발생한다면 카카오톡 채널 '써클인'으로 문의해 주세요."
-            result = failed_response(error_message)
-            result['status_code'] = 500
-            return result
-
-
-def send_temporary_password_by_email(temp_password: str, recipients: list):
-    html_message = f"""
-안녕하세요, 고객님! 써클인 입니다.<br>
-비밀번호 찾기를 요청하신 고객님께 임시 비밀번호를 발송 드립니다.<br><br>
-임시 비밀번호: <b>{temp_password}</b><br><br>
-발급해드린 임시 비밀번호를 이용하여 패스워드를 반드시 변경해주시기 바랍니다.<br>
-써클인 앱에 로그인하신 후 [<b>마이페이지</b> -> <b>옵션</b> -> <b>비밀번호 변경</b>] 을 통해 패스워드를 변경하실 수 있습니다.<br><br>
-<b>직접 비밀번호 찾기를 요청하신 것이 아니라면</b>,<br>
-<b>카카오톡 채널 -> '써클인'</b>을 검색하셔서 채팅 상담을 통해 신고해 주시기 바랍니다.<br><br>
-더욱 더 노력하는 써클인이 되겠습니다<br>
-감사합니다.
-"""
-    message = Message(
-        subject='[써클인] 임시 비밀번호 발급 안내 메일',
-        html=html_message,
-        sender=current_app.config.get('MAIL_USERNAME'),  # 'circlindev@circlin.co.kr',
-        recipients=recipients
-    )
-
-    # <주의!> 발송 실패 시 AssertionError를 일으키고, 성공적이면 None을 리턴함.
-    result = current_app.mail.send(message)
-    return result
-# endregion
-
-
-def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
-    user_repo.delete(user_id, reason)
-    return {'result': True}
 # endregion
 
 
