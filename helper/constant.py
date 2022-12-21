@@ -25,7 +25,6 @@ JWT_AUDIENCE: str = "https://www.circlin.co.kr"
 APP_ROOT = "/home/ubuntu/circlin6.0-api-python"
 APP_TEMP = "./temp"
 API_ROOT = "api-python-circlin6.circlin.co.kr"
-API_CIRCLIN = "https://api.circlin.co.kr/v1_1"
 LOCAL_TEMP_DIR = f"{APP_ROOT}/temp"
 
 FFMPEG_PATH1 = "/home/ubuntu/anaconda3/envs/circlin60_py38/bin/ffmpeg"  #whereis ffmpeg
@@ -38,7 +37,6 @@ FFMPEG_PATH3 = "/usr/share/ffmpeg"
 AMAZON_URL = "https://circlin-app.s3.ap-northeast-2.amazonaws.com"
 S3_BUCKET_NAME = "circlin-app"
 BUCKET_IMAGE_PATH_FOOD = "food"  # food/{food_id}/{file_name}'
-BUCKET_IMAGE_PATH_WORKOUT = "workout"  # food/{workout_id}/{file_name}'
 # endregion
 
 # region file type, file size

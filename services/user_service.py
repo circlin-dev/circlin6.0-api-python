@@ -4,12 +4,13 @@ from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.follow import AbstractFollowRepository
 from adapter.repository.point_history import AbstractPointHistoryRepository
-from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from adapter.repository.user import AbstractUserRepository
-from domain.user import UserFavoriteCategory, User
+from adapter.repository.user_stat import AbstractUserStatRepository
+from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
+from domain.user import UserFavoriteCategory, UserStat, User
 from services import chat_service, point_service
 from helper.constant import REASONS_HAVE_DAILY_REWARD_RESTRICTION
-from helper.function import failed_response
+from helper.function import generate_token, failed_response
 
 import bcrypt
 from flask import current_app
@@ -18,7 +19,6 @@ import json
 import random
 import re
 import string
-import uuid
 
 
 # region signup
@@ -28,8 +28,11 @@ def agreed_to_all_required_consent_items(agree_terms_and_policy: bool, agree_pri
 
 def email_format_validation(email: str) -> bool:
     # 참고: https://dojang.io/mod/page/view.php?id=2439
-    # pattern = re.compile('^[a-zA-Z0-9+-_.]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$')
-    pattern = re.compile('^[0-9a-zA-Z_.-]+@([KFAN]|[0-9a-zA-Z]([-_.]?[0-9a-zA-Z])*\.[a-zA-Z]{2,3})$')
+    # 아래의 laravel 기존 정규식은 기존 코드. 도메인이 2자 이상 3자 이하가 아닐 경우 정규식을 통과하지 못한다.
+    # ex: kunwoo.choi@youha.info (x)  |  kunwoo.choi@youha.com (O)  |  kunwoo.choi@circlin.co.kr (O)
+    # pattern = re.compile('^[0-9a-zA-Z_.-]+@([KFAN]|[0-9a-zA-Z]([-_.]?[0-9a-zA-Z])*\.[a-zA-Z]{2,3})$')
+    # 따라서 아래와 같이 1자 이상으로 제한을 풀어둔다.
+    pattern = re.compile('^[0-9a-zA-Z_.-]+@([KFAN]|[0-9a-zA-Z]([-_.]?[0-9a-zA-Z])*\.[a-zA-Z]{1,})$')
     return True if pattern.match(email) is not None else False
 
 
@@ -65,7 +68,8 @@ def signup(
         agree_email_marketing: bool,
         agree_sms_marketing: bool,
         agree_advertisement: bool,
-        user_repo: AbstractUserRepository
+        user_repo: AbstractUserRepository,
+        user_stat_repo: AbstractUserStatRepository
 ):
     if not agreed_to_all_required_consent_items(agree_terms_and_policy, agree_privacy, agree_location):
         error_message = '필수 동의 항목에 모두 동의해 주셔야 서비스를 이용할 수 있습니다.'
@@ -73,12 +77,12 @@ def signup(
         result['status_code'] = 400
         return result
     elif not email_format_validation(email):
-        error_message = '입력하신 이메일 형식이 올바르지 않습니다.'
+        error_message = "입력하신 이메일 형식이 올바르지 않습니다. 유효한 이메일임에도 불구하고 이 오류가 발생한다면, 카카오톡 채널 '써클인'으로 문의해 주시기 바랍니다."
         result = failed_response(error_message)
         result['status_code'] = 400
         return result
     elif email_exists(email, user_repo):
-        error_message = '이미 사용중인 이메일입니다.'
+        error_message = '이미 가입된 이메일입니다.'
         result = failed_response(error_message)
         result['status_code'] = 400
         return result
@@ -131,8 +135,95 @@ def signup(
                 invite_code,
             )
 
-        # login_user()
+        new_user_stat: UserStat = UserStat(
+            user_id=new_user_id,
+            birthday=None,
+            height=None,
+            weight=None,
+            bmi=None,
+            yesterday_feeds_count=None
+        )
+        user_stat_repo.add(new_user_stat)
         return {'result': True, 'userId': new_user_id}
+# endregion
+
+
+# region login
+def login_by_email(email: str, password: str, device_type: str, client_ip: str, user_repo: AbstractUserRepository):
+    target_user = user_repo.get_one_by_email(email)
+
+    if target_user is None:
+        error_message = '존재하지 않는 유저입니다. 이메일 주소를 확인 후 다시 로그인해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif target_user.login_method != 'email':
+        error_message = '이메일로 가입한 유저가 아닙니다. SNS 로그인으로 시작하신 유저는 이메일로 로그인하실 수 없습니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    elif not encode_password_and_check_if_same(password, target_user.password, 'ascii'):
+        error_message = '비밀번호를 확인 후 다시 로그인해 주세요.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        # user_data = user_repo.user_data(target_user.id)
+        user_repo.update_info_when_email_login(target_user.id, client_ip, device_type)
+        new_token = generate_token(target_user.id)
+        result: dict = {
+            "result": True,
+            "data": new_token,
+        }
+        return result
+
+
+def login_by_sns(
+        sns_name: str,
+        email: str,
+        sns_email: str or None,
+        device_type: str,
+        phone_number: str or None,
+        client_ip: str,
+        user_repo: AbstractUserRepository
+):
+    """
+    '가입하기' 혹은 '로그인하기'가 가능한 이메일과 달리, SNS는 반드시 먼저 login을 시도한 후 등록된 회원정보의 존재 여부에 따라 회원가입으로 안내해야 한다.
+    :param sns_name: 사용하려는 SNS 이름(kakao, naver, apple, facebook)
+    :param email: '123456@F', '1234567@K'와 같이 SNS 플랫폼별 유저 ID값 + 플랫폼 첫 알파벳 대문자로 생성하던 email값
+    :param sns_email: SNS 플랫폼별 유저의 제공 동의 하에 주어지는, 'id@xxxx.com' 형태의 실제 email 주소값(facebook은 현재 항상 획득 불가)
+    :param device_type: iOS, Android 기기 OS 종류
+    :param phone_number: SNS 플랫폼별 유저의 제공 동의 하에 주어지는, 실제 휴대폰 번호(facebook은 현재 항상 획득 불가)
+    :param client_ip:
+    :param user_repo: AbstractUserRepository
+    :return:
+    """
+    target_user = user_repo.get_one_by_email(email)
+    if target_user is None:
+        # 회원정보가 존재하지 않는 유저. 회원가입을 유도한다.
+        error_message = '존재하지 않는 유저입니다. SNS 계정으로 회원가입 후 써클인을 이용해 보세요!'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        # 기존 유저: email, phone, loginMethod를 update해야 한다. 단, sns_email과 phone은 아래와 같이 update 조건이 있다.
+        # (1) DB의 value가 null일 경우, 업데이트 한다.
+        # (2) DB의 sns_email이 not null이고 새로운 sns_email과 불일치하면, 업데이트 한다.
+        if phone_number is None and sns_email is None:
+            pass
+        elif phone_number is None and sns_email is not None:
+            None if target_user.sns_email == sns_email else user_repo.update_info_when_sns_login(target_user.id, sns_email, phone_number, sns_name, client_ip, device_type)
+        elif sns_email is None and phone_number is not None:
+            None if target_user.phone == phone_number else user_repo.update_info_when_sns_login(target_user.id, sns_email, phone_number, sns_name, client_ip, device_type)
+        else:
+            user_repo.update_info_when_sns_login(target_user.id, sns_email, phone_number, sns_name, client_ip, device_type)
+
+        new_token = generate_token(target_user.id)
+        result: dict = {
+            "result": True,
+            "data": new_token,
+        }
+        return result
 # endregion
 
 
@@ -153,10 +244,9 @@ def generate_hashed_password(original_string: str, method: str) -> bytes:
 
 
 def encode_password_and_check_if_same(password_string: str, current_password_database: str, method: str) -> bool:
-    # (1) Input string, DB string ascii 인코딩
-    encoded__password_input: bytes = encode_string(password_string, method)
+    encoded_password_input: bytes = encode_string(password_string, method)
     encoded_current_password_database: bytes = encode_string(current_password_database, method)
-    return bcrypt.checkpw(encoded__password_input, encoded_current_password_database)
+    return bcrypt.checkpw(encoded_password_input, encoded_current_password_database)
 
 
 def update_password(user_id: int, current_password_input: str, new_password_input: str, new_password_validation: str, user_repo: AbstractUserRepository) -> dict:

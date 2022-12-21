@@ -23,6 +23,7 @@ class User:
             point: int,
             profile_image: str,
             invite_code: str,
+            **kwargs
     ):
         self.id = id
         self.login_method = login_method
@@ -34,6 +35,12 @@ class User:
         self.point = point
         self.profile_image = profile_image
         self.invite_code = invite_code
+        self.device_type = kwargs.get('device_type')
+        self.agree_terms_and_policy = kwargs.get('agree_terms_and_policy')
+        self.agree_privacy = kwargs.get('agree_privacy')
+        self.agree_location = kwargs.get('agree_location')
+        self.agree_email_marketing = kwargs.get('agree_email_marketing')
+        self.agree_sms_marketing = kwargs.get('agree_sms_marketing')
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, User):
