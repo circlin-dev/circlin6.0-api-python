@@ -8,7 +8,21 @@ from sqlalchemy import and_, case, insert, select, text, update
 
 class AbstractUserRepository(abc.ABC):
     @abc.abstractmethod
-    def add(self, new_version):
+    def add(self,
+            login_method: str,
+            email: str,
+            password: str or None,
+            sns_email: str,
+            phone_number: str,
+            device_type: str,
+            agree_terms_and_policy: bool,
+            agree_privacy: bool,
+            agree_location: bool,
+            agree_email_marketing: bool,
+            agree_sms_marketing: bool,
+            agree_advertisement: bool,
+            invite_code: str,
+            ):
         pass
 
     @abc.abstractmethod
@@ -24,11 +38,19 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_one_by_invite_code(self, invite_code: str) -> User:
+        pass
+
+    @abc.abstractmethod
     def get_one_by_nickname(self, nickname: str) -> User:
         pass
 
     @abc.abstractmethod
     def get_list(self) -> User:
+        pass
+
+    @abc.abstractmethod
+    def get_push_target(self, targets: list) -> list:
         pass
 
     @abc.abstractmethod
@@ -44,11 +66,15 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def delete(self, user_id: int, reason: str or None):
+    def update_info_when_email_login(self, user_id: int, client_ip: str, device_type: str):
         pass
 
     @abc.abstractmethod
-    def get_push_target(self, targets: list) -> list:
+    def update_info_when_sns_login(self, user_id: int, sns_email: str, phone_number: str, sns_name: str, client_ip: str, device_type: str):
+        pass
+
+    @abc.abstractmethod
+    def delete(self, user_id: int, reason: str or None):
         pass
 
 
@@ -56,8 +82,42 @@ class UserRepository(AbstractUserRepository):
     def __init__(self, session):
         self.session = session
 
-    def add(self, version):
-        self.session.add(version)
+    def add(self,
+            login_method: str,
+            email: str,
+            password: str or None,
+            sns_email: str or None,
+            phone_number: str or None,
+            device_type: str,
+            agree_terms_and_policy: bool,
+            agree_privacy: bool,
+            agree_location: bool,
+            agree_email_marketing: bool,
+            agree_sms_marketing: bool,
+            agree_advertisement: bool,
+            invite_code: str,
+            ):
+        sql = insert(
+            User
+        ).values(
+            login_method=login_method,
+            email=email,
+            password=password,
+            sns_email=sns_email,
+            phone=phone_number,
+            device_type=device_type,
+            agree1=agree_terms_and_policy,
+            agree2=agree_privacy,
+            agree3=agree_location,
+            agree4=agree_email_marketing,
+            agree5=agree_sms_marketing,
+            agree_push=True,
+            agree_push_mission=True,
+            agree_ad=agree_advertisement,
+            invite_code=invite_code,
+        )
+        result = self.session.execute(sql)
+        return result.inserted_primary_key[0]
 
     def user_data(self, user_id: int):
         area = select(
@@ -97,14 +157,13 @@ class UserRepository(AbstractUserRepository):
             )
         )
 
-
         sql = select(
             User.id,
-            User.agree1,
-            User.agree2,
-            User.agree3,
-            User.agree4,
-            User.agree5,
+            User.agree1,  # agreeTermsAndPolicy - 서비스 이용약관
+            User.agree2,  # agreePrivacy - 개인정보 이용 약관
+            User.agree3,  # agreeLocation - 위치정보 이용
+            User.agree4,  # agreeEmailMarketing - 이메일 마케팅 수신
+            User.agree5,  # agreeSmsMarketing - SMS 마케팅 수신
             User.agree_push,
             User.agree_push_mission,
             area.label('area'),
@@ -123,12 +182,7 @@ class UserRepository(AbstractUserRepository):
                     'path', user_wallpapers.c.image
                 )
             ).label('wallpapers'),
-
             unread_notifications_count.label('unread_notifications_count'),
-            # func.json_object(
-            #     'messages', 1,
-            # ).label('badge'),
-
             number_of_checks_user_did_yesterday.label('number_of_checks_user_did_yesterday'),
             number_of_checks_user_received_yesterday.label('number_of_checks_user_received_yesterday')
         ).select_from(
@@ -152,7 +206,6 @@ class UserRepository(AbstractUserRepository):
         ).where(
             areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')
         ).limit(1)
-        followings = select(follows.c.target_id).where(follows.c.user_id == user_id)
 
         sql = select(
             User.id,
@@ -181,6 +234,15 @@ class UserRepository(AbstractUserRepository):
         user = self.session.execute(sql).scalars().first()
         return user
 
+    def get_one_by_invite_code(self, invite_code: str) -> User:
+        sql = select(
+            User
+        ).where(
+            and_(User.invite_code == invite_code, User.deleted_at == None)
+        ).limit(1)
+        user = self.session.execute(sql).scalars().first()
+        return user
+
     def get_one_by_nickname(self, nickname: str) -> User:
         sql = select(
             User
@@ -194,6 +256,24 @@ class UserRepository(AbstractUserRepository):
         sql = select(User).limit(10)
         users = self.session.execute(sql).scalars().all()
         return users
+
+    def get_push_target(self, targets: list) -> list:
+        sql = select(
+            User.id,
+            User.nickname,
+            User.device_token,
+            User.device_type
+        ).where(
+            and_(
+                User.id.in_(targets),
+                User.device_token != None,
+                User.device_token != '',
+                User.agree_push == 1
+            )
+        )
+
+        push_targets: list = self.session.execute(sql).all()
+        return push_targets
 
     def update(self, target_user, nickname):
         return self.session.query(User).filter_by(id=target_user.id).update(
@@ -223,6 +303,33 @@ class UserRepository(AbstractUserRepository):
         )
         return self.session.execute(sql)
 
+    def update_info_when_email_login(self, user_id: int, client_ip: str, device_type: str):
+        sql = update(
+            User
+        ).where(
+            User.id == user_id
+        ).values(
+            last_login_ip=client_ip,
+            last_login_at=func.now(),
+            device_type=device_type
+        )
+        return self.session.execute(sql)
+
+    def update_info_when_sns_login(self, user_id: int, sns_email: str, phone_number: str, sns_name: str, client_ip: str, device_type: str):
+        sql = update(
+            User
+        ).where(
+            User.id == user_id
+        ).values(
+            sns_email=sns_email,
+            phone=phone_number,
+            login_method=sns_name,
+            last_login_ip=client_ip,
+            last_login_at=func.now(),
+            device_type=device_type
+        )
+        return self.session.execute(sql)
+
     def delete(self, user_id: int, reason: str or None):
         sql = update(User).where(User.id == user_id).values(deleted_at=func.now())
         self.session.execute(sql)
@@ -230,21 +337,3 @@ class UserRepository(AbstractUserRepository):
         sql = insert(delete_users).values(user_id=user_id, reason=reason)
         self.session.execute(sql)
         return True
-
-    def get_push_target(self, targets: list) -> list:
-        sql = select(
-            User.id,
-            User.nickname,
-            User.device_token,
-            User.device_type
-        ).where(
-            and_(
-                User.id.in_(targets),
-                User.device_token != None,
-                User.device_token != '',
-                User.agree_push == 1
-            )
-        )
-
-        push_targets: list = self.session.execute(sql).all()
-        return push_targets

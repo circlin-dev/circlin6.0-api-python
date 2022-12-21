@@ -1,6 +1,7 @@
 from adapter.orm import user_mappers
 from adapter.repository.user import UserRepository
-from helper.constant import JWT_AUDIENCE, SLACK_NOTIFICATION_WEBHOOK
+from helper.constant import JWT_AUDIENCE, JWT_SECRET_KEY, SLACK_NOTIFICATION_WEBHOOK
+from datetime import datetime
 from flask import abort
 import json
 import jwt
@@ -12,7 +13,22 @@ from sqlalchemy.orm import clear_mappers
 # region authentication
 def authenticate(request, session):
     token = request.headers.get('token')
-    uid: int = jwt.decode(token, audience=JWT_AUDIENCE, options={"verify_signature": False})['uid']
+    uid: int = jwt.decode(
+        jwt=token,
+        key=JWT_SECRET_KEY,
+        audience=JWT_AUDIENCE,
+        options={"verify_signature": True},
+        algorithms=["HS256"]
+    )['uid']
+    # uid: int = int(
+    #     jwt.decode(
+    #         jwt=token,
+    #         key=JWT_SECRET_KEY,
+    #         audience=JWT_AUDIENCE,
+    #         options={"verify_signature": True},
+    #         algorithms=["HS256"]
+    #     )['aud']
+    # )
     try:
         user_mappers()
         repo: UserRepository = UserRepository(session)
@@ -25,6 +41,34 @@ def authenticate(request, session):
             return int(user.id)
     except Exception as e:
         abort(500, e)
+
+
+def generate_token(user_id: int):
+    # As-is in laravel
+    encoded_jwt = jwt.encode(
+        {
+            'iss': JWT_AUDIENCE,
+            'aud': JWT_AUDIENCE,
+            'iat': datetime.now(),
+            # 'nbf': datetime.now(),
+            'uid': user_id,
+        },
+        JWT_SECRET_KEY,
+        algorithm="HS256"
+    )
+    # Should_be like this below...
+    # encoded_jwt = jwt.encode(
+    #     {
+    #         'iss': 'https://www.circlin.co.kr',
+    #         'aud': str(user_id),
+    #         'iat': datetime.now(),
+    #         'nbf': datetime.now() + n days,
+    #         # 'uid': user_id, # => aud를 제대로 쓰고 이건 지워버려야,,,
+    #     },
+    #     JWT_SECRET_KEY,
+    #     algorithm="HS256"
+    # )
+    return encoded_jwt
 # endregion
 
 

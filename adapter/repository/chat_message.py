@@ -80,7 +80,6 @@ class ChatMessageRepository(AbstractChatMessageRepository):
                 User.deleted_at == None
             )
         )
-        print('sql: ', sql)
 
         unread_count = self.session.execute(sql).scalar()
-        return int(unread_count)
+        return 0 if unread_count is None else int(unread_count)
