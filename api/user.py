@@ -75,7 +75,8 @@ def update_or_delete_profile_image():
         user_mappers()
         file = request.files.getlist('file')
         user_repo: UserRepository = UserRepository(db_session)
-        update_profile_image = user_service.update_profile_image_by_http_method(user_id, file, user_repo)
+        update_profile_image = user_service.update_profile_image_by_http_method(user_id, file[0], user_repo)
+
         clear_mappers()
         if update_profile_image['result']:
             db_session.commit()
