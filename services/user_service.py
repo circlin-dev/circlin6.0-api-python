@@ -19,6 +19,7 @@ import json
 import random
 import re
 import string
+# from sqlalchemy import setattr
 
 
 # region signup
@@ -168,7 +169,6 @@ def login_by_email(email: str, password: str, device_type: str, client_ip: str, 
         result['status_code'] = 400
         return result
     else:
-        # user_data = user_repo.user_data(target_user.id)
         user_repo.update_info_when_email_login(target_user.id, client_ip, device_type)
         new_token = generate_token(target_user.id)
         result: dict = {
@@ -502,9 +502,34 @@ def get_user_data(
 # endregion
 
 
-def nickname_exists(new_nickname: str, user_repo: AbstractUserRepository):
+def nickname_exists(user_id: int, new_nickname: str, user_repo: AbstractUserRepository):
     user = user_repo.get_one_by_nickname(new_nickname)
-    return True if user is not None else False
+
+    if user is None:
+        return False
+    else:
+        if user_id == user.id:
+            return False
+        else:
+            return True if user.nickname == new_nickname else False
+
+
+def nickname_format_validation(nickname: str) -> dict:
+    # (1) 최소 2자, 최대 8자
+    # (2) 한글, 영문, 숫자만으로 이루어져야 함
+    # (3) 단독 한글 자음, 모음 사용 불가능
+    meets_length_limit: bool = 2 <= len(nickname) <= 8
+    consists_korean_english_number = re.compile('^[ㄱ-ㅎ|ㅏ-ㅣ|가-힣|a-z|A-Z|0-9|]+$')
+    without_single_korean_vowels_or_consonants = re.compile('^[가-힣|a-z|A-Z|0-9|]+$')
+
+    if not consists_korean_english_number.match(nickname):
+        return {'result': False, 'error': '닉네임은 한글, 영문, 숫자로만 구성할 수 있습니다.'}
+    elif not without_single_korean_vowels_or_consonants.match(nickname):
+        return {'result': False, 'error': '닉네임에 한글 단독 자/모음은 사용할 수 없습니다.'}
+    elif not meets_length_limit:
+        return {'result': False, 'error': '닉네임은 2자 이상, 8자 이하 입니다.'}
+    else:
+        return {'result': True}
 
 
 def update_profile_image_by_http_method(user_id: int, new_image, user_repo: AbstractUserRepository):
@@ -516,6 +541,115 @@ def update_profile_image_by_http_method(user_id: int, new_image, user_repo: Abst
         profile_image: dict = file_service.upload_single_file_to_s3(new_image, s3_object_path)
         user_repo.update_profile_image(user_id, profile_image['original_file']['path'])
         return {'result': True}
+
+
+def update_user_profile(
+        user_id: int,
+        new_nickname: str or None,
+        new_area_code: str or None,
+        new_gender: str or None,
+        new_birthday: str or None,
+        new_greeting: str or None,
+        new_agree_email_marketing,
+        new_agree_sms_marketing,
+        new_agree_push,
+        new_agree_push_mission,
+        new_agree_advertisement,
+        user_repo: AbstractUserRepository,
+        user_stat_repo: AbstractUserStatRepository
+):
+    target_user: User = user_repo.get_one(user_id)
+    if target_user is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        # new_target_user, new_user_stat 을 좀 더 간단하게 상속(?) 할 수는 없을까?
+        new_target_user: User = User(
+            id=target_user.id,
+            login_method=target_user.login_method,
+            sns_email=target_user.sns_email,
+            email=target_user.email,
+            nickname=target_user.nickname,
+            greeting=target_user.greeting,
+            gender=target_user.gender,
+            point=target_user.point,
+            profile_image=target_user.profile_image,
+            invite_code=target_user.invite_code,
+            device_type=target_user.device_type,
+            area_code=target_user.area_code,
+            agree_terms_and_policy=target_user.agree1,  # agree_terms_and_policy,
+            agree_privacy=target_user.agree2,  # agree_privacy,
+            agree_location=target_user.agree3,  # agree_location,
+            agree_email_marketing=target_user.agree4,  # agree_email_marketing,
+            agree_sms_marketing=target_user.agree5,  # agree_sms_marketing,
+            agree_push=target_user.agree_push,
+            agree_push_mission=target_user.agree_push_mission,
+            agree_advertisement=target_user.agree_ad,  # agree_advertisement,
+        )
+
+        if new_nickname is not None and not nickname_exists(user_id, new_nickname, user_repo) and nickname_format_validation(new_nickname)['result']:
+            new_target_user.nickname = new_nickname
+        elif new_nickname is not None and nickname_exists(user_id, new_nickname, user_repo):
+            error_message = '이미 사용중인 닉네임입니다.'
+            result = failed_response(error_message)
+            result['status_code'] = 400
+            return result
+        elif new_nickname is not None and not nickname_format_validation(new_nickname)['result']:
+            error_message = nickname_format_validation(new_nickname)['error']
+            result = failed_response(error_message)
+            result['status_code'] = 400
+            return result
+        else:
+            pass
+
+        if new_area_code is not None:
+            new_target_user.area_code = new_area_code
+
+        if new_gender is not None and new_gender in ['M', 'W']:
+            new_target_user.gender = new_gender
+        elif new_gender is not None and new_gender not in ['M', 'W']:
+            error_message = '올바르지 않은 성별 데이터입니다.'
+            result = failed_response(error_message)
+            result['status_code'] = 400
+            return result
+        else:
+            pass
+
+        if new_greeting is not None:
+            new_target_user.greeting = new_greeting
+
+        if new_birthday is not None:
+            user_stat: UserStat = user_stat_repo.get_one(user_id)
+            new_user_stat: UserStat = UserStat(
+                user_id=user_stat.user_id,
+                birthday=user_stat.birthday,
+                height=user_stat.height,
+                weight=user_stat.weight,
+                bmi=user_stat.bmi,
+                yesterday_feeds_count=user_stat.yesterday_feeds_count
+            )
+            new_user_stat.birthday = new_birthday
+            user_stat_repo.update(new_user_stat)
+
+        if new_agree_email_marketing is not None:
+            new_target_user.agree_email_marketing = new_agree_email_marketing
+
+        if new_agree_sms_marketing is not None:
+            new_target_user.agree_sms_marketing = new_agree_sms_marketing
+
+        if new_agree_push is not None:
+            new_target_user.agree_push = new_agree_push
+
+        if new_agree_push_mission is not None:
+            new_target_user.agree_push_mission = new_agree_push_mission
+
+        if new_agree_advertisement is not None:
+            new_target_user.agree_advertisement = new_agree_advertisement
+
+        user_repo.update(new_target_user)
+        return {"result": True}
 
 
 def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
