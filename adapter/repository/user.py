@@ -66,6 +66,10 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def update_profile_image(self, user_id: int, new_image: str or None):
+        pass
+
+    @abc.abstractmethod
     def update_info_when_email_login(self, user_id: int, client_ip: str, device_type: str):
         pass
 
@@ -302,6 +306,10 @@ class UserRepository(AbstractUserRepository):
         ).values(
             password=decoded_hashed_new_password
         )
+        return self.session.execute(sql)
+
+    def update_profile_image(self, user_id: int, new_image: str or None):
+        sql = update(User).where(User.id == user_id).values(profile_image=new_image)
         return self.session.execute(sql)
 
     def update_info_when_email_login(self, user_id: int, client_ip: str, device_type: str):
