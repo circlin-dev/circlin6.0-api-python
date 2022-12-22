@@ -90,8 +90,9 @@ def upload_single_file_to_s3(file, s3_object_path):
         'resized_file': []
     }
 
-    # 3. Generate resized image
-    if validated_mime_type == 'image':
+    # 3. Generate resized image(Except for: user profile image)
+    # 예외사항이 많아진다면, 향후에는 예외사항을 리스트로 만들고 s3_object_path.split('/')[0]이 리스트에 존재하는지 확인하도록 변경한다.
+    if not s3_object_path.startswith('profile') and validated_mime_type == 'image':
         resized_files = generate_resized_file(hashed_file_name.split('.')[1], hashed_file_path, validated_mime_type)
 
         for resized_path in resized_files:

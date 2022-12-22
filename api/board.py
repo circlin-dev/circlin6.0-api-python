@@ -81,7 +81,7 @@ def board_get_post():
         if num_files > 1:
             files = request.files.getlist('files[]')
             board_image_repo: BoardImageRepository = BoardImageRepository(db_session)
-            s3_object_path = f"board/{str(user_id)}"
+            s3_object_path: str = f"board/{str(user_id)}"
             for index, file in enumerate(files):
                 board_service.create_board_image(inserted_board_id, index, file, s3_object_path, board_image_repo)  # (1) Upload to S3  (2) Add to BoardFile
         else:

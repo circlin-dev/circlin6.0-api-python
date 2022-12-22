@@ -8,7 +8,7 @@ from adapter.repository.user import AbstractUserRepository
 from adapter.repository.user_stat import AbstractUserStatRepository
 from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from domain.user import UserFavoriteCategory, UserStat, User
-from services import chat_service, point_service
+from services import chat_service, file_service, point_service
 from helper.constant import REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from helper.function import generate_token, failed_response
 
@@ -512,7 +512,10 @@ def update_profile_image_by_http_method(user_id: int, new_image, user_repo: Abst
         user_repo.update_profile_image(user_id, new_image)
         return {'result': True}
     else:
-        pass
+        s3_object_path: str = f'profile/{str(user_id)}'
+        profile_image: dict = file_service.upload_single_file_to_s3(new_image, s3_object_path)
+        user_repo.update_profile_image(user_id, profile_image['original_file']['path'])
+        return {'result': True}
 
 
 def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
