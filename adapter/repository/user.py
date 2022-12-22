@@ -54,7 +54,7 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def update(self, target_user, nickname) -> User:
+    def update(self, target_user: User):
         pass
 
     @abc.abstractmethod
@@ -215,15 +215,26 @@ class UserRepository(AbstractUserRepository):
         sql = select(
             User.id,
             area.label('area'),
+            User.area_code,
             User.greeting,
             User.invite_code,
             User.login_method,
             User.email,
+            User.sns_email,
+            User.gender,
             User.nickname,
             User.password,
             User.profile_image,
             User.point,
-            # case((User.id.in_(followings), 1), else_=0).label("followed"),
+            User.device_type,
+            User.agree1,  # agree_terms_and_policy
+            User.agree2,  # agree_privacy,
+            User.agree3,  # agree_location,
+            User.agree4,  # agree_email_marketing,
+            User.agree5,  # agree_sms_marketing,
+            User.agree_push,
+            User.agree_push_mission,
+            User.agree_ad,  # agree_advertisement,
         ).where(
             and_(User.id == user_id, User.deleted_at == None)
         ).limit(1)
@@ -280,10 +291,19 @@ class UserRepository(AbstractUserRepository):
         push_targets: list = self.session.execute(sql).all()
         return push_targets
 
-    def update(self, target_user, nickname):
+    def update(self, target_user: User):
+        # service에서 유저 class를 만들어서 새 값들로 변경한 다음, 여기서 업데이트 일괄 하면 될듯..
         return self.session.query(User).filter_by(id=target_user.id).update(
             {
-                "nickname": nickname,
+                "nickname": target_user.nickname,
+                "area_code": target_user.area_code,
+                "greeting": target_user.greeting,
+                "gender": target_user.gender,
+                "agree4": target_user.agree_email_marketing,
+                "agree5": target_user.agree_sms_marketing,
+                "agree_push": target_user.agree_push,
+                "agree_push_mission": target_user.agree_push_mission,
+                "agree_ad": target_user.agree_advertisement
             },
             synchronize_session="fetch"
         )

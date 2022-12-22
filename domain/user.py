@@ -35,12 +35,24 @@ class User:
         self.point = point
         self.profile_image = profile_image
         self.invite_code = invite_code
+        self.area_code = kwargs.get('area_code')
         self.device_type = kwargs.get('device_type')
         self.agree_terms_and_policy = kwargs.get('agree_terms_and_policy')
         self.agree_privacy = kwargs.get('agree_privacy')
         self.agree_location = kwargs.get('agree_location')
         self.agree_email_marketing = kwargs.get('agree_email_marketing')
         self.agree_sms_marketing = kwargs.get('agree_sms_marketing')
+        self.agree_push = kwargs.get('agree_push')
+        self.agree_push_mission = kwargs.get('agree_push_mission')
+        self.agree_advertisement = kwargs.get('agree_advertisement')
+
+    # @property
+    # def nickname(self):
+    #     return self._nickname
+    #
+    # @nickname.setter
+    # def nickname(self, nickname):
+    #     self._nickname = nickname
 
     def __eq__(self, other) -> bool:
         if not isinstance(other, User):
@@ -75,7 +87,18 @@ class UserStat:
         self.height = height
         self.weight = weight
         self.bmi = bmi
-        self.yesterday_feeds_count: yesterday_feeds_count
+        self.yesterday_feeds_count = yesterday_feeds_count
+
+    def update_birthday(self, new_birthday):
+        self.birthday = new_birthday
+
+    @property
+    def birthday(self):
+        return self._birthday
+
+    @birthday.setter
+    def birthday(self, birthday):
+        self._birthday = birthday
 
 
 class UserWallpaper:

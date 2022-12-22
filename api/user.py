@@ -9,6 +9,7 @@ from adapter.repository.follow import FollowRepository
 from adapter.repository.point_history import PointHistoryRepository
 from adapter.repository.user import UserRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
+from adapter.repository.user_stat import UserStatRepository
 from domain.user import UserFavoriteCategory
 from helper.constant import INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 from helper.function import authenticate, failed_response, get_query_strings_from_request
@@ -206,17 +207,78 @@ def issue_temporary_password():
 
 @api.route('/user/profile', methods=['GET', 'PATCH'])
 def update_profile():
-    # 닉네임 (AddInfo1)
-    # 동네 (AddInfo2) => /area API로 검색 필요   ==> 카카오 검색으로 바꾸면 어떨까...
-    # 성별 (AddInfo3)
-    # 생년월일 (AddInfo4) -> UserStat
-    # 자기소개
-    pass
-    # 다른 API로 뺄 것
-    # 관심 카테고리 (AddInfo05)
-    # 프로필 이미지 (AddInfo06)
-    # 추천 유저 + 팔로잉 (AddInfo07)
-    # 추천인 코드 입력 (AddInfo08) -> /user/recommended  --> user_recommend 테이블 따로 생성해서 옮기기
+    user_id = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if request.method == 'GET':
+        pass
+    elif request.method == 'PATCH':
+        params = json.loads(request.get_data())
+        available_to_update: list = ['areaCode', 'birthday', 'gender', 'greeting', 'nickname', 'agreeEmailMarketing', 'agreeSmsMarketing', 'agreePush', 'agreePushMission', 'agreeAdvertisement']
+        for param in params.keys():
+            if param not in available_to_update:
+                db_session.close()
+                error_message = f'{ERROR_RESPONSE[400]} ({param})'
+                return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+        # if 'email' not in params.keys() or params['email'] is None or params['email'].strip() == '':
+
+        # (1) 프로필 편집 영역
+        # 닉네임 (AddInfo1)
+        # 동네 (AddInfo2) => /area API로 검색 필요   ==> 카카오 검색으로 바꾸면 어떨까...
+        # 성별 (AddInfo3)
+        # 생년월일 (AddInfo4) -> UserStat
+        # 자기소개
+        new_area_code = params['areaCode'] if 'areaCode' in params.keys() else None
+        new_birthday = params['birthday'] if 'birthday' in params.keys() else None
+        new_gender = params['gender'] if 'gender' in params.keys() else None
+        new_greeting = params['greeting'] if 'greeting' in params.keys() else None
+        new_nickname = params['nickname'] if 'nickname' in params.keys() else None
+        # (2) 알림 설정 영역
+        new_agree_email_marketing = params['agreeEmailMarketing'] if 'agreeEmailMarketing' in params.keys() else None
+        new_agree_sms_marketing = params['agreeSmsMarketing'] if 'agreeSmsMarketing' in params.keys() else None
+        new_agree_push = params['agreePush'] if 'agreePush' in params.keys() else None
+        new_agree_push_mission = params['agreePushMission'] if 'agreePushMission' in params.keys() else None
+        new_agree_advertisement = params['agreeAdvertisement'] if 'agreeAdvertisement' in params.keys() else None
+
+        user_mappers()
+        user_repo: UserRepository = UserRepository(db_session)
+        user_stat_repo: UserStatRepository = UserStatRepository(db_session)
+        update_user_profile = user_service.update_user_profile(
+            user_id,
+            new_nickname,
+            new_area_code,
+            new_gender,
+            new_birthday,
+            new_greeting,
+            new_agree_email_marketing,
+            new_agree_sms_marketing,
+            new_agree_push,
+            new_agree_push_mission,
+            new_agree_advertisement,
+            user_repo,
+            user_stat_repo
+        )
+        clear_mappers()
+
+        if update_user_profile['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(update_user_profile, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in update_user_profile.items() if key != 'status_code'}, ensure_ascii=False), update_user_profile['status_code']
+        # 다른 API로 뺄 것
+        # 관심 카테고리 (AddInfo05)
+        # 프로필 이미지 (AddInfo06)
+        # 추천 유저 + 팔로잉 (AddInfo07)
+        # 추천인 코드 입력 (AddInfo08) -> /user/recommended  --> user_recommend 테이블 따로 생성해서 옮기기
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/user/withdraw', methods=['DELETE'])
