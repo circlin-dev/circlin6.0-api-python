@@ -64,8 +64,46 @@ def get_all_users():
     return json.dumps(entries, ensure_ascii=False), 200
 
 
+@api.route('/user/image', methods=['PATCH', 'DELETE'])
+def update_or_delete_profile_image():
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if request.method == 'PATCH':
+        user_mappers()
+        file = request.files.getlist('file')
+        user_repo: UserRepository = UserRepository(db_session)
+        update_profile_image = user_service.update_profile_image_by_http_method(user_id, file, user_repo)
+        clear_mappers()
+        if update_profile_image['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(update_profile_image, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in update_profile_image.items() if key != 'status_code'}, ensure_ascii=False), update_profile_image['status_code']
+    elif request.method == 'DELETE':
+        user_mappers()
+        user_repo: UserRepository = UserRepository(db_session)
+        delete_profile_image = user_service.update_profile_image_by_http_method(user_id, None, user_repo)
+        clear_mappers()
+        if delete_profile_image['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(delete_profile_image, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in delete_profile_image.items() if key != 'status_code'}, ensure_ascii=False), delete_profile_image['status_code']
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
 @api.route('/user/nickname', methods=['GET'])
-def check_duplicated_nickname():
+def user_nickname():
     user_id: [int, None] = authenticate(request, db_session)
     if user_id is None:
         db_session.close()
@@ -163,6 +201,21 @@ def issue_temporary_password():
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
         return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/user/profile', methods=['GET', 'PATCH'])
+def update_profile():
+    # 닉네임 (AddInfo1)
+    # 동네 (AddInfo2) => /area API로 검색 필요   ==> 카카오 검색으로 바꾸면 어떨까...
+    # 성별 (AddInfo3)
+    # 생년월일 (AddInfo4) -> UserStat
+    # 자기소개
+    pass
+    # 다른 API로 뺄 것
+    # 관심 카테고리 (AddInfo05)
+    # 프로필 이미지 (AddInfo06)
+    # 추천 유저 + 팔로잉 (AddInfo07)
+    # 추천인 코드 입력 (AddInfo08) -> /user/recommended  --> user_recommend 테이블 따로 생성해서 옮기기
 
 
 @api.route('/user/withdraw', methods=['DELETE'])

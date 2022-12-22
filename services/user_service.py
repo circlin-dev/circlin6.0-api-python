@@ -372,14 +372,40 @@ def issue_temporary_password_and_send_email(email: str, user_repo: AbstractUserR
 
 
 # region user information management
-def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
-    user_repo.delete(user_id, reason)
-    return {'result': True}
+def get_a_user(user_id: int, target_id: int, user_repo: AbstractUserRepository, follow_repo: AbstractFollowRepository) -> dict:
+    user: User = user_repo.get_one(target_id)
 
-
-def nickname_exists(new_nickname: str, user_repo: AbstractUserRepository):
-    user = user_repo.get_one_by_nickname(new_nickname)
-    return True if user is not None else False
+    if user is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+    else:
+        if user_id == target_id:
+            user_dict = dict(
+                id=user.id,
+                area=user.area,
+                greeting=user.greeting,
+                inviteCode=user.invite_code,
+                nickname=user.nickname,
+                point=user.point,
+                profile=user.profile_image,
+            ) if user is not None else None
+        else:
+            followed = True if follow_repo.get_one(user_id, target_id) == 1 else False
+            user_dict = dict(
+                id=user.id,
+                area=user.area,
+                greeting=user.greeting,
+                inviteCode=user.invite_code,
+                nickname=user.nickname,
+                followed=followed,
+                profile=user.profile_image,
+            ) if user is not None else None
+        result: dict = {
+            "result": True,
+            "data": user_dict
+        }
+    return result
 
 
 # region user_data
@@ -476,40 +502,22 @@ def get_user_data(
 # endregion
 
 
-def get_a_user(user_id: int, target_id: int, user_repo: AbstractUserRepository, follow_repo: AbstractFollowRepository) -> dict:
-    user: User = user_repo.get_one(target_id)
+def nickname_exists(new_nickname: str, user_repo: AbstractUserRepository):
+    user = user_repo.get_one_by_nickname(new_nickname)
+    return True if user is not None else False
 
-    if user is None:
-        error_message = '존재하지 않는 유저입니다.'
-        result = failed_response(error_message)
-        result['status_code'] = 400
+
+def update_profile_image_by_http_method(user_id: int, new_image, user_repo: AbstractUserRepository):
+    if new_image is None:
+        user_repo.update_profile_image(user_id, new_image)
+        return {'result': True}
     else:
-        if user_id == target_id:
-            user_dict = dict(
-                id=user.id,
-                area=user.area,
-                greeting=user.greeting,
-                inviteCode=user.invite_code,
-                nickname=user.nickname,
-                point=user.point,
-                profile=user.profile_image,
-            ) if user is not None else None
-        else:
-            followed = True if follow_repo.get_one(user_id, target_id) == 1 else False
-            user_dict = dict(
-                id=user.id,
-                area=user.area,
-                greeting=user.greeting,
-                inviteCode=user.invite_code,
-                nickname=user.nickname,
-                followed=followed,
-                profile=user.profile_image,
-            ) if user is not None else None
-        result: dict = {
-            "result": True,
-            "data": user_dict
-        }
-    return result
+        pass
+
+
+def withdraw(user_id: int, reason: str or None, user_repo: AbstractUserRepository):
+    user_repo.delete(user_id, reason)
+    return {'result': True}
 # endregion
 
 
