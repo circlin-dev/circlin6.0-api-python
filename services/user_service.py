@@ -179,17 +179,17 @@ def login_by_email(email: str, password: str, device_type: str, client_ip: str, 
 
 
 def login_by_sns(
-        sns_name: str,
+        sns_name_to_login: str,
         email: str,
         sns_email: str or None,
         device_type: str,
         phone_number: str or None,
         client_ip: str,
         user_repo: AbstractUserRepository
-):
+) -> dict:
     """
     '가입하기' 혹은 '로그인하기'가 가능한 이메일과 달리, SNS는 반드시 먼저 login을 시도한 후 등록된 회원정보의 존재 여부에 따라 회원가입으로 안내해야 한다.
-    :param sns_name: 사용하려는 SNS 이름(kakao, naver, apple, facebook)
+    :param sns_name_to_login: 사용하려는 SNS 이름(kakao, naver, apple, facebook)
     :param email: '123456@F', '1234567@K'와 같이 SNS 플랫폼별 유저 ID값 + 플랫폼 첫 알파벳 대문자로 생성하던 email값
     :param sns_email: SNS 플랫폼별 유저의 제공 동의 하에 주어지는, 'id@xxxx.com' 형태의 실제 email 주소값(facebook은 현재 항상 획득 불가)
     :param device_type: iOS, Android 기기 OS 종류
@@ -203,7 +203,7 @@ def login_by_sns(
         # 회원정보가 존재하지 않는 유저. 회원가입을 유도한다.
         error_message = '존재하지 않는 유저입니다. SNS 계정으로 회원가입 후 써클인을 이용해 보세요!'
         result = failed_response(error_message)
-        result['status_code'] = 400
+        result['status_code'] = 401
         return result
     else:
         # 기존 유저: email, phone, loginMethod를 update해야 한다. 단, sns_email과 phone은 아래와 같이 update 조건이 있다.
@@ -212,11 +212,11 @@ def login_by_sns(
         if phone_number is None and sns_email is None:
             pass
         elif phone_number is None and sns_email is not None:
-            None if target_user.sns_email == sns_email else user_repo.update_info_when_sns_login(target_user.id, sns_email, phone_number, sns_name, client_ip, device_type)
+            user_repo.update_info_when_sns_login(target_user.id, sns_email, target_user.phone, sns_name_to_login, client_ip, device_type)
         elif sns_email is None and phone_number is not None:
-            None if target_user.phone == phone_number else user_repo.update_info_when_sns_login(target_user.id, sns_email, phone_number, sns_name, client_ip, device_type)
+            user_repo.update_info_when_sns_login(target_user.id, target_user.sns_email, phone_number, sns_name_to_login, client_ip, device_type)
         else:
-            user_repo.update_info_when_sns_login(target_user.id, sns_email, phone_number, sns_name, client_ip, device_type)
+            user_repo.update_info_when_sns_login(target_user.id, sns_email, phone_number, sns_name_to_login, client_ip, device_type)
 
         new_token = generate_token(target_user.id)
         result: dict = {

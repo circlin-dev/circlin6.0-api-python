@@ -231,22 +231,22 @@ def update_profile():
         # 성별 (AddInfo3)
         # 생년월일 (AddInfo4) -> UserStat
         # 자기소개
-        new_area_code = params['areaCode'] if 'areaCode' in params.keys() else None
-        new_birthday = params['birthday'] if 'birthday' in params.keys() else None
-        new_gender = params['gender'] if 'gender' in params.keys() else None
-        new_greeting = params['greeting'] if 'greeting' in params.keys() else None
-        new_nickname = params['nickname'] if 'nickname' in params.keys() else None
+        new_area_code: str or None = params['areaCode'] if 'areaCode' in params.keys() else None
+        new_birthday: str or None = params['birthday'] if 'birthday' in params.keys() else None
+        new_gender: str or None = params['gender'] if 'gender' in params.keys() else None
+        new_greeting: str or None = params['greeting'] if 'greeting' in params.keys() else None
+        new_nickname: str or None = params['nickname'] if 'nickname' in params.keys() else None
         # (2) 알림 설정 영역
-        new_agree_email_marketing = params['agreeEmailMarketing'] if 'agreeEmailMarketing' in params.keys() else None
-        new_agree_sms_marketing = params['agreeSmsMarketing'] if 'agreeSmsMarketing' in params.keys() else None
-        new_agree_push = params['agreePush'] if 'agreePush' in params.keys() else None
-        new_agree_push_mission = params['agreePushMission'] if 'agreePushMission' in params.keys() else None
-        new_agree_advertisement = params['agreeAdvertisement'] if 'agreeAdvertisement' in params.keys() else None
+        new_agree_email_marketing: bool or None = params['agreeEmailMarketing'] if 'agreeEmailMarketing' in params.keys() else None
+        new_agree_sms_marketing: bool or None = params['agreeSmsMarketing'] if 'agreeSmsMarketing' in params.keys() else None
+        new_agree_push: bool or None = params['agreePush'] if 'agreePush' in params.keys() else None
+        new_agree_push_mission: bool or None = params['agreePushMission'] if 'agreePushMission' in params.keys() else None
+        new_agree_advertisement: bool or None = params['agreeAdvertisement'] if 'agreeAdvertisement' in params.keys() else None
 
         user_mappers()
         user_repo: UserRepository = UserRepository(db_session)
         user_stat_repo: UserStatRepository = UserStatRepository(db_session)
-        update_user_profile = user_service.update_user_profile(
+        update_user_profile: dict = user_service.update_user_profile(
             user_id,
             new_nickname,
             new_area_code,
@@ -272,7 +272,6 @@ def update_profile():
             return json.dumps({key: value for key, value in update_user_profile.items() if key != 'status_code'}, ensure_ascii=False), update_user_profile['status_code']
         # 다른 API로 뺄 것
         # 관심 카테고리 (AddInfo05)
-        # 프로필 이미지 (AddInfo06)
         # 추천 유저 + 팔로잉 (AddInfo07)
         # 추천인 코드 입력 (AddInfo08) -> /user/recommended  --> user_recommend 테이블 따로 생성해서 옮기기
     else:
