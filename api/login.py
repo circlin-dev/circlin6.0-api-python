@@ -77,14 +77,14 @@ def login_sns():
             return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         else:
             email: str = params['email']
-            method: str = params['snsName']
+            sns_name_to_login: str = params['snsName']
             sns_email: str or None = params['snsEmail']
             device_type: str = params['deviceType']
             phone_number: str or None = params['phoneNumber']
             client_ip = request.environ.get('HTTP_X_REAL_IP', request.remote_addr)
             user_mappers()
             user_repo: UserRepository = UserRepository(db_session)
-            login_by_sns = user_service.login_by_sns(method, email, sns_email, device_type, phone_number, client_ip, user_repo)
+            login_by_sns = user_service.login_by_sns(sns_name_to_login, email, sns_email, device_type, phone_number, client_ip, user_repo)
             clear_mappers()
 
             if login_by_sns['result']:
