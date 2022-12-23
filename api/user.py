@@ -115,7 +115,7 @@ def user_nickname():
         nickname: str = request.args.get('nickname')
         user_mappers()
         user_repo: UserRepository = UserRepository(db_session)
-        nickname_exists = user_service.nickname_exists(nickname, user_repo)
+        nickname_exists = user_service.nickname_exists(user_id, nickname, user_repo)
         clear_mappers()
         db_session.close()
 
