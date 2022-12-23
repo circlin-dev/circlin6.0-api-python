@@ -46,7 +46,6 @@ class UserStatRepository(AbstractUserStatRepository):
         return result
 
     def update(self, new_user_stat: UserStat):
-        print('new_user_stat.birthday: ', new_user_stat.birthday)
         return self.session.query(user_stats).filter_by(user_id=new_user_stat.user_id).update(
             {
                 "birthday": func.date_format(new_user_stat.birthday, '%Y-%m-%d 00:00:00'),

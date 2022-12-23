@@ -1288,12 +1288,14 @@ def ingredient_mappers():
 # region missions
 def mission_mappers():
     mapper_registry.map_imperatively(MissionCategory, mission_categories)
+    mapper_registry.map_imperatively(MissionStat, mission_stats)
     mapper_registry.map_imperatively(User, users)
     mapper = mapper_registry.map_imperatively(
         Mission,
         missions,
         properties={
             "mission_categories": relationship(MissionCategory),
+            "mission_stats": relationship(MissionStat),
             "users": relationship(User)
         }
     )
