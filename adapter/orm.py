@@ -762,7 +762,7 @@ users = Table(
     Column("sns_email", VARCHAR(255)),
     Column("email", VARCHAR(255), nullable=False),
     Column("email_verified_at", TIMESTAMP),
-    Column("password", VARCHAR(255), nullable=False),
+    Column("password", VARCHAR(255)),
     Column("nickname", VARCHAR(255)),
     Column("family_name", VARCHAR(255)),
     Column("given_name", VARCHAR(255)),

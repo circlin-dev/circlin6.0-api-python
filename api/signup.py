@@ -116,6 +116,10 @@ def signup_sns():
             db_session.close()
             error_message = f'{ERROR_RESPONSE[400]} (phoneNumber).'
             return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+        elif 'deviceType' not in params.keys() or params['deviceType'] is None or params['deviceType'].strip() == '':
+            db_session.close()
+            error_message = f'{ERROR_RESPONSE[400]} (deviceType).'
+            return json.dumps(failed_response(error_message), ensure_ascii=False), 400
         elif 'agreeTermsAndPolicy' not in params.keys() or params['agreeTermsAndPolicy'] is None:
             db_session.close()
             error_message = f'{ERROR_RESPONSE[400]} (agreeTermsAndPolicy).'  # 서비스 이용약관
@@ -143,9 +147,9 @@ def signup_sns():
         else:
             email: str = params['email']
             method: str = params['snsName']
-            sns_email: str = params['snsEmail']
+            sns_email: str or None = params['snsEmail']
             device_type: str = params['deviceType']
-            phone_number: str = params['phoneNumber']
+            phone_number: str or None = params['phoneNumber']
             agree_terms_and_policy: bool = params['agreeTermsAndPolicy']
             agree_privacy: bool = params['agreePrivacy']
             agree_location: bool = params['agreeLocation']
