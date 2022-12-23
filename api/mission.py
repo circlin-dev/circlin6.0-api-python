@@ -47,7 +47,7 @@ def missions():
         category_id = None if request.args.get('categoryId') is None or request.args.get('categoryId').strip() == '' else int(request.args.get('categoryId'))
         mission_mappers()
         mission_repository: MissionRepository = MissionRepository(db_session)
-        mission_list = mission_service.get_list_by_category(user_id, category_id, page_cursor, limit, mission_repository)
+        mission_list = mission_service.get_missions_by_category(user_id, category_id, page_cursor, limit, mission_repository)
         number_of_missions: int = mission_service.count_number_of_mission_by_category(category_id, mission_repository)
         clear_mappers()
 

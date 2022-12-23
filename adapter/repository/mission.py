@@ -1,6 +1,6 @@
 import abc
 from adapter.orm import mission_categories
-from domain.mission import Mission, MissionCategory, MissionStat
+from domain.mission import Mission, MissionCategory, MissionComment, MissionStat
 from domain.user import User
 
 import abc
@@ -22,31 +22,35 @@ class MissionRepository(AbstractMissionRepository):
 
     def get_list_by_category(self, user_id: int, category_id: int or None, page_cursor: int, limit: int):
         user_alias_participants = aliased(User)
+        comments_count = select(func.count(MissionComment.id)).where(and_(MissionComment.mission_id == Mission.id, MissionComment.deleted_at == None))
         condition = and_(
+            Mission.mission_category_id == category_id,
             Mission.is_show == 1,
             Mission.deleted_at == None,
-            Mission.mission_category_id == category_id,
             Mission.id < page_cursor,
             MissionStat.mission_id == Mission.id,
             case(
-                (Mission.ended_at == None, MissionStat.ended_at == None),
+                (Mission.ended_at == None, MissionStat.ended_at == None),  # 종료기한(Mission.ended_at)이 없는 미션은 단순히 중도포기 여부만 체크한다.
                 else_=case(
-                    (Mission.ended_at <= func.now(), MissionStat.ended_at >= Mission.ended_at),  # 미션이 종료된 것
-                    else_=MissionStat.ended_at == None  # 종료되지 않은 미션
+                    (Mission.ended_at <= func.now(), MissionStat.ended_at >= Mission.ended_at),  # 종료 시점이 현재보다 과거라면 종료된 미션. Mission 종료 시점과 유저의 해당 미션 종료 시점(MissionStat)을 비교한다.
+                    else_=MissionStat.ended_at == None  # 종료되지 않은 미션은 단순히 중도포기 여부만 체크한다.
                 )
             ),
             user_alias_participants.deleted_at == None
         ) if category_id is not None else \
             and_(
-            Mission.is_show == 1,
-            Mission.deleted_at == None,
-            Mission.id < page_cursor,
-            MissionStat.mission_id == Mission.id,
-            case(
-                (Mission.ended_at <= func.now(), MissionStat.ended_at != None),  # 미션이 종료된 것
-                else_=MissionStat.ended_at == None  # 종료되지 않은 미션
-            ),
-            user_alias_participants.deleted_at == None
+                Mission.is_show == 1,
+                Mission.deleted_at == None,
+                Mission.id < page_cursor,
+                MissionStat.mission_id == Mission.id,
+                case(
+                    (Mission.ended_at == None, MissionStat.ended_at == None),  # 종료기한(Mission.ended_at)이 없는 미션은 단순히 중도포기 여부만 체크한다.
+                    else_=case(
+                        (Mission.ended_at <= func.now(), MissionStat.ended_at >= Mission.ended_at),  # 종료 시점이 현재보다 과거라면 종료된 미션. Mission 종료 시점과 유저의 해당 미션 종료 시점(MissionStat)을 비교한다.
+                        else_=MissionStat.ended_at == None  # 종료되지 않은 미션은 단순히 중도포기 여부만 체크한다.
+                    )
+                ),
+                user_alias_participants.deleted_at == None
         )
 
         sql = select(
@@ -59,12 +63,87 @@ class MissionRepository(AbstractMissionRepository):
             ).label("category"),
             Mission.description,
             Mission.thumbnail_image,
-            Mission.mission_type,
             func.date_format(Mission.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
             func.date_format(Mission.started_at, '%Y/%m/%d %H:%i:%s').label('started_at'),
             func.date_format(Mission.ended_at, '%Y/%m/%d %H:%i:%s').label('ended_at'),
             func.date_format(Mission.reserve_started_at, '%Y/%m/%d %H:%i:%s').label('reserve_started_at'),
             func.date_format(Mission.reserve_ended_at, '%Y/%m/%d %H:%i:%s').label('reserve_ended_at'),
+            case(
+                (
+                    and_(
+                        Mission.reserve_started_at == None,
+                        Mission.reserve_ended_at == None,
+                    ),
+                    case(
+                        (
+                            and_(
+                                Mission.started_at == None,
+                                Mission.ended_at == None,
+                            ),
+                            'ongoing'
+                        ),
+                        (Mission.started_at > func.now(), 'before_ongoing'),
+                        (
+                            and_(
+                                Mission.started_at <= func.now(),
+                                Mission.ended_at > func.now()
+                            ),
+                            'ongoing'
+                        ),
+                        else_='end'
+                    ),
+                ),
+                else_=case(
+                    (Mission.reserve_started_at > func.now(), 'before_reserve'),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.reserve_ended_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_ended_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'before_ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    else_='end'
+                )
+            ).label('status'),
+            Mission.mission_type,
             func.json_object(
                 'id', Mission.user_id,
                 'nickname', User.nickname,
@@ -77,6 +156,7 @@ class MissionRepository(AbstractMissionRepository):
                     'profile', user_alias_participants.profile_image,
                 )
             ).label('participants'),
+            comments_count.label('comments_count'),
             func.concat(func.lpad(Mission.id, 15, '0')).label('cursor'),
         ).join(
             User, User.id == Mission.user_id
