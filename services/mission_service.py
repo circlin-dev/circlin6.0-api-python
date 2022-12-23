@@ -1,10 +1,46 @@
 from adapter.repository.feed import AbstractFeedRepository
+from adapter.repository.mission import AbstractMissionRepository
 from adapter.repository.mission_category import AbstractMissionCategoryRepository
 from adapter.repository.mission_comment import AbstractMissionCommentRepository
 from adapter.repository.mission_stat import AbstractMissionStatRepository
 from domain.mission import MissionCategory
 
 import json
+import random
+
+
+def get_list_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, mission_repo: AbstractMissionRepository):
+    missions = mission_repo.get_list_by_category(user_id, category_id, page_cursor, limit)
+    entries = [dict(
+        id=mission.id,
+        title=mission.title,
+        category=json.loads(mission.category),
+        description=mission.description,
+        thumbnail=mission.thumbnail_image,
+        type=mission.mission_type if mission.mission_type is not None else 'normal',
+        createdAt=mission.created_at,
+        startedAt=mission.started_at,
+        endedAt=mission.ended_at,
+        reserveStartedAt=mission.reserve_started_at,
+        reserveEndedAt=mission.reserve_ended_at,
+        producer=json.loads(mission.producer),
+        participantsProfileExcludingProducer=[
+            participant
+            for participant in [user
+                                for user in json.loads(mission.participants)
+                                if user.get('id') not in [json.loads(mission.producer)['id'], 4340, 2]
+                                ][-2:]
+        ] if mission.participants is not None else [],
+        participantCount=len(json.loads(mission.participants)) if mission.participants is not None else 0,
+        cursor=mission.cursor
+    ) for mission in missions] if missions is not None else []
+
+    return entries
+
+
+def count_number_of_mission_by_category(category_id: int, mission_repo: AbstractMissionRepository):
+    total_count = mission_repo.count_number_of_mission_by_category(category_id)
+    return total_count
 
 
 def check_if_user_is_carrying_out_this_mission(user_id: int, mission_id: int, mission_stat_repo: AbstractMissionStatRepository):
@@ -12,6 +48,7 @@ def check_if_user_is_carrying_out_this_mission(user_id: int, mission_id: int, mi
     return True if result == 1 else False
 
 
+# region category
 def get_mission_categories(mission_category_repo: AbstractMissionCategoryRepository, favorite_mission_categories: list):
     category_list = mission_category_repo.get_list()
 
@@ -24,8 +61,10 @@ def get_mission_categories(mission_category_repo: AbstractMissionCategoryReposit
                     isFavorite=True if category.id in favorite_mission_categories else False
                     ) for category in category_list]
     return entries
+# endregion
 
 
+# region comments
 def get_comment_count_of_the_mission(mission_id, mission_comment_repo: AbstractMissionCommentRepository) -> int:
     return mission_comment_repo.count_number_of_comment(mission_id)
 
@@ -48,8 +87,10 @@ def get_comments(mission_id: int, page_cursor: int, limit: int, user_id: int, mi
         ) for comment in comments
     ]
     return entries
+# endregion
 
 
+# region feeds
 def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id: int, feed_repo: AbstractFeedRepository) -> list:
     feeds = feed_repo.get_feeds_by_mission(mission_id, user_id, page_cursor, limit)
     entries: list = [dict(
@@ -99,3 +140,4 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
 def get_feed_count_of_the_mission(mission_id: int, feed_repo: AbstractFeedRepository) -> int:
     count = feed_repo.count_number_of_feed_of_mission(mission_id)
     return count
+# endregion

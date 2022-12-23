@@ -762,7 +762,7 @@ users = Table(
     Column("sns_email", VARCHAR(255)),
     Column("email", VARCHAR(255), nullable=False),
     Column("email_verified_at", TIMESTAMP),
-    Column("password", VARCHAR(255), nullable=False),
+    Column("password", VARCHAR(255)),
     Column("nickname", VARCHAR(255)),
     Column("family_name", VARCHAR(255)),
     Column("given_name", VARCHAR(255)),
@@ -1288,12 +1288,14 @@ def ingredient_mappers():
 # region missions
 def mission_mappers():
     mapper_registry.map_imperatively(MissionCategory, mission_categories)
+    mapper_registry.map_imperatively(MissionStat, mission_stats)
     mapper_registry.map_imperatively(User, users)
     mapper = mapper_registry.map_imperatively(
         Mission,
         missions,
         properties={
             "mission_categories": relationship(MissionCategory),
+            "mission_stats": relationship(MissionStat),
             "users": relationship(User)
         }
     )
