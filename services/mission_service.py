@@ -9,7 +9,7 @@ import json
 import random
 
 
-def get_list_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, mission_repo: AbstractMissionRepository):
+def get_missions_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, mission_repo: AbstractMissionRepository):
     missions = mission_repo.get_list_by_category(user_id, category_id, page_cursor, limit)
     entries = [dict(
         id=mission.id,
@@ -17,13 +17,16 @@ def get_list_by_category(user_id: int, category_id: int or None, page_cursor: in
         category=json.loads(mission.category),
         description=mission.description,
         thumbnail=mission.thumbnail_image,
-        type=mission.mission_type if mission.mission_type is not None else 'normal',
         createdAt=mission.created_at,
         startedAt=mission.started_at,
         endedAt=mission.ended_at,
         reserveStartedAt=mission.reserve_started_at,
         reserveEndedAt=mission.reserve_ended_at,
+        status=mission.status,
+        type=mission.mission_type if mission.mission_type is not None else 'normal',
         producer=json.loads(mission.producer),
+        participated=True if user_id in [user['id'] for user in json.loads(mission.participants)] else False,
+        participantCount=len(json.loads(mission.participants)) if mission.participants is not None else 0,
         participantsProfileExcludingProducer=[
             participant
             for participant in [user
@@ -31,7 +34,12 @@ def get_list_by_category(user_id: int, category_id: int or None, page_cursor: in
                                 if user.get('id') not in [json.loads(mission.producer)['id'], 4340, 2]
                                 ][-2:]
         ] if mission.participants is not None else [],
-        participantCount=len(json.loads(mission.participants)) if mission.participants is not None else 0,
+        # ground: bool
+        commentsCount=mission.comments_count,
+        # product: dic
+        # user_limit
+        # order
+        # available
         cursor=mission.cursor
     ) for mission in missions] if missions is not None else []
 
