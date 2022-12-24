@@ -5,6 +5,7 @@ from adapter.repository.feed import FeedRepository
 from adapter.repository.mission import MissionRepository
 from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
+from adapter.repository.mission_stat import MissionStatRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
 from helper.constant import ERROR_RESPONSE, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 from helper.function import authenticate, failed_response, get_query_strings_from_request
@@ -45,10 +46,13 @@ def missions():
         limit = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
         page = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
         category_id = None if request.args.get('categoryId') is None or request.args.get('categoryId').strip() == '' else int(request.args.get('categoryId'))
+        sort = 'recent' if request.args.get('sortBy') is None or request.args.get('sortBy').strip() == '' else request.args.get('sortBy')
+        # sortBy = 'recent'(최신순) | 'popular'(인기순) | 'participantsCount'(참여자 많은 순) | 'commentsCount'(댓글 많은 순)
         mission_mappers()
-        mission_repository: MissionRepository = MissionRepository(db_session)
-        mission_list = mission_service.get_missions_by_category(user_id, category_id, page_cursor, limit, mission_repository)
-        number_of_missions: int = mission_service.count_number_of_mission_by_category(category_id, mission_repository)
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        mission_list = mission_service.get_missions_by_category(user_id, category_id, page_cursor, limit, sort, mission_repo, mission_stat_repo)
+        number_of_missions: int = mission_service.count_number_of_mission_by_category(category_id, mission_repo)
         clear_mappers()
 
         last_cursor: [str, None] = None if len(mission_list) <= 0 else mission_list[-1]['cursor']  # 배열 원소의 cursor string
@@ -156,7 +160,8 @@ def mission_feeds(mission_id: int):
 
         feed_mappers()
         feed_repo: FeedRepository = FeedRepository(db_session)
-        feeds: list = mission_service.get_feeds_by_mission(mission_id, page_cursor, limit, user_id, feed_repo)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        feeds: list = mission_service.get_feeds_by_mission(mission_id, page_cursor, limit, user_id, feed_repo, mission_stat_repo)
         number_of_feeds: int = mission_service.get_feed_count_of_the_mission(mission_id, feed_repo)
         clear_mappers()
 

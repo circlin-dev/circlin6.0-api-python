@@ -4,13 +4,14 @@ from adapter.repository.mission_category import AbstractMissionCategoryRepositor
 from adapter.repository.mission_comment import AbstractMissionCommentRepository
 from adapter.repository.mission_stat import AbstractMissionStatRepository
 from domain.mission import MissionCategory
+from helper.constant import INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT
 
 import json
 import random
 
 
-def get_missions_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, mission_repo: AbstractMissionRepository):
-    missions = mission_repo.get_list_by_category(user_id, category_id, page_cursor, limit)
+def get_missions_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, sort: str, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository):
+    missions = mission_repo.get_list_by_category(user_id, category_id, page_cursor, limit, sort)
     entries = [dict(
         id=mission.id,
         title=mission.title,
@@ -25,20 +26,20 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
         status=mission.status,
         type=mission.mission_type if mission.mission_type is not None else 'normal',
         producer=json.loads(mission.producer),
-        participated=True if user_id in [user['id'] for user in json.loads(mission.participants)] else False,
-        participantCount=len(json.loads(mission.participants)) if mission.participants is not None else 0,
-        participantsProfileExcludingProducer=[
-            participant
-            for participant in [user
-                                for user in json.loads(mission.participants)
-                                if user.get('id') not in [json.loads(mission.producer)['id'], 4340, 2]
-                                ][-2:]
-        ] if mission.participants is not None else [],
-        # ground: bool
+        bookmarkedUsersProfileExcludingProducer=[
+            dict(
+                id=user.id,
+                profile=user.profile_image,
+            )
+            for user in mission_repo.get_participants(mission.id, user_id, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT)[-2:]
+            if user.id not in [json.loads(mission.producer)['id'], 4340, 2]
+        ],
+        bookmarksCount=mission.bookmarks_count,
+        bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission.id) else False,
         commentsCount=mission.comments_count,
-        # product: dic
-        # user_limit
-        # order
+        product=json.loads(mission.product) if json.loads(mission.product)['id'] is not None else None,
+        bookmarkLimit=mission.user_limit,
+        # ground: bool
         # available
         cursor=mission.cursor
     ) for mission in missions] if missions is not None else []
@@ -54,6 +55,27 @@ def count_number_of_mission_by_category(category_id: int, mission_repo: Abstract
 def check_if_user_is_carrying_out_this_mission(user_id: int, mission_id: int, mission_stat_repo: AbstractMissionStatRepository):
     result = mission_stat_repo.get_one_excluding_ended(mission_id, user_id)
     return True if result == 1 else False
+
+
+# region mission participants
+def get_mission_participant_list(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository):
+    participants: list = mission_repo.get_participants(mission_id)
+    entries: list = [dict(
+        id=participant.id,
+        nickname=participant.nickname,
+        gender=participant.gender,
+        profile=participant.profile,
+        followed=participant.followed,
+        followers=participant.followers,
+        cursor=participant.cursor
+    ) for participant in participants] if participants is not None else []
+    return entries
+
+
+def count_number_of_mission_participant(mission_id: int, mission_repo: AbstractMissionRepository):
+    total_count: int = mission_repo.count_number_of_participants(mission_id)
+    return total_count
+# endregion
 
 
 # region category
@@ -99,7 +121,7 @@ def get_comments(mission_id: int, page_cursor: int, limit: int, user_id: int, mi
 
 
 # region feeds
-def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id: int, feed_repo: AbstractFeedRepository) -> list:
+def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id: int, feed_repo: AbstractFeedRepository, mission_stat_repo: AbstractMissionStatRepository) -> list:
     feeds = feed_repo.get_feeds_by_mission(mission_id, user_id, page_cursor, limit)
     entries: list = [dict(
         id=feed.id,
@@ -130,7 +152,7 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
             isGround=True if mission['is_ground'] == 1 else False,
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False
+            bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission['id']) else False
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         checkedUsers=[dict(
             id=user['id'],

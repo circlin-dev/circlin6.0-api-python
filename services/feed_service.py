@@ -1,6 +1,7 @@
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.feed_comment import AbstractFeedCommentRepository
+from adapter.repository.mission_stat import AbstractMissionStatRepository
 from adapter.repository.notification import AbstractNotificationRepository
 from adapter.repository.point_history import AbstractPointHistoryRepository, PointHistoryRepository
 from adapter.repository.push import AbstractPushHistoryRepository
@@ -19,7 +20,7 @@ from datetime import datetime, timedelta
 import json
 
 
-def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
+def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository, mission_stat_repo: AbstractMissionStatRepository) -> list:
     newsfeeds: list = feed_repo.get_newsfeeds(user_id, page_cursor, limit)
     entries: list = [dict(
         id=feed.id,
@@ -55,7 +56,7 @@ def get_newsfeeds(user_id: int, page_cursor: int, limit: int, feed_repo: Abstrac
             isGround=True if mission['is_ground'] == 1 else False,
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False
+            bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission['id']) else False
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
         food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
@@ -106,7 +107,7 @@ def get_user_list_who_like_this_feed(feed_id: int, user_id: int, page_cursor: in
     return entries
 
 
-def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) -> dict:
+def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
     feed: Feed = feed_repo.get_one(feed_id, user_id)
 
     if feed.id is None or feed_is_undeleted(feed) is False:
@@ -150,7 +151,7 @@ def get_a_feed(feed_id: int, user_id: int, feed_repo: AbstractFeedRepository) ->
                 isGround=True if mission['is_ground'] == 1 else False,
                 eventType=mission['event_type'],
                 thumbnail=mission['thumbnail'],
-                bookmarked=True if mission['bookmarked'] == 1 else False
+                bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission['id']) else False,
             ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
             product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
             food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,

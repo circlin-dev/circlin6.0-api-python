@@ -7,6 +7,7 @@ from adapter.repository.feed import FeedRepository
 from adapter.repository.feed_like import FeedCheckRepository
 from adapter.repository.follow import FollowRepository
 from adapter.repository.point_history import PointHistoryRepository
+from adapter.repository.mission_stat import MissionStatRepository
 from adapter.repository.user import UserRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
 from adapter.repository.user_stat import UserStatRepository
@@ -525,7 +526,8 @@ def get_user_feeds(target_user_id: int):
 
         feed_mappers()
         feed_repo: FeedRepository = FeedRepository(db_session)
-        feeds: list = user_service.get_feeds_by_user(target_user_id, user_id, page_cursor, limit, feed_repo)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        feeds: list = user_service.get_feeds_by_user(target_user_id, user_id, page_cursor, limit, feed_repo, mission_stat_repo)
         number_of_feeds: int = user_service.get_feed_count_of_the_user(target_user_id, feed_repo)
         clear_mappers()
 
@@ -560,7 +562,8 @@ def get_user_checked_feeds(target_user_id: int):
 
         feed_mappers()
         feed_repo: FeedRepository = FeedRepository(db_session)
-        feeds: list = user_service.get_checked_feeds_by_user(target_user_id, page_cursor, limit, feed_repo)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        feeds: list = user_service.get_checked_feeds_by_user(target_user_id, page_cursor, limit, feed_repo, mission_stat_repo)
         number_of_feeds: int = user_service.get_checked_feed_count_of_the_user(target_user_id, feed_repo)
         clear_mappers()
 
