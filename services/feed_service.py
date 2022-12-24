@@ -14,7 +14,6 @@ from domain.user import User
 from helper.constant import BASIC_COMPENSATION_AMOUNT_PER_REASON, PUSH_TITLE_FEED, REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from helper.function import failed_response
 from services import notification_service, point_service, push_service
-from services.mission_service import check_if_user_is_carrying_out_this_mission
 
 from datetime import datetime, timedelta
 import json

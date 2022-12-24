@@ -52,14 +52,9 @@ def count_number_of_mission_by_category(category_id: int, mission_repo: Abstract
     return total_count
 
 
-def check_if_user_is_carrying_out_this_mission(user_id: int, mission_id: int, mission_stat_repo: AbstractMissionStatRepository):
-    result = mission_stat_repo.get_one_excluding_ended(mission_id, user_id)
-    return True if result == 1 else False
-
-
 # region mission participants
-def get_mission_participant_list(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository):
-    participants: list = mission_repo.get_participants(mission_id)
+def get_mission_participant_list(mission_id: int, user_id: int, page_cursor: int, limit: int, mission_repo: AbstractMissionRepository):
+    participants: list = mission_repo.get_participants(mission_id, user_id, page_cursor, limit)
     entries: list = [dict(
         id=participant.id,
         nickname=participant.nickname,
