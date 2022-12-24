@@ -3,6 +3,7 @@ from adapter.repository.chat_message import AbstractChatMessageRepository
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.follow import AbstractFollowRepository
+from adapter.repository.mission_stat import AbstractMissionStatRepository
 from adapter.repository.point_history import AbstractPointHistoryRepository
 from adapter.repository.user import AbstractUserRepository
 from adapter.repository.user_stat import AbstractUserStatRepository
@@ -733,7 +734,7 @@ def get_board_count_of_following_users(user_id: int, category_id: int, board_rep
 
 
 # region feed
-def get_feeds_by_user(target_user_id: int, request_user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
+def get_feeds_by_user(target_user_id: int, request_user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository, mission_stat_repo: AbstractMissionStatRepository) -> list:
     feeds = feed_repo.get_feeds_by_user(target_user_id, request_user_id, page_cursor, limit)
 
     entries: list = [dict(
@@ -771,7 +772,7 @@ def get_feeds_by_user(target_user_id: int, request_user_id: int, page_cursor: in
             isGround=True if mission['is_ground'] == 1 else False,
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False
+            bookmarked=True if mission_stat_repo.get_one_excluding_ended(request_user_id, mission['id']) else False,
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
         food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,
@@ -786,7 +787,7 @@ def get_feed_count_of_the_user(user_id: int, feed_repo: AbstractFeedRepository) 
     return count
 
 
-def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository) -> list:
+def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_repo: AbstractFeedRepository, mission_stat_repo: AbstractMissionStatRepository) -> list:
     feeds: list = feed_repo.get_checked_feeds_by_user(user_id, page_cursor, limit)
     entries: list = [dict(
         id=feed.id,
@@ -819,7 +820,7 @@ def get_checked_feeds_by_user(user_id: int, page_cursor: int, limit: int, feed_r
             isGround=True if mission['is_ground'] == 1 else False,
             eventType=mission['event_type'],
             thumbnail=mission['thumbnail'],
-            bookmarked=True if mission['bookmarked'] == 1 else False
+            bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission['id']) else False,
         ) for mission in json.loads(feed.mission)] if json.loads(feed.mission)[0]['id'] is not None else [],
         product=json.loads(feed.product) if json.loads(feed.product)['id'] is not None else None,
         food=json.loads(feed.food) if json.loads(feed.food)['id'] is not None else None,

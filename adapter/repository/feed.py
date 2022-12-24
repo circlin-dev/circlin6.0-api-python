@@ -152,17 +152,6 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", select(exists(
-                        select(
-                            mission_stats
-                        ).where(
-                            and_(
-                                mission_stats.c.mission_id == missions.c.id,
-                                mission_stats.c.user_id == user_id,
-                                mission_stats.c.ended_at == None
-                            )
-                        ).limit(1)
-                    ))
                 )
             ).label('mission'),
 
@@ -349,17 +338,6 @@ class FeedRepository(AbstractFeedRepository):
                             ),
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
-                            "bookmarked", select(exists(
-                                select(
-                                    mission_stats
-                                ).where(
-                                    and_(
-                                        mission_stats.c.mission_id == missions.c.id,
-                                        mission_stats.c.user_id == user_id,
-                                        mission_stats.c.ended_at == None
-                                    )
-                                ).limit(1)
-                            ))
                         )
                     ).label('mission'),
 
@@ -527,17 +505,6 @@ class FeedRepository(AbstractFeedRepository):
                             ),
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
-                            "bookmarked", select(exists(
-                                select(
-                                    mission_stats
-                                ).where(
-                                    and_(
-                                        mission_stats.c.mission_id == missions.c.id,
-                                        mission_stats.c.user_id == user_id,
-                                        mission_stats.c.ended_at == None
-                                    )
-                                ).limit(1)
-                            ))
                         )
                     ).label('mission'),
 
@@ -716,17 +683,6 @@ class FeedRepository(AbstractFeedRepository):
                             ),
                             "event_type", missions.c.event_type,
                             "thumbnail", missions.c.thumbnail_image,
-                            "bookmarked", select(exists(
-                                select(
-                                    mission_stats
-                                ).where(
-                                    and_(
-                                        mission_stats.c.mission_id == missions.c.id,
-                                        mission_stats.c.user_id == user_id,
-                                        mission_stats.c.ended_at == None
-                                    )
-                                ).limit(1)
-                            ))
                         )
                     ).label('mission'),
 
@@ -976,17 +932,6 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", select(exists(
-                        select(
-                            mission_stats
-                        ).where(
-                            and_(
-                                mission_stats.c.mission_id == missions.c.id,
-                                mission_stats.c.user_id == user_id,
-                                mission_stats.c.ended_at == None
-                            )
-                        ).limit(1)
-                    ))
                 )
             ).label('mission'),
 
@@ -1168,17 +1113,6 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", select(exists(
-                        select(
-                            mission_stats
-                        ).where(
-                            and_(
-                                mission_stats.c.mission_id == missions.c.id,
-                                mission_stats.c.user_id == request_user_id,
-                                mission_stats.c.ended_at == None
-                            )
-                        ).limit(1)
-                    ))
                 )
             ).label('mission'),
 
@@ -1342,17 +1276,6 @@ class FeedRepository(AbstractFeedRepository):
                     ),
                     "event_type", missions.c.event_type,
                     "thumbnail", missions.c.thumbnail_image,
-                    "bookmarked", select(exists(
-                        select(
-                            mission_stats
-                        ).where(
-                            and_(
-                                mission_stats.c.mission_id == missions.c.id,
-                                mission_stats.c.user_id == user_id,
-                                mission_stats.c.ended_at == None
-                            )
-                        ).limit(1)
-                    ))
                 )
             ).label('mission'),
 

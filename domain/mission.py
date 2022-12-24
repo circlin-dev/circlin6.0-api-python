@@ -97,6 +97,15 @@ class MissionIntro:
         pass
 
 
+class MissionProduct:
+    def __init__(self, mission_id: int, type: str, product_id: int or None, outside_product_id: int or None, food_id: int):
+        self.mission_id = mission_id
+        self.type = type
+        self.product_id = product_id
+        self.outside_product_id = outside_product_id
+        self.food_id = food_id
+
+
 class MissionRank:
     def __init__(self):
         pass

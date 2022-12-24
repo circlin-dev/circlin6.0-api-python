@@ -4,6 +4,7 @@ from adapter.orm import feed_mappers, feed_check_mappers, feed_comment_mappers, 
 from adapter.repository.feed import FeedRepository
 from adapter.repository.feed_like import FeedCheckRepository
 from adapter.repository.feed_comment import FeedCommentRepository
+from adapter.repository.mission_stat import MissionStatRepository
 from adapter.repository.notification import NotificationRepository
 from adapter.repository.point_history import PointHistoryRepository
 from adapter.repository.push import PushHistoryRepository
@@ -33,7 +34,8 @@ def feed(feed_id: int):
     if request.method == 'GET':
         feed_mappers()
         feed_repo: FeedRepository = FeedRepository(db_session)
-        data: dict = feed_service.get_a_feed(feed_id, user_id, feed_repo)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        data: dict = feed_service.get_a_feed(feed_id, user_id, feed_repo, mission_stat_repo)
         clear_mappers()
         db_session.close()
 
@@ -393,7 +395,8 @@ def get_newsfeed():
 
         feed_mappers()
         feed_repo: FeedRepository = FeedRepository(db_session)
-        newsfeeds: list = feed_service.get_newsfeeds(user_id, page_cursor, limit, feed_repo)  # 여기서 캐시를 한 번에 clear하기 때문에, number_of_newsfeeds는 반드시 이보다 밑에 호출되어야 한다.
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        newsfeeds: list = feed_service.get_newsfeeds(user_id, page_cursor, limit, feed_repo, mission_stat_repo)  # 여기서 캐시를 한 번에 clear하기 때문에, number_of_newsfeeds는 반드시 이보다 밑에 호출되어야 한다.
         number_of_newsfeeds: int = feed_service.get_count_of_newsfeeds(user_id, page_cursor, feed_repo)
         clear_mappers()
 
