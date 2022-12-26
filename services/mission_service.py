@@ -26,9 +26,10 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
         status=mission.status,
         type=mission.mission_type if mission.mission_type is not None else 'normal',
         producer=json.loads(mission.producer),
-        bookmarkedUsersProfileExcludingProducer=[
+        bookmarkedUsersProfile=[
             dict(
                 id=user.id,
+                gender=user.gender,
                 profile=user.profile_image,
             )
             for user in mission_repo.get_participants(mission.id, user_id, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT)[-2:]
@@ -37,7 +38,7 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
         bookmarksCount=mission.bookmarks_count,
         bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission.id) else False,
         commentsCount=mission.comments_count,
-        product=json.loads(mission.product) if json.loads(mission.product)['id'] is not None else None,
+        products=json.loads(mission.products) if json.loads(mission.products)[0]['id'] is not None else [],
         bookmarkLimit=mission.user_limit,
         # ground: bool
         # available
@@ -59,7 +60,7 @@ def get_mission_participant_list(mission_id: int, user_id: int, page_cursor: int
         id=participant.id,
         nickname=participant.nickname,
         gender=participant.gender,
-        profile=participant.profile,
+        profile=participant.profile_image,
         followed=participant.followed,
         followers=participant.followers,
         cursor=participant.cursor

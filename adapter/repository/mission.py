@@ -158,16 +158,31 @@ class MissionRepository(AbstractMissionRepository):
                 user_alias_participants.deleted_at == None
             ).label('bookmarks_count'),
             comments_count.label('comments_count'),
-            func.json_object(
-                "type", MissionProduct.type,
-                "id", MissionProduct.id,
-                "brand",
-                func.IF(MissionProduct.type == 'inside', select(brands.c.name_ko).where(brands.c.id == products.c.brand_id), outside_products.c.brand),
-                "title", func.IF(MissionProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
-                "image", func.IF(MissionProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
-                "url", func.IF(MissionProduct.type == 'inside', None, outside_products.c.url),
-                "price", func.IF(MissionProduct.type == 'inside', products.c.price, outside_products.c.price),
-            ).label('product'),
+            func.json_arrayagg(
+                func.json_object(
+                    "type", MissionProduct.type,
+                    "id", MissionProduct.id,
+                    "brand", func.IF(
+                        MissionProduct.type == 'inside',
+                        select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
+                        outside_products.c.brand
+                    ),
+                    "title", func.IF(MissionProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
+                    "image", func.IF(MissionProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
+                    "url", func.IF(MissionProduct.type == 'inside', None, outside_products.c.url),
+                    "price", func.IF(MissionProduct.type == 'inside', products.c.price, outside_products.c.price),
+                    "salePrice", products.c.sale_price,
+                    "discountRate", 100 - func.round(products.c.sale_price / products.c.price * 100),
+                    "status", products.c.status,
+                    # "availableStock", case(
+                    #     (
+                    #         Mission.mission_type == 'event_product_refund',
+                    #         select(mission_refund_products.c.limit - )
+                    #     ),
+                    #     else_=None
+                    # ),
+                )
+            ).label('products'),
             Mission.user_limit,
             func.concat(func.lpad(Mission.id, 15, '0')).label('cursor'),
         ).join(
