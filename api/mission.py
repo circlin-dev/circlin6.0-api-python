@@ -7,7 +7,7 @@ from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
 from adapter.repository.mission_stat import MissionStatRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
-from helper.constant import ERROR_RESPONSE, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
+from helper.constant import ERROR_RESPONSE, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
 from helper.function import authenticate, failed_response, get_query_strings_from_request
 from services import mission_service
 from services.user_service import get_favorite_mission_categories
@@ -175,3 +175,43 @@ def mission_feeds(mission_id: int):
         }
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
+
+
+@api.route('/mission/<int:mission_id>/user', methods=['GET'])
+def mission_participants(mission_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if mission_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
+        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        participants: list = mission_service.get_mission_participant_list(mission_id, user_id, page_cursor, limit, mission_repo)
+        number_of_participants: int = mission_service.count_number_of_mission_participant(mission_id, mission_repo)
+        clear_mappers()
+
+        last_cursor: [str, None] = None if len(participants) <= 0 else participants[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': participants,
+            'cursor': last_cursor,
+            'totalCount': number_of_participants,
+        }
+        db_session.close()
+        return json.dumps(result, ensure_ascii=False), 200
+
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
