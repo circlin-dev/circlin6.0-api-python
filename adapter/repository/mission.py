@@ -1,5 +1,7 @@
-from adapter.orm import areas, brands, follows, outside_products, products
-from domain.mission import Mission, MissionCategory, MissionComment, MissionProduct, MissionStat
+from adapter.orm import areas, brands, follows, mission_refund_products, orders, order_products, outside_products, products
+from domain.mission import Mission, MissionCategory, MissionComment, MissionProduct, MissionRefundProduct, MissionStat
+from domain.order import Order, OrderProduct
+from domain.product import Product
 from domain.user import User
 
 import abc
@@ -31,6 +33,8 @@ class MissionRepository(AbstractMissionRepository):
 
     def get_list_by_category(self, user_id: int, category_id: int or None, page_cursor: int, limit: int, sort: str):
         user_alias_participants = aliased(User)
+        products_alias = aliased(products)
+        products_alias_mission_products = aliased(products)
         comments_count = select(func.count(MissionComment.id)).where(and_(MissionComment.mission_id == Mission.id, MissionComment.deleted_at == None))
         condition = and_(
             Mission.mission_category_id == category_id,
@@ -160,41 +164,76 @@ class MissionRepository(AbstractMissionRepository):
             comments_count.label('comments_count'),
             func.json_arrayagg(
                 func.json_object(
-                    "type", MissionProduct.type,
-                    "id", MissionProduct.id,
-                    "brand", func.IF(
-                        MissionProduct.type == 'inside',
-                        select(brands.c.name_ko).where(brands.c.id == products.c.brand_id),
-                        outside_products.c.brand
+                    "id", products_alias.c.id,
+                    "type", "inside",
+                    "brand", select(brands.c.name_ko).where(brands.c.id == products_alias.c.brand_id),
+                    "title", products_alias.c.name_ko,
+                    "image", products_alias.c.thumbnail_image,
+                    "url", None,
+                    "price", products_alias.c.price,
+                    "salePrice", products_alias.c.sale_price,
+                    "shippingFee", products_alias.c.shipping_fee,
+                    "discountRate", 100 - func.round(products_alias.c.sale_price / products_alias.c.price * 100),
+                    "status", products_alias.c.status,
+                    "availableStock", MissionRefundProduct.limit - select(
+                        func.count(orders.c.id)
+                    ).join(
+                        order_products, orders.c.id == order_products.c.order_id, isouter=True
+                    ).where(
+                        and_(
+                            order_products.c.product_id == products_alias.c.id,
+                            order_products.c.brand_id == None,
+                            orders.c.deleted_at == None
+                        )
                     ),
-                    "title", func.IF(MissionProduct.type == 'inside', products.c.name_ko, outside_products.c.title),
-                    "image", func.IF(MissionProduct.type == 'inside', products.c.thumbnail_image, outside_products.c.image),
-                    "url", func.IF(MissionProduct.type == 'inside', None, outside_products.c.url),
-                    "price", func.IF(MissionProduct.type == 'inside', products.c.price, outside_products.c.price),
-                    "salePrice", products.c.sale_price,
-                    "discountRate", 100 - func.round(products.c.sale_price / products.c.price * 100),
-                    "status", products.c.status,
-                    # "availableStock", case(
-                    #     (
-                    #         Mission.mission_type == 'event_product_refund',
-                    #         select(mission_refund_products.c.limit - )
-                    #     ),
-                    #     else_=None
-                    # ),
+                ),
+            ).label('refund_products'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.id, outside_products.c.id),
+                        "type", MissionProduct.type,
+                        "brand", func.IF(
+                            MissionProduct.type == 'inside',
+                            select(brands.c.name_ko).where(brands.c.id == products_alias_mission_products.c.brand_id),
+                            outside_products.c.brand
+                        ),
+                        "title", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.name_ko, outside_products.c.title),
+                        "image", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.thumbnail_image, outside_products.c.image),
+                        "url", func.IF(MissionProduct.type == 'inside', None, outside_products.c.url),
+                        "price", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.price, outside_products.c.price),
+                        "salePrice", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.sale_price, None),
+                        "shippingFee", func.IF(MissionProduct.type == 'inside', products_alias.c.shipping_fee, None),
+                        "discountRate", func.IF(MissionProduct.type == 'inside', 100 - func.round(products_alias_mission_products.c.sale_price / products_alias_mission_products.c.price * 100), None),
+                        "status", func.IF(MissionProduct.type == 'inside', products_alias.c.status, 'soldout'),
+                        "availableStock", None
+                    ),
                 )
-            ).label('products'),
+            ).select_from(
+                MissionProduct
+            ).join(
+                products_alias_mission_products, products_alias_mission_products.c.id == MissionProduct.product_id, isouter=True
+            ).join(
+                outside_products, outside_products.c.id == MissionProduct.outside_product_id, isouter=True
+            ).where(
+                MissionProduct.mission_id == Mission.id
+            ).label('mission_products'),
             Mission.user_limit,
             func.concat(func.lpad(Mission.id, 15, '0')).label('cursor'),
         ).join(
             User, User.id == Mission.user_id
         ).join(
             MissionCategory, MissionCategory.id == Mission.mission_category_id
+        # ).join(
+        #     MissionProduct, MissionProduct.mission_id == Mission.id, isouter=True
+        # ).join(
+        #     products, products.c.id == MissionProduct.product_id, isouter=True
+        # ).join(
+        #     outside_products, outside_products.c.id == MissionProduct.outside_product_id, isouter=True
         ).join(
-            MissionProduct, MissionProduct.mission_id == Mission.id, isouter=True
+            MissionRefundProduct, MissionRefundProduct.mission_id == Mission.id, isouter=True
         ).join(
-            products, products.c.id == MissionProduct.product_id, isouter=True
-        ).join(
-            outside_products, outside_products.c.id == MissionProduct.outside_product_id, isouter=True
+            products_alias, products_alias.c.id == MissionRefundProduct.product_id, isouter=True
         ).where(
             condition
         ).group_by(

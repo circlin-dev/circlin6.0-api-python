@@ -5,9 +5,10 @@ from domain.chat import ChatMessage, ChatUser, ChatRoom
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
-from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionProduct, MissionStat
+from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionProduct, MissionRefundProduct, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
+from domain.order import Order, OrderProduct
 from domain.point_history import PointHistory
 from domain.product import OutsideProduct, Product, ProductCategory
 from domain.push import PushHistory
@@ -722,10 +723,10 @@ mission_refund_products = Table(
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("mission_id", ForeignKey('missions.id'), nullable=False, index=True),
-    Column("product_id", ForeignKey('products.id'), nullable=False, index=True),
+    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
+    Column("product_id", BIGINT(unsigned=True), ForeignKey('products.id'), nullable=False, index=True),
     Column("limit", TINYINT, nullable=False, comment='제품 최대 구매 수량'),
-    Column("food_id", BIGINT),
+    Column("food_id", BIGINT(unsigned=True)),
 )
 
 
@@ -813,6 +814,41 @@ notifications = Table(
     Column("board_comment_id", BIGINT(unsigned=True), ForeignKey('board_comments.id'), index=True),
     Column("read_at", TIMESTAMP, comment='읽은 일시'),
     Column("variables", JSON)
+)
+# endregion
+
+
+# region orders
+orders = Table(
+    "orders",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("order_no", VARCHAR(255), nullable=False, unique=True),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
+    Column("total_price", Integer, nullable=False, comment='결제금액'),
+    Column("use_point", Integer, nullable=False, comment='사용한 포인트'),
+    Column(
+        "deleted_at",
+        TIMESTAMP,
+        comment="주문 취소 시점(refund에 관한 테이블, 컬럼이 없어 현재는 이것이 refund 역할을 함)\\n주문 취소 시 주문 취소 커맨드를 입력하고(노션 '써클인 인수인계' 참조), 아임포트 어드민에서도 취소해줘야 한다."),
+    Column("imp_id", VARCHAR(40), comment='결제 식별번호(아임포트 키)'),
+    Column("merchant_id", VARCHAR(40)),
+)
+
+
+order_products = Table(
+    "order_products",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("order_id", BIGINT(unsigned=True), ForeignKey('orders.id'), nullable=False, index=True),
+    Column("product_id", BIGINT(unsigned=True), ForeignKey('products.id'), index=True, comment='상품'),
+    Column("brand_id", BIGINT, comment='배송비'),
+    Column("qty", Integer, server_default=text("'0'")),
+    Column("price", INTEGER, nullable=False, comment='구매 당시 단일 가격 or 배송비'),
 )
 # endregion
 
@@ -1280,6 +1316,7 @@ def feed_image_mappers():
 def feed_mission_mappers():
     mapper_registry.map_imperatively(Feed, feeds)
     mapper_registry.map_imperatively(Mission, missions)
+    mapper_registry.map_imperatively(MissionProduct, mission_products)
     mapper_registry.map_imperatively(MissionStat, mission_stats)
     mapper = mapper_registry.map_imperatively(
         FeedMission,
@@ -1287,6 +1324,7 @@ def feed_mission_mappers():
         properties={
             "feeds": relationship(Feed),
             "missions": relationship(Mission),
+            "mission_products": relationship(MissionProduct),
             "mission_stats": relationship(MissionStat)
         }
     )
@@ -1468,7 +1506,7 @@ def mission_mappers():
     mapper_registry.map_imperatively(MissionProduct, mission_products)
     # mapper_registry.map_imperatively(MissionPush, mission_pushes)
     # mapper_registry.map_imperatively(MissionRank, mission_ranks)
-    # mapper_registry.map_imperatively(MissionRefundProduct, mission_refund_products)
+    mapper_registry.map_imperatively(MissionRefundProduct, mission_refund_products)
     mapper_registry.map_imperatively(MissionStat, mission_stats)
     mapper_registry.map_imperatively(User, users)
     mapper = mapper_registry.map_imperatively(
@@ -1484,7 +1522,7 @@ def mission_mappers():
             "mission_products": relationship(MissionProduct),
             # "mission_pushes": relationship(MissionPush),
             # "mission_ranks": relationship(MissionRank),
-            # "mission_refund_products": relationship(MissionRefundProduct),
+            "mission_refund_products": relationship(MissionRefundProduct),
             "mission_stats": relationship(MissionStat),
             "users": relationship(User)
         }
@@ -1574,16 +1612,16 @@ def mission_rank_user_mappers():
 
 
 def mission_refund_product_mappers():
-    mapper_registry.map_imperatively(Food, foods)
     mapper_registry.map_imperatively(Mission, missions)
     mapper_registry.map_imperatively(Product, products)
+    mapper_registry.map_imperatively(Food, foods)
     mapper = mapper_registry.map_imperatively(
-        MissionGround,
+        MissionRefundProduct,
         mission_refund_products,
         properties={
-            "foods": relationship(Food),
             "missions": relationship(Mission),
-            "products": relationship(Product)
+            "products": relationship(Product),
+            "foods": relationship(Food),
         }
     )
     return mapper
@@ -1676,6 +1714,35 @@ def notification_mappers():
 # endregion
 
 
+# region order
+def order_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(OrderProduct, order_products)
+    mapper = mapper_registry.map_imperatively(
+        Order,
+        orders,
+        properties={
+            "users": relationship(User),
+            "order_products": relationship(OrderProduct),
+        })
+    return mapper
+
+
+def order_product_mappers():
+    mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(Product, products)
+    mapper = mapper_registry.map_imperatively(
+        OrderProduct,
+        order_products,
+        properties={
+            "users": relationship(User),
+            "products": relationship(Product)
+        }
+    )
+    return mapper
+# endregion
+
+
 # region point histories
 def point_history_mappers():
     mapper_registry.map_imperatively(User, users)
@@ -1697,6 +1764,7 @@ def point_history_mappers():
         }
     )
     return mapper
+# endregion
 
 
 # region product
