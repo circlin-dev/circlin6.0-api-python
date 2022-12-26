@@ -22,8 +22,8 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
         startedAt=mission.started_at,
         endedAt=mission.ended_at,
         reserveStartedAt=mission.reserve_started_at,
-        reserveEndedAt=mission.reserve_ended_at,
         status=mission.status,
+        reserveEndedAt=mission.reserve_ended_at,
         type=mission.mission_type if mission.mission_type is not None else 'normal',
         producer=json.loads(mission.producer),
         bookmarkedUsersProfile=[
@@ -38,7 +38,9 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
         bookmarksCount=mission.bookmarks_count,
         bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission.id) else False,
         commentsCount=mission.comments_count,
-        products=json.loads(mission.products) if json.loads(mission.products)[0]['id'] is not None else [],
+        missionProducts=json.loads(mission.mission_products) if mission.mission_products is not None else [],  # mission.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
+        refundProducts=json.loads(mission.refund_products) if json.loads(mission.refund_products)[0]['id'] is not None else [],
+        # products=json.loads(mission.products) if mission.products is not None else [],
         bookmarkLimit=mission.user_limit,
         # ground: bool
         # available

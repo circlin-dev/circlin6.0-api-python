@@ -111,6 +111,13 @@ class MissionRank:
         pass
 
 
+class MissionRefundProduct:
+    def __init__(self, mission_id: int, product_id: int, limit: int):
+        self.mission_id = mission_id
+        self.product_id = product_id
+        self.limit = limit
+
+
 class MissionStat:
     def __init__(
             self,
