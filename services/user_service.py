@@ -3,14 +3,15 @@ from adapter.repository.chat_message import AbstractChatMessageRepository
 from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.feed_like import AbstractFeedCheckRepository
 from adapter.repository.follow import AbstractFollowRepository
+from adapter.repository.mission import AbstractMissionRepository
 from adapter.repository.mission_stat import AbstractMissionStatRepository
 from adapter.repository.point_history import AbstractPointHistoryRepository
 from adapter.repository.user import AbstractUserRepository
 from adapter.repository.user_stat import AbstractUserStatRepository
 from adapter.repository.user_favorite_category import AbstractUserFavoriteCategoryRepository
 from domain.user import UserFavoriteCategory, UserStat, User
-from services import chat_service, file_service, point_service
-from helper.constant import REASONS_HAVE_DAILY_REWARD_RESTRICTION
+from services import chat_service, file_service, mission_service, point_service
+from helper.constant import INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT, REASONS_HAVE_DAILY_REWARD_RESTRICTION
 from helper.function import generate_token, failed_response
 
 import bcrypt
@@ -870,6 +871,79 @@ def delete_from_favorite_mission_category(mission_category_to_delete: UserFavori
     else:
         repo.delete(mission_category_to_delete)
         return {'result': True}
+
+
+def get_mission_user_is_participating(
+        target_user_id: int,
+        user_id: int,
+        page_cursor: int,
+        limit: int,
+        mission_repo: AbstractMissionRepository,
+        mission_stat_repo: AbstractMissionStatRepository
+) -> list:
+    missions = mission_repo.get_list_user_is_participating(target_user_id, user_id, page_cursor, limit)
+    entries = [dict(
+
+    ) for mission in missions]
+    return entries
+
+
+def count_number_of_mission_user_is_participating(target_user_id: int, mission_repo: AbstractMissionRepository) -> int:
+    total_count = mission_repo.count_number_of_mission_user_is_participating(target_user_id)
+    return total_count
+
+
+def get_mission_user_created(
+        target_user_id: int,
+        user_id: int,
+        page_cursor: int,
+        limit: int,
+        sort: str,
+        mission_repo: AbstractMissionRepository,
+        mission_stat_repo: AbstractMissionStatRepository
+) -> list:
+    missions = mission_repo.get_list_user_created(target_user_id, user_id, page_cursor, limit, sort)
+    entries = [dict(
+        id=mission.id,
+        title=mission.title,
+        category=json.loads(mission.category),
+        description=mission.description,
+        thumbnail=mission.thumbnail_image,
+        createdAt=mission.created_at,
+        startedAt=mission.started_at,
+        endedAt=mission.ended_at,
+        reserveStartedAt=mission.reserve_started_at,
+        status=mission.status,
+        reserveEndedAt=mission.reserve_ended_at,
+        type=mission.mission_type if mission.mission_type is not None else 'normal',
+        producer=json.loads(mission.producer),
+        bookmarkedUsersProfile=[
+            dict(
+                id=user.id,
+                gender=user.gender,
+                profile=user.profile_image,
+                nickname=user.nickname,
+            )
+            for user in mission_repo.get_participants(mission.id, user_id, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT)[-2:]
+            if user.id not in [json.loads(mission.producer)['id'], 4340, 2]
+        ],
+        bookmarksCount=mission.bookmarks_count,
+        bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission.id) else False,
+        commentsCount=mission.comments_count,
+        missionProducts=json.loads(mission.mission_products) if mission.mission_products is not None else [],  # mission.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
+        refundProducts=json.loads(mission.refund_products) if json.loads(mission.refund_products)[0]['id'] is not None else [],
+        bookmarkLimit=mission.user_limit,
+        hasPlayground=True if mission.has_playground == 1 else False,
+        # available
+        cursor=mission.cursor
+    ) for mission in missions] if missions is not None else []
+
+    return entries
+
+
+def count_number_of_mission_user_created(target_user_id: int, mission_repo: AbstractMissionRepository) -> int:
+    total_count = mission_repo.count_number_of_mission_user_created(target_user_id)
+    return total_count
 # endregion
 
 

@@ -31,6 +31,7 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
                 id=user.id,
                 gender=user.gender,
                 profile=user.profile_image,
+                nickname=user.nickname,
             )
             for user in mission_repo.get_participants(mission.id, user_id, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT)[-2:]
             if user.id not in [json.loads(mission.producer)['id'], 4340, 2]
@@ -40,10 +41,8 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
         commentsCount=mission.comments_count,
         missionProducts=json.loads(mission.mission_products) if mission.mission_products is not None else [],  # mission.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
         refundProducts=json.loads(mission.refund_products) if json.loads(mission.refund_products)[0]['id'] is not None else [],
-        # products=json.loads(mission.products) if mission.products is not None else [],
         bookmarkLimit=mission.user_limit,
-        # ground: bool
-        # available
+        hasPlayground=True if mission.has_playground == 1 else False,
         cursor=mission.cursor
     ) for mission in missions] if missions is not None else []
 
