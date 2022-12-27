@@ -1,12 +1,13 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import board_mappers, feed_mappers, follow_mappers, user_mappers, user_favorite_category_mappers
+from adapter.orm import board_mappers, feed_mappers, follow_mappers, mission_mappers, user_mappers, user_favorite_category_mappers
 from adapter.repository.board import BoardRepository
 from adapter.repository.chat_message import ChatMessageRepository
 from adapter.repository.feed import FeedRepository
 from adapter.repository.feed_like import FeedCheckRepository
 from adapter.repository.follow import FollowRepository
 from adapter.repository.point_history import PointHistoryRepository
+from adapter.repository.mission import MissionRepository
 from adapter.repository.mission_stat import MissionStatRepository
 from adapter.repository.user import UserRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
@@ -577,3 +578,83 @@ def get_user_checked_feeds(target_user_id: int):
             'totalCount': number_of_feeds,
         }
         return json.dumps(result, ensure_ascii=False), 200
+
+
+@api.route('/user/<int:target_user_id>/mission', methods=['GET'])
+def get_missions_user_is_participating(target_user_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if target_user_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (user_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        participated_missions = user_service.get_mission_user_is_participating(target_user_id, user_id, page_cursor, limit, mission_repo, mission_stat_repo)
+        number_of_participated_missions = user_service.count_number_of_mission_user_is_participating(target_user_id, mission_repo)
+        clear_mappers()
+        db_session.close()
+        last_cursor: [str, None] = None if len(participated_missions) <= 0 else participated_missions[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': participated_missions,
+            'cursor': last_cursor,
+            'totalCount': number_of_participated_missions,
+        }
+        return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/user/<int:target_user_id>/mission/created', methods=['GET'])
+def get_missions_user_has_created(target_user_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if target_user_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (user_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+        sort = 'popular' if request.args.get('sortBy') is None or request.args.get('sortBy').strip() == '' else request.args.get('sortBy')
+        # sortBy = 'recent'(최신순) | 'popular'(인기순) | 'participantsCount'(참여자 많은 순) | 'commentsCount'(댓글 많은 순)
+
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        created_missions = user_service.get_mission_user_created(target_user_id, user_id, page_cursor, limit, sort, mission_repo, mission_stat_repo)
+        number_of_created_missions = user_service.count_number_of_mission_user_created(target_user_id, mission_repo)
+        clear_mappers()
+        db_session.close()
+        last_cursor: [str, None] = None if len(created_missions) <= 0 else created_missions[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': created_missions,
+            'cursor': last_cursor,
+            'totalCount': number_of_created_missions,
+        }
+        return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
