@@ -600,8 +600,8 @@ def get_missions_user_is_participating(target_user_id: int):
         mission_mappers()
         mission_repo: MissionRepository = MissionRepository(db_session)
         mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
-        participated_missions = user_service.get_mission_user_is_participating(target_user_id, user_id, page_cursor, limit, mission_repo, mission_stat_repo)
-        number_of_participated_missions = user_service.count_number_of_mission_user_is_participating(target_user_id, mission_repo)
+        participated_missions = user_service.get_mission_user_participated(target_user_id, user_id, page_cursor, limit, mission_repo, mission_stat_repo)
+        number_of_participated_missions = user_service.count_number_of_mission_user_participated(target_user_id, mission_repo)
         clear_mappers()
         db_session.close()
         last_cursor: [str, None] = None if len(participated_missions) <= 0 else participated_missions[-1]['cursor']  # 배열 원소의 cursor string

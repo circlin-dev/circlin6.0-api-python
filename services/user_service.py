@@ -873,7 +873,7 @@ def delete_from_favorite_mission_category(mission_category_to_delete: UserFavori
         return {'result': True}
 
 
-def get_mission_user_is_participating(
+def get_mission_user_participated(
         target_user_id: int,
         user_id: int,
         page_cursor: int,
@@ -881,15 +881,47 @@ def get_mission_user_is_participating(
         mission_repo: AbstractMissionRepository,
         mission_stat_repo: AbstractMissionStatRepository
 ) -> list:
-    missions = mission_repo.get_list_user_is_participating(target_user_id, user_id, page_cursor, limit)
-    entries = [dict(
+    missions = mission_repo.get_list_user_participated(target_user_id, user_id, page_cursor, limit)
 
-    ) for mission in missions]
+    entries = [dict(
+        id=mission.id,
+        title=mission.title,
+        category=json.loads(mission.category),
+        description=mission.description,
+        thumbnail=mission.thumbnail_image,
+        createdAt=mission.created_at,
+        startedAt=mission.started_at,
+        endedAt=mission.ended_at,
+        reserveStartedAt=mission.reserve_started_at,
+        status=mission.status,
+        reserveEndedAt=mission.reserve_ended_at,
+        type=mission.mission_type if mission.mission_type is not None else 'normal',
+        producer=json.loads(mission.producer),
+        bookmarkedUsersProfile=[
+            dict(
+                id=user.id,
+                gender=user.gender,
+                profile=user.profile_image,
+                nickname=user.nickname,
+            )
+            for user in mission_repo.get_participants(mission.id, user_id, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT)[-2:]
+            if user.id not in [json.loads(mission.producer)['id'], 4340, 2]
+        ],
+        bookmarksCount=mission.bookmarks_count,
+        bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission.id) else False,
+        commentsCount=mission.comments_count,
+        missionProducts=json.loads(mission.mission_products) if mission.mission_products is not None else [],  # mission.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
+        refundProducts=json.loads(mission.refund_products) if json.loads(mission.refund_products)[0]['id'] is not None else [],
+        bookmarkLimit=mission.user_limit,
+        hasPlayground=True if mission.has_playground == 1 else False,
+        completedToday=mission.completed_today,
+        cursor=mission.cursor
+    ) for mission in missions] if missions is not None else []
     return entries
 
 
-def count_number_of_mission_user_is_participating(target_user_id: int, mission_repo: AbstractMissionRepository) -> int:
-    total_count = mission_repo.count_number_of_mission_user_is_participating(target_user_id)
+def count_number_of_mission_user_participated(target_user_id: int, mission_repo: AbstractMissionRepository) -> int:
+    total_count = mission_repo.count_number_of_mission_user_participated(target_user_id)
     return total_count
 
 
