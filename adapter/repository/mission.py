@@ -1,11 +1,11 @@
-from adapter.orm import areas, brands, follows, mission_refund_products, orders, order_products, outside_products, products
+from adapter.orm import areas, brands, feeds, feed_missions, follows, mission_refund_products, orders, order_products, outside_products, products
 from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionProduct, MissionRefundProduct, MissionStat
 from domain.order import Order, OrderProduct
 from domain.product import Product
 from domain.user import User
 
 import abc
-from sqlalchemy import and_, case, desc, distinct, func, select, text
+from sqlalchemy import and_, case, desc, distinct, func, or_, select, text
 from sqlalchemy.orm import aliased
 
 
@@ -19,11 +19,11 @@ class AbstractMissionRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_list_user_is_participating(self, target_user_id: int, user_id: int, page_cursor: int, limit: int):
+    def get_list_user_participated(self, target_user_id: int, user_id: int, page_cursor: int, limit: int):
         pass
 
     @abc.abstractmethod
-    def count_number_of_mission_user_is_participating(self, target_user_id: int):
+    def count_number_of_mission_user_participated(self, target_user_id: int):
         pass
 
     @abc.abstractmethod
@@ -236,7 +236,6 @@ class MissionRepository(AbstractMissionRepository):
             ).label('mission_products'),
             Mission.user_limit,
             func.IF(MissionGround.id == None, False, True).label('has_playground'),
-            func.IF(Mission.mission_type == '').label('available'),
             func.concat(func.lpad(Mission.id, 15, '0')).label('cursor'),
         ).join(
             User, User.id == Mission.user_id
@@ -275,11 +274,309 @@ class MissionRepository(AbstractMissionRepository):
         total_count = self.session.execute(sql).scalar()
         return total_count
 
-    def get_list_user_is_participating(self, target_user_id: int, user_id: int, page_cursor: int, limit: int):
-        pass
+    def get_list_user_participated(self, target_user_id: int, user_id: int, page_cursor: int, limit: int):
+        candidate = select(
+            distinct(Mission.id)
+        ).join(
+            MissionStat, MissionStat.mission_id == Mission.id
+        ).where(
+            and_(
+                MissionStat.user_id == target_user_id,
+                Mission.deleted_at == None,
+                Mission.is_show == 1,
+                case(
+                    (Mission.ended_at == None, MissionStat.ended_at == None),  # 종료기한(Mission.ended_at)이 없는 미션은 단순히 중도포기 여부만 체크한다.
+                    else_=case(
+                        (
+                            Mission.ended_at <= func.now(),  # 종료 기한이 있는 경우
+                            # (1) 포기 시점이 미션의 종료기한보다 미래이거나 동일해야 한다.
+                            # (2) 삭제되지 않은 인증 피드가 1개 이상 있어야 한다.
+                            and_(
+                                MissionStat.ended_at >= Mission.ended_at,
+                                select(
+                                    func.count(feeds.c.id) > 0
+                                ).join(
+                                    feed_missions, feed_missions.c.feed_id == feeds.c.id
+                                ).where(
+                                    and_(
+                                        feeds.c.user_id == MissionStat.user_id,
+                                        feed_missions.c.mission_id == Mission.id,
+                                        feeds.c.deleted_at == None
+                                    )
+                                )
+                            )
+                        ),
+                        # 종료 시점이 현재보다 과거라면 종료된 미션. Mission 종료 시점과 유저의 해당 미션 종료 시점(MissionStat)을 비교한다.
+                        else_=MissionStat.ended_at == None  # 종료되지 않은 미션은 단순히 중도포기 여부만 체크한다.
+                    )
+                ),
+            )
+        ).order_by(
+            desc(Mission.id)
+        )
 
-    def count_number_of_mission_user_is_participating(self, target_user_id: int):
-        pass
+        user_alias_participants = aliased(User)
+        products_alias = aliased(products)
+        products_alias_mission_products = aliased(products)
+        comments_count = select(func.count(MissionComment.id)).where(and_(MissionComment.mission_id == Mission.id, MissionComment.deleted_at == None))
+        condition = and_(
+            Mission.id.in_(candidate),
+            Mission.is_show == 1,
+            Mission.deleted_at == None,
+            Mission.id < page_cursor,
+        )
+
+        sql = select(
+            Mission.id,
+            Mission.title,
+            func.json_object(
+                "id", MissionCategory.id,
+                "title", MissionCategory.title,
+                "emoji", MissionCategory.emoji,
+            ).label("category"),
+            Mission.description,
+            Mission.thumbnail_image,
+            func.date_format(Mission.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+            func.date_format(Mission.started_at, '%Y/%m/%d %H:%i:%s').label('started_at'),
+            func.date_format(Mission.ended_at, '%Y/%m/%d %H:%i:%s').label('ended_at'),
+            func.date_format(Mission.reserve_started_at, '%Y/%m/%d %H:%i:%s').label('reserve_started_at'),
+            func.date_format(Mission.reserve_ended_at, '%Y/%m/%d %H:%i:%s').label('reserve_ended_at'),
+            case(
+                (
+                    and_(
+                        Mission.reserve_started_at == None,
+                        Mission.reserve_ended_at == None,
+                    ),
+                    case(
+                        (
+                            and_(
+                                Mission.started_at == None,
+                                Mission.ended_at == None,
+                            ),
+                            'ongoing'
+                        ),
+                        (Mission.started_at > func.now(), 'before_ongoing'),
+                        (
+                            and_(
+                                Mission.started_at <= func.now(),
+                                Mission.ended_at > func.now()
+                            ),
+                            'ongoing'
+                        ),
+                        else_='end'
+                    ),
+                ),
+                else_=case(
+                    (Mission.reserve_started_at > func.now(), 'before_reserve'),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.reserve_ended_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_ended_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'before_ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    else_='end'
+                )
+            ).label('status'),
+            Mission.mission_type,
+            func.json_object(
+                'id', Mission.user_id,
+                'nickname', User.nickname,
+                'profile', User.profile_image,
+            ).label('producer'),
+            select(
+                func.count(MissionStat.id)
+            ).select_from(
+                MissionStat
+            ).join(
+                user_alias_participants, MissionStat.user_id == user_alias_participants.id, isouter=True
+            ).where(
+                MissionStat.mission_id == Mission.id,
+                case(
+                    (Mission.ended_at == None, MissionStat.ended_at == None),  # 종료기한(Mission.ended_at)이 없는 미션은 단순히 중도포기 여부만 체크한다.
+                    else_=case(
+                        (Mission.ended_at <= func.now(), MissionStat.ended_at >= Mission.ended_at),
+                        # 종료 시점이 현재보다 과거라면 종료된 미션. Mission 종료 시점과 유저의 해당 미션 종료 시점(MissionStat)을 비교한다.
+                        else_=MissionStat.ended_at == None  # 종료되지 않은 미션은 단순히 중도포기 여부만 체크한다.
+                    )
+                ),
+                user_alias_participants.deleted_at == None
+            ).label('bookmarks_count'),
+            comments_count.label('comments_count'),
+            func.json_arrayagg(
+                func.json_object(
+                    "id", products_alias.c.id,
+                    "type", "inside",
+                    "brand", select(brands.c.name_ko).where(brands.c.id == products_alias.c.brand_id),
+                    "title", products_alias.c.name_ko,
+                    "image", products_alias.c.thumbnail_image,
+                    "url", None,
+                    "price", products_alias.c.price,
+                    "salePrice", products_alias.c.sale_price,
+                    "shippingFee", products_alias.c.shipping_fee,
+                    "discountRate", 100 - func.round(products_alias.c.sale_price / products_alias.c.price * 100),
+                    "status", products_alias.c.status,
+                    "availableStock", MissionRefundProduct.limit - select(
+                        func.count(orders.c.id)
+                    ).join(
+                        order_products, orders.c.id == order_products.c.order_id, isouter=True
+                    ).where(
+                        and_(
+                            order_products.c.product_id == products_alias.c.id,
+                            order_products.c.brand_id == None,
+                            orders.c.deleted_at == None
+                        )
+                    ),
+                ),
+            ).label('refund_products'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.id, outside_products.c.id),
+                        "type", MissionProduct.type,
+                        "brand", func.IF(
+                            MissionProduct.type == 'inside',
+                            select(brands.c.name_ko).where(brands.c.id == products_alias_mission_products.c.brand_id),
+                            outside_products.c.brand
+                        ),
+                        "title", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.name_ko, outside_products.c.title),
+                        "image", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.thumbnail_image, outside_products.c.image),
+                        "url", func.IF(MissionProduct.type == 'inside', None, outside_products.c.url),
+                        "price", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.price, outside_products.c.price),
+                        "salePrice", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.sale_price, None),
+                        "shippingFee", func.IF(MissionProduct.type == 'inside', products_alias.c.shipping_fee, None),
+                        "discountRate", func.IF(MissionProduct.type == 'inside', 100 - func.round(products_alias_mission_products.c.sale_price / products_alias_mission_products.c.price * 100), None),
+                        "status", func.IF(MissionProduct.type == 'inside', products_alias.c.status, 'soldout'),
+                        "availableStock", None
+                    ),
+                )
+            ).select_from(
+                MissionProduct
+            ).join(
+                products_alias_mission_products, products_alias_mission_products.c.id == MissionProduct.product_id, isouter=True
+            ).join(
+                outside_products, outside_products.c.id == MissionProduct.outside_product_id, isouter=True
+            ).where(
+                MissionProduct.mission_id == Mission.id
+            ).label('mission_products'),
+            Mission.user_limit,
+            func.IF(MissionGround.id == None, False, True).label('has_playground'),
+            case(
+                (select(
+                    func.count(feed_missions.c.id) > 0
+                ).join(
+                    feeds, feed_missions.c.feed_id == feeds.c.id
+                ).where(
+                    and_(
+                        feed_missions.c.mission_id == Mission.id,
+                        feeds.c.user_id == target_user_id,
+                        feeds.c.created_at >= func.DATE(func.now()),
+                        feeds.c.deleted_at == None,
+                    )
+                ), True),
+                else_=False
+            ).label('completed_today'),
+            func.concat(func.lpad(Mission.id, 15, '0')).label('cursor'),
+        ).join(
+            User, User.id == Mission.user_id
+        ).join(
+            MissionCategory, MissionCategory.id == Mission.mission_category_id
+        ).join(
+            MissionRefundProduct, MissionRefundProduct.mission_id == Mission.id, isouter=True
+        ).join(
+            products_alias, products_alias.c.id == MissionRefundProduct.product_id, isouter=True
+        ).join(
+            MissionGround, MissionGround.mission_id == Mission.id, isouter=True
+        ).where(
+            condition
+        ).group_by(
+            Mission.id
+        ).order_by(
+            desc(Mission.id)
+        ).limit(limit)
+        result = self.session.execute(sql).all()
+        return result
+
+    def count_number_of_mission_user_participated(self, target_user_id: int):
+        sql = select(
+            func.count(distinct(Mission.id))
+        ).join(
+            MissionStat, MissionStat.mission_id == Mission.id
+        ).where(
+            and_(
+                MissionStat.user_id == target_user_id,
+                Mission.deleted_at == None,
+                Mission.is_show == 1,
+                case(
+                    (Mission.ended_at == None, MissionStat.ended_at == None),  # 종료기한(Mission.ended_at)이 없는 미션은 단순히 중도포기 여부만 체크한다.
+                    else_=case(
+                        (
+                            Mission.ended_at <= func.now(),  # 종료 기한이 있는 경우
+                            # (1) 포기 시점이 미션의 종료기한보다 미래이거나 동일해야 한다.
+                            # (2) 삭제되지 않은 인증 피드가 1개 이상 있어야 한다.
+                            and_(
+                                MissionStat.ended_at >= Mission.ended_at,
+                                select(
+                                    func.count(feeds.c.id) > 0
+                                ).join(
+                                    feed_missions, feed_missions.c.feed_id == feeds.c.id
+                                ).where(
+                                    and_(
+                                        feeds.c.user_id == MissionStat.user_id,
+                                        feed_missions.c.mission_id == Mission.id,
+                                        feeds.c.deleted_at == None
+                                    )
+                                )
+                            )
+                        ),
+                        # 종료 시점이 현재보다 과거라면 종료된 미션. Mission 종료 시점과 유저의 해당 미션 종료 시점(MissionStat)을 비교한다.
+                        else_=MissionStat.ended_at == None  # 종료되지 않은 미션은 단순히 중도포기 여부만 체크한다.
+                    )
+                ),
+            )
+        ).order_by(
+            desc(Mission.id)
+        )
+        total_count = self.session.execute(sql).scalar()
+        return total_count
 
     def get_list_user_created(self, target_user_id: int, user_id: int, page_cursor: int, limit: int, sort: str):
         user_alias_participants = aliased(User)

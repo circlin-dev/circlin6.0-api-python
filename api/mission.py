@@ -24,7 +24,10 @@ def mission():
         return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
 
     if request.method == 'GET':
-        pass
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        clear_mappers()
     elif request.method == 'PATCH':
         pass
     elif request.method == 'DELETE':
@@ -175,6 +178,60 @@ def mission_feeds(mission_id: int):
         }
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
+
+
+@api.route('/mission/<int:mission_id>/playground', methods=['GET'])
+def get_mission_playground(mission_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if mission_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        playground = mission_service.get_mission_playground(mission_id, user_id, mission_repo, mission_stat_repo)
+        clear_mappers()
+        db_session.close()
+
+        return json.dumps(playground, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/mission/<int:mission_id>/introduce', methods=['GET'])
+def get_mission_introduce(mission_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if mission_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        introduce = mission_service.get_mission_introduce(mission_id, user_id, mission_repo, mission_stat_repo)
+        clear_mappers()
+        db_session.close()
+
+        return json.dumps(introduce, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/mission/<int:mission_id>/user', methods=['GET'])
