@@ -1,10 +1,11 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, user_favorite_category_mappers
+from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, mission_notice_mappers, user_favorite_category_mappers
 from adapter.repository.feed import FeedRepository
 from adapter.repository.mission import MissionRepository
 from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
+from adapter.repository.mission_notice import MissionNoticeRepository
 from adapter.repository.mission_stat import MissionStatRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
 from helper.constant import ERROR_RESPONSE, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
@@ -15,27 +16,6 @@ from services.user_service import get_favorite_mission_categories
 from flask import request
 import json
 from sqlalchemy.orm import clear_mappers
-
-
-@api.route('/mission/<int:mission_id>', methods=['GET', 'PATCH', 'DELETE'])
-def mission():
-    user_id = authenticate(request, db_session)
-    if user_id is None:
-        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
-
-    if request.method == 'GET':
-        mission_mappers()
-        mission_repo: MissionRepository = MissionRepository(db_session)
-        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
-        clear_mappers()
-    elif request.method == 'PATCH':
-        pass
-    elif request.method == 'DELETE':
-        pass
-    else:
-        db_session.close()
-        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
-        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/missions', methods=['GET'])
@@ -97,6 +77,27 @@ def mission_category():
         }
 
         return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/mission/<int:mission_id>', methods=['GET', 'PATCH', 'DELETE'])
+def mission():
+    user_id = authenticate(request, db_session)
+    if user_id is None:
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if request.method == 'GET':
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        clear_mappers()
+    elif request.method == 'PATCH':
+        pass
+    elif request.method == 'DELETE':
+        pass
     else:
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
@@ -180,33 +181,6 @@ def mission_feeds(mission_id: int):
         return json.dumps(result, ensure_ascii=False), 200
 
 
-@api.route('/mission/<int:mission_id>/playground', methods=['GET'])
-def get_mission_playground(mission_id: int):
-    user_id: [int, None] = authenticate(request, db_session)
-    if user_id is None:
-        db_session.close()
-        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
-
-    if mission_id is None:
-        db_session.close()
-        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
-        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
-
-    if request.method == 'GET':
-        mission_mappers()
-        mission_repo: MissionRepository = MissionRepository(db_session)
-        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
-        playground = mission_service.get_mission_playground(mission_id, user_id, mission_repo, mission_stat_repo)
-        clear_mappers()
-        db_session.close()
-
-        return json.dumps(playground, ensure_ascii=False), 200
-    else:
-        db_session.close()
-        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
-        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
-
-
 @api.route('/mission/<int:mission_id>/introduce', methods=['GET'])
 def get_mission_introduce(mission_id: int):
     user_id: [int, None] = authenticate(request, db_session)
@@ -228,16 +202,84 @@ def get_mission_introduce(mission_id: int):
         db_session.close()
 
         if introduce['result']:
-            db_session.commit()
-            db_session.close()
             return json.dumps(introduce, ensure_ascii=False), 200
         else:
-            db_session.close()
             return json.dumps({key: value for key, value in introduce.items() if key != 'status_code'}, ensure_ascii=False), introduce['status_code']
     else:
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
         return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/mission/<int:mission_id>/playground', methods=['GET'])
+def get_mission_playground(mission_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if mission_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        mission_mappers()
+        mission_repo: MissionRepository = MissionRepository(db_session)
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        playground = mission_service.get_mission_playground(mission_id, user_id, mission_repo, mission_stat_repo)
+        clear_mappers()
+        db_session.close()
+
+        if playground['result']:
+            return json.dumps(playground, ensure_ascii=False), 200
+        else:
+            return json.dumps({key: value for key, value in playground.items() if key != 'status_code'}, ensure_ascii=False), playground['status_code']
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/mission/<int:mission_id>/notice', methods=['GET', 'POST', 'PATCH', 'DELETE'])
+def mission_notice(mission_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if mission_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_DESCENDING_PAGE_CURSOR)
+        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        mission_notice_mappers()
+        mission_notice_repo: MissionNoticeRepository = MissionNoticeRepository(db_session)
+        notices: list = mission_service.get_notices(mission_id, page_cursor, limit, mission_notice_repo)
+        number_of_notices: int = mission_service.get_notice_count_of_the_mission(mission_id, mission_notice_repo)
+        clear_mappers()
+
+        last_cursor: [str, None] = None if len(notices) <= 0 else notices[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': notices,
+            'cursor': last_cursor,
+            'totalCount': number_of_notices,
+        }
+        db_session.close()
+        return json.dumps(result, ensure_ascii=False), 200
+    elif request.method == 'POST':
+        pass
+    elif request.method == 'PATCH':
+        pass
+    else:
+        pass
 
 
 @api.route('/mission/<int:mission_id>/user', methods=['GET'])
