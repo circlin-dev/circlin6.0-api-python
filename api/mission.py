@@ -1,11 +1,12 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, mission_notice_mappers, user_favorite_category_mappers
+from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, mission_notice_mappers, mission_rank_mappers, user_favorite_category_mappers
 from adapter.repository.feed import FeedRepository
 from adapter.repository.mission import MissionRepository
 from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
 from adapter.repository.mission_notice import MissionNoticeRepository
+from adapter.repository.mission_rank import MissionRankRepository
 from adapter.repository.mission_stat import MissionStatRepository
 from adapter.repository.user_favorite_category import UserFavoriteCategoryRepository
 from helper.constant import ERROR_RESPONSE, INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_DESCENDING_PAGE_CURSOR, INITIAL_PAGE, INITIAL_PAGE_LIMIT
@@ -280,6 +281,50 @@ def mission_notice(mission_id: int):
         pass
     else:
         pass
+
+
+@api.route('/mission/<int:mission_id>/rank', methods=['GET'])
+def mission_rank(mission_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if mission_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'GET':
+        page_cursor: int = get_query_strings_from_request(request, 'cursor', INITIAL_ASCENDING_PAGE_CURSOR)
+        limit: int = get_query_strings_from_request(request, 'limit', INITIAL_PAGE_LIMIT)
+        page: int = get_query_strings_from_request(request, 'page', INITIAL_PAGE)
+
+        mission_rank_mappers()
+        mission_rank_repo: MissionRankRepository = MissionRankRepository(db_session)
+        result = mission_service.get_rank_list(mission_id, user_id, page_cursor, limit, mission_rank_repo)
+        rank = result['rank']
+        my_rank = result['my_rank']
+        number_of_rank: int = mission_service.get_rank_count_of_the_mission(mission_id, mission_rank_repo)
+
+        clear_mappers()
+        last_cursor: [str, None] = None if len(rank) <= 0 else rank[-1]['cursor']  # 배열 원소의 cursor string
+
+        result: dict = {
+            'result': True,
+            'data': {
+                'myRank': my_rank,
+                'rank': rank
+            },
+            'cursor': last_cursor,
+            'totalCount': number_of_rank,
+        }
+        db_session.close()
+        return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
 @api.route('/mission/<int:mission_id>/user', methods=['GET'])

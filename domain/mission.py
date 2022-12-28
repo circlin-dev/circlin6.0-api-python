@@ -140,8 +140,20 @@ class MissionProduct:
 
 
 class MissionRank:
-    def __init__(self):
-        pass
+    def __init__(self, id: int or None, mission_id: int, created_at: str):
+        self.id = id
+        self.mission_id = mission_id
+        self.created_at = created_at
+
+
+class MissionRankUser:
+    def __init__(self, id: int or None, mission_rank_id: int, user_id: int, rank: int, feeds_count: int, summation: int):
+        self.id = id
+        self.mission_rank_id = mission_rank_id
+        self.user_id = user_id
+        self.rank = rank
+        self.feeds_count = feeds_count
+        self.summation = summation
 
 
 class MissionRefundProduct:

@@ -2,7 +2,7 @@ from adapter.orm import missions, mission_stats, users
 from domain.mission import MissionStat
 
 import abc
-from sqlalchemy import and_, case, exists, func, select
+from sqlalchemy import case, exists, func, select
 
 
 class AbstractMissionStatRepository(abc.ABC):

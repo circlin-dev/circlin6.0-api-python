@@ -5,7 +5,7 @@ from domain.chat import ChatMessage, ChatUser, ChatRoom
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
-from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionGroundText, MissionImage, MissionNotice, MissionNoticeImage, MissionProduct, MissionRefundProduct, MissionStat
+from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionGroundText, MissionImage, MissionNotice, MissionNoticeImage, MissionProduct, MissionRefundProduct, MissionRank, MissionRankUser, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
 from domain.order import Order, OrderProduct
@@ -1513,7 +1513,7 @@ def mission_mappers():
     mapper_registry.map_imperatively(MissionNotice, mission_notices)
     mapper_registry.map_imperatively(MissionProduct, mission_products)
     # mapper_registry.map_imperatively(MissionPush, mission_pushes)
-    # mapper_registry.map_imperatively(MissionRank, mission_ranks)
+    mapper_registry.map_imperatively(MissionRank, mission_ranks)
     mapper_registry.map_imperatively(MissionRefundProduct, mission_refund_products)
     mapper_registry.map_imperatively(MissionStat, mission_stats)
     mapper_registry.map_imperatively(User, users)
@@ -1529,7 +1529,7 @@ def mission_mappers():
             "mission_notices": relationship(MissionNotice),
             "mission_products": relationship(MissionProduct),
             # "mission_pushes": relationship(MissionPush),
-            # "mission_ranks": relationship(MissionRank),
+            "mission_ranks": relationship(MissionRank),
             "mission_refund_products": relationship(MissionRefundProduct),
             "mission_stats": relationship(MissionStat),
             "users": relationship(User)
@@ -1621,18 +1621,26 @@ def mission_product_mappers():
 
 def mission_rank_mappers():
     mapper_registry.map_imperatively(Mission, missions)
-    mapper = mapper_registry.map_imperatively(MissionGround, mission_ranks, properties={"missions": relationship(Mission)})
+    mapper_registry.map_imperatively(MissionRankUser, mission_rank_users)
+    mapper = mapper_registry.map_imperatively(
+        MissionRank,
+        mission_ranks,
+        properties={
+            "missions": relationship(Mission),
+            "mission_rank_users": relationship(MissionRankUser),
+        }
+    )
     return mapper
 
 
 def mission_rank_user_mappers():
-    mapper_registry.map_imperatively(Mission, missions)
+    mapper_registry.map_imperatively(MissionRank, mission_ranks)
     mapper_registry.map_imperatively(User, users)
     mapper = mapper_registry.map_imperatively(
-        MissionGround,
+        MissionRankUser,
         mission_rank_users,
         properties={
-            "missions": relationship(Mission),
+            "mission_ranks": relationship(MissionRank),
             "users": relationship(User)
         }
     )
