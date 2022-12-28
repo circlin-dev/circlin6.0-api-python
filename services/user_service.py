@@ -966,7 +966,6 @@ def get_mission_user_created(
         refundProducts=json.loads(mission.refund_products) if json.loads(mission.refund_products)[0]['id'] is not None else [],
         bookmarkLimit=mission.user_limit,
         hasPlayground=True if mission.has_playground == 1 else False,
-        # available
         cursor=mission.cursor
     ) for mission in missions] if missions is not None else []
 

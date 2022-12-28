@@ -223,11 +223,17 @@ def get_mission_introduce(mission_id: int):
         mission_mappers()
         mission_repo: MissionRepository = MissionRepository(db_session)
         mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
-        introduce = mission_service.get_mission_introduce(mission_id, user_id, mission_repo, mission_stat_repo)
+        introduce: dict = mission_service.get_mission_introduce(mission_id, user_id, mission_repo, mission_stat_repo)
         clear_mappers()
         db_session.close()
 
-        return json.dumps(introduce, ensure_ascii=False), 200
+        if introduce['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(introduce, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in introduce.items() if key != 'status_code'}, ensure_ascii=False), introduce['status_code']
     else:
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'

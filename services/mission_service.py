@@ -5,9 +5,9 @@ from adapter.repository.mission_comment import AbstractMissionCommentRepository
 from adapter.repository.mission_stat import AbstractMissionStatRepository
 from domain.mission import MissionCategory
 from helper.constant import INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT
+from helper.function import failed_response
 
 import json
-import random
 
 
 def get_missions_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, sort: str, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository):
@@ -52,6 +52,41 @@ def get_missions_by_category(user_id: int, category_id: int or None, page_cursor
 def count_number_of_mission_by_category(category_id: int, mission_repo: AbstractMissionRepository):
     total_count = mission_repo.count_number_of_mission_by_category(category_id)
     return total_count
+
+
+def get_mission_introduce(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
+    introduce = mission_repo.get_introduce(mission_id)
+
+    if introduce.playground_id is None:
+        error_message = f"소개 페이지가 존재하지 않는 미션입니다."
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        entry = dict(
+            id=introduce.id,
+            title=introduce.title,
+            description=introduce.description,
+            thumbnail=introduce.thumbnail_image,
+            type=introduce.mission_type if introduce.mission_type is not None else 'normal',
+            bookmarkLimit=introduce.user_limit,
+            bookmarkAvailableWhileOngoing=True if introduce.late_bookmarkable == 1 else False,
+            createdAt=introduce.created_at,
+            startedAt=introduce.started_at,
+            endedAt=introduce.ended_at,
+            reserveStartedAt=introduce.reserve_started_at,
+            reserveEndedAt=introduce.reserve_ended_at,
+            introVideo=introduce.intro_video,
+            logo=introduce.logo_image,
+            enterCode=json.loads(introduce.enter_code) if json.loads(introduce.enter_code)['code'] is not None else None,
+            images=json.loads(introduce.images) if json.loads(introduce.images)[0]['id'] is not None else [],
+            producer=json.loads(introduce.producer),
+            status=introduce.status,
+            missionProducts=json.loads(introduce.mission_products) if introduce.mission_products is not None else [],  # introduce.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
+            refundProducts=json.loads(introduce.refund_products) if json.loads(introduce.refund_products)[0]['id'] is not None else [],
+            bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, introduce.id) else False,
+        )
+        return {'result': True, 'data': entry}
 
 
 # region mission participants

@@ -92,6 +92,20 @@ class MissionGround:
         pass
 
 
+class MissionGroundText:
+    def __init__(self):
+        pass
+
+
+class MissionImage:
+    def __init__(self, id: int, mission_id: int, order: int, type: str, image: str):
+        self.id = id
+        self.mission_id = mission_id
+        self.order = order
+        self.type = type
+        self.image = image
+
+
 class MissionIntro:
     def __init__(self):
         pass

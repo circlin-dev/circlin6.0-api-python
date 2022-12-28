@@ -1,5 +1,5 @@
 from adapter.orm import areas, brands, feeds, feed_missions, follows, mission_refund_products, orders, order_products, outside_products, products
-from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionProduct, MissionRefundProduct, MissionStat
+from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionImage, MissionProduct, MissionRefundProduct, MissionStat
 from domain.order import Order, OrderProduct
 from domain.product import Product
 from domain.user import User
@@ -40,6 +40,10 @@ class AbstractMissionRepository(abc.ABC):
 
     @abc.abstractmethod
     def count_number_of_participants(self, mission_id: int):
+        pass
+
+    @abc.abstractmethod
+    def get_introduce(self, mission_id: int):
         pass
 
 
@@ -421,6 +425,7 @@ class MissionRepository(AbstractMissionRepository):
             func.json_object(
                 'id', Mission.user_id,
                 'nickname', User.nickname,
+                'gender', User.gender,
                 'profile', User.profile_image,
             ).label('producer'),
             select(
@@ -685,6 +690,7 @@ class MissionRepository(AbstractMissionRepository):
             func.json_object(
                 'id', Mission.user_id,
                 'nickname', User.nickname,
+                'gender', User.gender,
                 'profile', User.profile_image,
             ).label('producer'),
             select(
@@ -883,3 +889,192 @@ class MissionRepository(AbstractMissionRepository):
         )
         total_count = self.session.execute(sql).scalar()
         return total_count
+
+    def get_introduce(self, mission_id: int):
+        products_alias = aliased(products)
+        products_alias_mission_products = aliased(products)
+        sql = select(
+            Mission.id,
+            Mission.title,
+            Mission.description,
+            Mission.thumbnail_image,
+            Mission.mission_type,
+            Mission.user_limit,
+            Mission.late_bookmarkable,
+            func.date_format(Mission.created_at, '%Y/%m/%d %H:%i:%s').label('created_at'),
+            func.date_format(Mission.started_at, '%Y/%m/%d %H:%i:%s').label('started_at'),
+            func.date_format(Mission.ended_at, '%Y/%m/%d %H:%i:%s').label('ended_at'),
+            func.date_format(Mission.reserve_started_at, '%Y/%m/%d %H:%i:%s').label('reserve_started_at'),
+            func.date_format(Mission.reserve_ended_at, '%Y/%m/%d %H:%i:%s').label('reserve_ended_at'),
+            MissionGround.id.label('playground_id'),
+            MissionGround.intro_video,
+            MissionGround.logo_image,
+            func.json_object(
+                "code", MissionGround.code,
+                "title", MissionGround.code_title,
+                "placeholder", MissionGround.code_placeholder,
+            ).label('enter_code'),
+            func.json_arrayagg(
+                func.json_object(
+                    "id", MissionImage.id,
+                    "order", MissionImage.order,
+                    "type", MissionImage.type,
+                    "pathname", MissionImage.image
+                )
+            ).label('images'),
+            func.json_object(
+                'id', Mission.user_id,
+                'gender', User.gender,
+                'nickname', User.nickname,
+                'profile', User.profile_image,
+            ).label('producer'),
+            case(
+                (
+                    and_(
+                        Mission.reserve_started_at == None,
+                        Mission.reserve_ended_at == None,
+                    ),
+                    case(
+                        (
+                            and_(
+                                Mission.started_at == None,
+                                Mission.ended_at == None,
+                            ),
+                            'ongoing'
+                        ),
+                        (Mission.started_at > func.now(), 'before_ongoing'),
+                        (
+                            and_(
+                                Mission.started_at <= func.now(),
+                                Mission.ended_at > func.now()
+                            ),
+                            'ongoing'
+                        ),
+                        else_='end'
+                    ),
+                ),
+                else_=case(
+                    (Mission.reserve_started_at > func.now(), 'before_reserve'),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.reserve_ended_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_ended_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'before_ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    else_='end'
+                )
+            ).label('status'),
+            func.json_arrayagg(
+                func.json_object(
+                    "id", products_alias.c.id,
+                    "type", "inside",
+                    "brand", select(brands.c.name_ko).where(brands.c.id == products_alias.c.brand_id),
+                    "title", products_alias.c.name_ko,
+                    "image", products_alias.c.thumbnail_image,
+                    "url", None,
+                    "price", products_alias.c.price,
+                    "salePrice", products_alias.c.sale_price,
+                    "shippingFee", products_alias.c.shipping_fee,
+                    "discountRate", 100 - func.round(products_alias.c.sale_price / products_alias.c.price * 100),
+                    "status", products_alias.c.status,
+                    "availableStock", MissionRefundProduct.limit - select(
+                        func.count(orders.c.id)
+                    ).join(
+                        order_products, orders.c.id == order_products.c.order_id, isouter=True
+                    ).where(
+                        and_(
+                            order_products.c.product_id == products_alias.c.id,
+                            order_products.c.brand_id == None,
+                            orders.c.deleted_at == None
+                        )
+                    ),
+                ),
+            ).label('refund_products'),
+            select(
+                func.json_arrayagg(
+                    func.json_object(
+                        "id", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.id, outside_products.c.id),
+                        "type", MissionProduct.type,
+                        "brand", func.IF(
+                            MissionProduct.type == 'inside',
+                            select(brands.c.name_ko).where(brands.c.id == products_alias_mission_products.c.brand_id),
+                            outside_products.c.brand
+                        ),
+                        "title", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.name_ko, outside_products.c.title),
+                        "image",
+                        func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.thumbnail_image, outside_products.c.image),
+                        "url", func.IF(MissionProduct.type == 'inside', None, outside_products.c.url),
+                        "price", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.price, outside_products.c.price),
+                        "salePrice", func.IF(MissionProduct.type == 'inside', products_alias_mission_products.c.sale_price, None),
+                        "shippingFee", func.IF(MissionProduct.type == 'inside', products_alias.c.shipping_fee, None),
+                        "discountRate", func.IF(MissionProduct.type == 'inside', 100 - func.round(
+                            products_alias_mission_products.c.sale_price / products_alias_mission_products.c.price * 100), None),
+                        "status", func.IF(MissionProduct.type == 'inside', products_alias.c.status, 'soldout'),
+                        "availableStock", None
+                    ),
+                )
+            ).select_from(
+                MissionProduct
+            ).join(
+                products_alias_mission_products, products_alias_mission_products.c.id == MissionProduct.product_id, isouter=True
+            ).join(
+                outside_products, outside_products.c.id == MissionProduct.outside_product_id, isouter=True
+            ).where(
+                MissionProduct.mission_id == Mission.id
+            ).label('mission_products'),
+        ).join(
+            MissionGround, MissionGround.mission_id == Mission.id, isouter=True
+        ).join(
+            MissionImage, MissionImage.mission_id == Mission.id,
+        ).join(
+            MissionRefundProduct, MissionRefundProduct.mission_id == Mission.id, isouter=True
+        ).join(
+            products_alias, products_alias.c.id == MissionRefundProduct.product_id, isouter=True
+        ).join(
+            User, User.id == Mission.user_id
+        ).where(
+            Mission.id == mission_id,
+            Mission.is_show == 1,
+            Mission.deleted_at == None
+        )
+
+        return self.session.execute(sql).first()
