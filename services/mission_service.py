@@ -2,6 +2,7 @@ from adapter.repository.feed import AbstractFeedRepository
 from adapter.repository.mission import AbstractMissionRepository
 from adapter.repository.mission_category import AbstractMissionCategoryRepository
 from adapter.repository.mission_comment import AbstractMissionCommentRepository
+from adapter.repository.mission_notice import AbstractMissionNoticeRepository
 from adapter.repository.mission_stat import AbstractMissionStatRepository
 from domain.mission import MissionCategory
 from helper.constant import INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT
@@ -87,6 +88,59 @@ def get_mission_introduce(mission_id: int, user_id: int, mission_repo: AbstractM
             bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, introduce.id) else False,
         )
         return {'result': True, 'data': entry}
+
+
+def get_mission_playground(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
+    playground = mission_repo.get_playground(mission_id)
+
+    if playground.playground_id is None:
+        error_message = f"랜선 운동장이 존재하지 않는 미션입니다."
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        entry = dict(
+            id=playground.id,
+            title=playground.title,
+            description=playground.description,
+            thumbnail=playground.thumbnail_image,
+            type=playground.mission_type if playground.mission_type is not None else 'normal',
+            bookmarkLimit=playground.user_limit,
+            bookmarkAvailableWhileOngoing=True if playground.late_bookmarkable == 1 else False,
+            createdAt=playground.created_at,
+            startedAt=playground.started_at,
+            endedAt=playground.ended_at,
+            reserveStartedAt=playground.reserve_started_at,
+            reserveEndedAt=playground.reserve_ended_at,
+            introVideo=playground.intro_video,
+            logo=playground.logo_image,
+            enterCode=json.loads(playground.enter_code) if json.loads(playground.enter_code)['code'] is not None else None,
+            images=json.loads(playground.images) if json.loads(playground.images)[0]['id'] is not None else [],
+            producer=json.loads(playground.producer),
+            status=playground.status,
+            missionProducts=json.loads(playground.mission_products) if playground.mission_products is not None else [],  # introduce.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
+            refundProducts=json.loads(playground.refund_products) if json.loads(playground.refund_products)[0]['id'] is not None else [],
+            bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, playground.id) else False,
+        )
+        return {'result': True, 'data': entry}
+
+
+def get_notices(mission_id: int, page_cursor: int, limit: int, mission_notice_repo: AbstractMissionNoticeRepository) -> list:
+    notices = mission_notice_repo.get_list(mission_id, page_cursor, limit)
+    entries = [dict(
+        id=notice.id,
+        createdAt=notice.created_at,
+        title=notice.title,
+        body=notice.body,
+        images=json.loads(notice.images) if notice.images is not None else [],
+        cursor=notice.cursor,
+    ) for notice in notices] if notices is not None else []
+    return entries
+
+
+def get_notice_count_of_the_mission(mission_id: int, mission_notice_repo: AbstractMissionNoticeRepository) -> int:
+    total_count = mission_notice_repo.count_number_of_notice(mission_id)
+    return total_count
 
 
 # region mission participants

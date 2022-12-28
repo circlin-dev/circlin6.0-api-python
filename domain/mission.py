@@ -111,6 +111,25 @@ class MissionIntro:
         pass
 
 
+class MissionNotice:
+    def __init__(self, id: int or None, mission_id: int, created_at: str, updated_at: str, title: str, body: str):
+        self.id = id
+        self.mission_id = mission_id
+        self.created_at = created_at
+        self.updated_at = updated_at
+        self.title = title
+        self.body = body
+
+
+class MissionNoticeImage:
+    def __init__(self, id: int or None, mission_notice_id: int, order: int, type: str, image: str):
+        self.id = id
+        self.mission_notice_id = mission_notice_id
+        self.order = order
+        self.type = type
+        self.image = image
+
+
 class MissionProduct:
     def __init__(self, mission_id: int, type: str, product_id: int or None, outside_product_id: int or None, food_id: int):
         self.mission_id = mission_id
