@@ -157,7 +157,7 @@ class MissionRepository(AbstractMissionRepository):
             Mission.mission_type,
             func.json_object(
                 'id', Mission.user_id,
-                'gender', Mission.gender,
+                'gender', User.gender,
                 'nickname', User.nickname,
                 'profile', User.profile_image,
             ).label('producer'),

@@ -36,4 +36,5 @@ class MissionStatRepository(AbstractMissionStatRepository):
             users.c.deleted_at == None
         ).limit(1)
 
-        return True if self.session.execute(sql).scalar() else False
+        result = self.session.execute(sql).scalar()  # True or None
+        return True if result is True else False
