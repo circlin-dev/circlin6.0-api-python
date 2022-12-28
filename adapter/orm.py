@@ -5,7 +5,7 @@ from domain.chat import ChatMessage, ChatUser, ChatRoom
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
-from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionProduct, MissionRefundProduct, MissionStat
+from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionGroundText, MissionImage, MissionProduct, MissionRefundProduct, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
 from domain.order import Order, OrderProduct
@@ -1501,7 +1501,7 @@ def mission_mappers():
     mapper_registry.map_imperatively(MissionComment, mission_comments)
     mapper_registry.map_imperatively(MissionGround, mission_grounds)
     # mapper_registry.map_imperatively(MissionGroundText, mission_ground_texts)
-    # mapper_registry.map_imperatively(MissionImage, mission_images)
+    mapper_registry.map_imperatively(MissionImage, mission_images)
     # mapper_registry.map_imperatively(MissionNotice, mission_notices)
     mapper_registry.map_imperatively(MissionProduct, mission_products)
     # mapper_registry.map_imperatively(MissionPush, mission_pushes)
@@ -1517,7 +1517,7 @@ def mission_mappers():
             "mission_comments": relationship(MissionComment),
             "mission_grounds": relationship(MissionGround),
             # "mission_ground_texts": relationship(MissionGroundText),
-            # "mission_images": relationship(MissionImage),
+            "mission_images": relationship(MissionImage),
             # "mission_notices": relationship(MissionNotice),
             "mission_products": relationship(MissionProduct),
             # "mission_pushes": relationship(MissionPush),
