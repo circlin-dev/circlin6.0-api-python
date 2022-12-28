@@ -3,6 +3,7 @@ from adapter.repository.mission import AbstractMissionRepository
 from adapter.repository.mission_category import AbstractMissionCategoryRepository
 from adapter.repository.mission_comment import AbstractMissionCommentRepository
 from adapter.repository.mission_notice import AbstractMissionNoticeRepository
+from adapter.repository.mission_rank import AbstractMissionRankRepository
 from adapter.repository.mission_stat import AbstractMissionStatRepository
 from domain.mission import MissionCategory
 from helper.constant import INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT
@@ -140,6 +141,49 @@ def get_notices(mission_id: int, page_cursor: int, limit: int, mission_notice_re
 
 def get_notice_count_of_the_mission(mission_id: int, mission_notice_repo: AbstractMissionNoticeRepository) -> int:
     total_count = mission_notice_repo.count_number_of_notice(mission_id)
+    return total_count
+
+
+def get_rank_list(mission_id: int, user_id: int, page_cursor: int, limit: int, mission_rank_repo: AbstractMissionRankRepository):
+    result: dict = {"my_rank": None, "rank": []}
+    latest_mission_rank_id: int = mission_rank_repo.get_latest_rank_id(mission_id)
+    if latest_mission_rank_id is None:
+        return result
+
+    ranks = mission_rank_repo.get_list(latest_mission_rank_id, page_cursor, limit)
+    entries: list = [dict(
+        user=dict(
+            id=rank.user_id,
+            nickname=rank.nickname,
+            gender=rank.gender,
+            profile=rank.profile_image
+        ),
+        rank=rank.rank,
+        feedsCount=rank.feeds_count,
+        summation=rank.summation,
+        cursor=rank.cursor,
+    ) for rank in ranks]
+
+    my_rank = mission_rank_repo.get_my_rank(latest_mission_rank_id, user_id)
+    my_rank: dict = dict(
+        user=dict(
+            id=my_rank.user_id,
+            nickname=my_rank.nickname,
+            gender=my_rank.gender,
+            profile=my_rank.profile_image
+        ),
+        rank=my_rank.rank,
+        feedsCount=my_rank.feeds_count,
+        summation=my_rank.summation
+    ) if my_rank is not None else None
+    result["rank"] = entries
+    result["my_rank"] = my_rank
+    return result
+
+
+def get_rank_count_of_the_mission(mission_id: int, mission_rank_repo: AbstractMissionRankRepository):
+    latest_mission_rank_id: int = mission_rank_repo.get_latest_rank_id(mission_id)
+    total_count = mission_rank_repo.count_number_of_rank(latest_mission_rank_id)
     return total_count
 
 
