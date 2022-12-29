@@ -282,6 +282,31 @@ def update_profile():
         return json.dumps(failed_response(error_message), ensure_ascii=False), 405
 
 
+@api.route('/user/information-check', methods=['GET'])
+def check_user_information_fully_filled():
+    user_id = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if request.method == 'GET':
+        user_mappers()
+        user_repo: UserRepository = UserRepository(db_session)
+        user_favorite_category_repo: UserFavoriteCategoryRepository = UserFavoriteCategoryRepository(db_session)
+        user_information = user_service.check_user_information_fully_filled(user_id, user_repo, user_favorite_category_repo)
+        clear_mappers()
+        db_session.close()
+        if user_information['result']:
+            return json.dumps(user_information, ensure_ascii=False), 200
+        else:
+            db_session.close()
+            return json.dumps({key: value for key, value in user_information.items() if key != 'status_code'}, ensure_ascii=False), user_information['status_code']
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
 @api.route('/user/withdraw', methods=['DELETE'])
 def withdraw():
     user_id = authenticate(request, db_session)

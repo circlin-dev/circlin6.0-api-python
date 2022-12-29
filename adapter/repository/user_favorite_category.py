@@ -34,6 +34,7 @@ class UserFavoriteCategoryRepository(AbstractUserFavoriteCategoryRepository):
     def get_favorites(self, user_id) -> list:
         sql = select(
             mission_categories.c.id,
+            mission_categories.c.emoji,
             mission_categories.c.title,
         ).join(
             user_favorite_categories, user_favorite_categories.c.mission_category_id == mission_categories.c.id
