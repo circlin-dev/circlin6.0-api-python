@@ -1505,6 +1505,7 @@ def ingredient_mappers():
 
 # region missions
 def mission_mappers():
+    mapper_registry.map_imperatively(FeedMission, feed_missions)
     mapper_registry.map_imperatively(MissionCategory, mission_categories)
     mapper_registry.map_imperatively(MissionComment, mission_comments)
     mapper_registry.map_imperatively(MissionGround, mission_grounds)
@@ -1521,6 +1522,7 @@ def mission_mappers():
         Mission,
         missions,
         properties={
+            "feed_missions": relationship(FeedMission),
             "mission_categories": relationship(MissionCategory),
             "mission_comments": relationship(MissionComment),
             "mission_grounds": relationship(MissionGround),
