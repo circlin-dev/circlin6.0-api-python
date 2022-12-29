@@ -46,6 +46,10 @@ class AbstractUserRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
+    def get_user_information(self, user_id: int):
+        pass
+
+    @abc.abstractmethod
     def get_list(self) -> User:
         pass
 
@@ -267,6 +271,26 @@ class UserRepository(AbstractUserRepository):
         ).limit(1)
         user = self.session.execute(sql).scalars().first()
         return user
+
+    def get_user_information(self, user_id: int):
+        area = select(areas.c.name).where(areas.c.code == func.concat(func.substring(User.area_code, 1, 5), '00000')).limit(1)
+        followings = select(func.count(follows.c.target_id)).where(follows.c.user_id == user_id)
+        sql = select(
+            User.id,
+            User.nickname,
+            User.gender,
+            func.date_format(user_stats.c.birthday, '%Y/%m/%d').label('birthday'),
+            # func.date_format(user_stats.c.birthday, '%Y/%m/%d %H:%i:%s').label('birthday'),
+            area.label('area'),
+            User.profile_image,
+            followings.label('followings')
+        ).join(
+            # user_stats, user_stats.c.user_id == User.id
+            user_stats, user_stats.c.user_id == User.id
+        ).where(
+            User.id == user_id
+        ).limit(1)
+        return self.session.execute(sql).first()
 
     def get_list(self):
         sql = select(User).limit(10)

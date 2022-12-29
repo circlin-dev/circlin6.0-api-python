@@ -1037,7 +1037,7 @@ user_stats = Table(
     Column("id", BIGINT(unsigned=True), primary_key=True),
     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("user_id", ForeignKey('users.id'), nullable=False, index=True),
+    Column("user_id", BIGINT(unsigned=True), ForeignKey('users.id'), nullable=False, index=True),
     Column("birthday", DateTime, comment='생년월일'),
     Column("height", Float(8, True)),
     Column("weight", Float(8, True)),
@@ -1871,7 +1871,8 @@ def report_mappers():
 
 # region users
 def user_mappers():
-    mapper = mapper_registry.map_imperatively(User, users)
+    mapper_registry.map_imperatively(UserStat, user_stats)
+    mapper = mapper_registry.map_imperatively(User, users, properties={"user_stats": relationship(UserStat)})
     return mapper
 
 

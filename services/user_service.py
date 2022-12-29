@@ -410,6 +410,34 @@ def get_a_user(user_id: int, target_id: int, user_repo: AbstractUserRepository, 
     return result
 
 
+def check_user_information_fully_filled(user_id: int, user_repo: AbstractUserRepository, user_favorite_category_repo: AbstractUserFavoriteCategoryRepository):
+    user_information = user_repo.get_user_information(user_id)
+    if user_information is None:
+        error_message = '존재하지 않는 유저입니다.'
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        user_favorite_categories: list = user_favorite_category_repo.get_favorites(user_id)
+        user_favorite_categories: list = [dict(
+            id=category.id,
+            emoji=category.emoji,
+            title=category.title
+        ) for category in user_favorite_categories] if user_favorite_categories is not None else []
+
+        entry = dict(
+            id=user_information.id,
+            nickname=user_information.nickname,
+            gender=user_information.gender,
+            birthday=user_information.birthday,
+            profile=user_information.profile_image,
+            area=user_information.area,
+            category=user_favorite_categories,
+            followings=user_information.followings
+        )
+        return {'result': True, 'data': entry}
+
+
 # region user_data
 def get_user_data(
         user_id: int,
@@ -447,6 +475,7 @@ def get_user_data(
         user_favorite_categories: list = user_favorite_category_repo.get_favorites(target_user.id)
         user_favorite_categories: list = [dict(
             id=category.id,
+            emoji=category.emoji,
             title=category.title
         ) for category in user_favorite_categories] if user_favorite_categories is not None else []
 
