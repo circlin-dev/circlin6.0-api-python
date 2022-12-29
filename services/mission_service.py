@@ -56,6 +56,36 @@ def count_number_of_mission_by_category(category_id: int, mission_repo: Abstract
     return total_count
 
 
+def get_mission_detail_by_id(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository):
+    mission_detail_data = mission_repo.get_detail(mission_id, user_id)
+
+    if mission_detail_data.id is None:
+        error_message = f"상세 페이지가 존재하지 않거나, 제작자에 의해 삭제된 미션입니다."
+        result = failed_response(error_message)
+        result['status_code'] = 400
+        return result
+    else:
+        entry = dict(
+            id=mission_detail_data.id,
+            title=mission_detail_data.title,
+            description=mission_detail_data.description,
+            thumbnail=mission_detail_data.thumbnail_image,
+            type=mission_detail_data.mission_type if mission_detail_data.mission_type is not None else 'normal',
+            bookmarkLimit=mission_detail_data.user_limit,
+            myFeedsCount=mission_detail_data.my_feeds_count,
+            createdAt=mission_detail_data.created_at,
+            startedAt=mission_detail_data.started_at,
+            endedAt=mission_detail_data.ended_at,
+            images=json.loads(mission_detail_data.images) if json.loads(mission_detail_data.images)[0]['id'] is not None else [],
+            producer=json.loads(mission_detail_data.producer),
+            status=mission_detail_data.status,
+            missionProducts=json.loads(mission_detail_data.mission_products) if mission_detail_data.mission_products is not None else [],  # introduce.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
+            refundProducts=json.loads(mission_detail_data.refund_products) if json.loads(mission_detail_data.refund_products)[0]['id'] is not None else [],
+            bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, mission_detail_data.id) else False,
+        )
+        return {'result': True, 'data': entry}
+
+
 def get_mission_introduce(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
     introduce = mission_repo.get_introduce(mission_id)
 

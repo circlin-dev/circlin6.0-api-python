@@ -85,7 +85,7 @@ def mission_category():
 
 
 @api.route('/mission/<int:mission_id>', methods=['GET', 'PATCH', 'DELETE'])
-def mission():
+def mission(mission_id: int):
     user_id = authenticate(request, db_session)
     if user_id is None:
         return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
@@ -94,7 +94,14 @@ def mission():
         mission_mappers()
         mission_repo: MissionRepository = MissionRepository(db_session)
         mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        detail_page_data = mission_service.get_mission_detail_by_id(mission_id, user_id, mission_repo, mission_stat_repo)
         clear_mappers()
+        db_session.close()
+
+        if detail_page_data['result']:
+            return json.dumps(detail_page_data, ensure_ascii=False), 200
+        else:
+            return json.dumps({key: value for key, value in detail_page_data.items() if key != 'status_code'}, ensure_ascii=False), detail_page_data['status_code']
     elif request.method == 'PATCH':
         pass
     elif request.method == 'DELETE':
