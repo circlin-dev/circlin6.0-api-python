@@ -288,7 +288,10 @@ class UserRepository(AbstractUserRepository):
             # user_stats, user_stats.c.user_id == User.id
             user_stats, user_stats.c.user_id == User.id
         ).where(
-            User.id == user_id
+            and_(
+                User.id == user_id,
+                User.deleted_at == None
+            )
         ).limit(1)
         return self.session.execute(sql).first()
 
