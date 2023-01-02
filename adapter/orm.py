@@ -5,7 +5,7 @@ from domain.chat import ChatMessage, ChatUser, ChatRoom
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
-from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionGroundText, MissionImage, MissionNotice, MissionNoticeImage, MissionProduct, MissionRefundProduct, MissionRank, MissionRankUser, MissionStat
+from domain.mission import Mission, MissionCategory, MissionCondition, MissionComment, MissionGround, MissionGroundText, MissionImage, MissionIntroduce, MissionNotice, MissionNoticeImage, MissionPlayground, MissionProduct, MissionPlaygroundCertificate, MissionPlaygroundGround, MissionPlaygroundRecord, MissionRefundProduct, MissionRank, MissionRankUser, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
 from domain.order import Order, OrderProduct
@@ -16,7 +16,7 @@ from domain.report import Report
 from domain.user import DeleteUser, Follow, User, UserFavoriteCategory, UserStat, UserWallpaper
 from domain.version import Version
 
-from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, Table, TIMESTAMP, text
+from sqlalchemy import Column, DateTime, DECIMAL, Float, ForeignKey, Integer, JSON, Table, TIMESTAMP, text
 from sqlalchemy.dialects.mysql import BIGINT, VARCHAR, TINYINT, DOUBLE, TEXT, INTEGER
 from sqlalchemy.orm import registry, relationship
 
@@ -558,6 +558,22 @@ mission_comments = Table(
 )
 
 
+mission_conditions = Table(
+    "mission_conditions",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
+    Column("certification_criterion", VARCHAR(255), nullable=False, server_default=text("feeds_count"), comment="미션 인증 기준(goal(시작시 선택한 목표값과의 비교) | min(1회 입력 시 최소값과의 비교) | feeds_count(피드 개수 충족 여부)(구 goal_distance_type)"),
+    Column("amount_determining_daily_success", DECIMAL(5, 2), comment="거리(km), 리터(L) 미션의 1일 성공 판단 기준값(구 goal_distances)"),
+    Column("input_scale", VARCHAR(8), comment="거리(km), 리터(L) 미션의 입력값 단위 (구 goal_distance_text)"),
+    Column("minimum_input", Float(7), comment='인증 시 최소 입력값(구 distance_min)'),
+    Column("maximum_input", INTEGER, comment="인증 시 최대 거리(구 distance_max)"),
+    Column("input_placeholder", VARCHAR(255), comment='입력란 placeholder(구 distance_placeholder)'),
+)
+
+
 mission_grounds = Table(
     "mission_grounds",
     metadata,
@@ -662,6 +678,21 @@ mission_images = Table(
     Column("thumbnail_image", VARCHAR(255)),
 )
 
+mission_introduces = Table(
+    "mission_introduces",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
+    Column("logo_image", VARCHAR(255), nullable=False, comment='상단 고정 로고'),
+    Column("intro_video", VARCHAR(255), nullable=False, comment='소개 페이지 상단 동영상'),
+    Column("code", VARCHAR(255), nullable=False, comment='입장코드(있으면 비교, 없으면 패스)'),
+    Column("code_title", VARCHAR(255), nullable=False, comment='입장코드 라벨'),
+    Column("code_placeholder", VARCHAR(255), nullable=False, comment='입장코드 입력란 placeholder'),
+    Column("code_image", VARCHAR(255), nullable=False, comment='입장코드 룸 상단 이미지'),
+)
+
 
 mission_notices = Table(
     "mission_notices",
@@ -686,6 +717,93 @@ mission_notice_images = Table(
     Column("order", INTEGER, nullable=False),
     Column("type", VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)'),
     Column("image", VARCHAR(255), nullable=False),
+)
+
+
+mission_playgrounds = Table(
+    "mission_playgrounds",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
+    Column("background_image", VARCHAR(255), comment='랜선운동장 전체에 적용되는 배경이미지'),
+    Column("rank_title", VARCHAR(64), comment='랭킹 탭 제목'),
+    Column("rank_value", VARCHAR(32), comment='랭킹 산정 기준'),
+    Column("rank_scale", VARCHAR(4), comment='랭킹 단위'),
+)
+
+
+mission_playground_certificates = Table(
+    "mission_playground_certificates",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("mission_playground_id", BIGINT(unsigned=True), ForeignKey('mission_playgrounds.id'), nullable=False, index=True),
+    Column("title", VARCHAR(48), nullable=False, server_default=text("모바일 인증서"), comment='인증서 탭 인증서 상단 제목 텍스트(구 cert_subtitle)'),
+    Column("description", VARCHAR(255), comment='인증서 탭 상단 본문 텍스트(구 cert_description)'),
+    Column("certificate_image", VARCHAR(255), comment='인증서 탭 인증서 배경 이미지(구 cert_background_image)'),
+    Column("event_images", JSON, comment='인증서 탭 하단 이미지'),
+    Column("content_left_title", VARCHAR(48), nullable=False, server_default=text("참가번호"), comment='인증서 좌측 영역 제목(주로 나의 참가순서)(구 cert_details)'),
+    Column("content_left_value", VARCHAR(48), nullable=False, server_default=text("entry_no"), comment='인증서 좌측 영역  값(주로 나의 참가순서)(구 cert_details)'),
+    Column("content_center_title", VARCHAR(48), nullable=False, server_default=text("미션 인증횟수"), comment='인증서 중앙 영역 제목(주로 미션 인증횟수)(구 cert_details)'),
+    Column("content_center_value", VARCHAR(48), nullable=False, server_default=text("feeds_count"), comment='인증서 중앙 영역 제목(주로 미션 인증횟수)(구 cert_details)'),
+    Column("content_right_title", VARCHAR(48), nullable=False, server_default=text("누적 인증(회)"), comment='인증서 대시보드 우측 영역 제목(주로 나의 기록의 총합)(구 cert_details)'),
+    Column("content_right_value", VARCHAR(48), nullable=False, server_default=text("feeds_count"), comment='인증서 대시보드 우측 영역 값(주로 나의 기록의 총합)(구 cert_details)'),
+    Column("criterion_for_issue", VARCHAR(48), nullable=False, server_default=text("feeds_count"), comment='인증서 발급 기준 항목(feeds_count | total_complete_day)(구 cert_enabled_feeds_count)'),
+    Column("minimum_value_for_issue", TINYINT(1), nullable=False, server_default=text("1"), comment='인증서 발급 기준의 값(구 cert_enabled_feeds_count)'),
+    Column("guidance_for_issue", VARCHAR(255), comment='인증서 탭 비활성화 상태 멘트'),
+)
+
+
+mission_playground_grounds = Table(
+    "mission_playground_grounds",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("mission_playground_id", BIGINT(unsigned=True), ForeignKey('mission_playgrounds.id'), nullable=False, index=True),
+    Column("symbol_image", VARCHAR(255), comment='운동장 탭 우측의 챌린지 대표 이미지(구 ground_background_image)'),
+    Column("progress_initial_image", VARCHAR(255), comment='운동장 탭 진행상태 시각화 이미지: 흑백(구 ground_progress_background_image)'),
+    Column("progress_progressed_image", VARCHAR(255), comment='운동장 탭 진행상태 시각화 이미지: 컬러(구 ground_progress_image)'),
+    Column("progress_achieved_image", VARCHAR(255), comment='운동장 탭 진행상태 시각화 이미지: 목표치 달성 표시할 이미지(구 ground_progress_complete_image)'),
+    Column("progress_type", VARCHAR(48), nullable=False, server_default=text("feed"), comment='운동장 탭 미션별 목표 종류(all_distance | all_complete_day | feeds 등)(구 ground_progress_type)'),
+    Column("progress_goal", INTEGER, nullable=False, comment='운동장 탭 미션별 목표치(구 ground_progress_max)'),
+    Column("progress_title", VARCHAR(48), server_default=text("총 참가자 누적"), comment='운동장 탭 목표치 제목(구 ground_progress_title)'),
+    Column("progress_value", VARCHAR(48), nullable=False, server_default=text("feeds_count"), comment='운동장 탭 진행상황 텍스트(구 ground_progress_text)'),
+    Column("progress_scale", VARCHAR(10), nullable=False, server_default=text("개"), comment='운동장 탭 목표치 단위(개, L, km 등)(구 ground_progress_text)'),
+    Column("dashboard_center_title", VARCHAR(48), nullable=False, server_default=text("현재 참여중인 사람"), comment='운동장 탭 대시보드 중앙 영역 제목(주로 참가중인 유저 수)(구 ground_box_users_count_title)'),
+    Column("dashboard_center_value", VARCHAR(48), nullable=False, server_default=text("users_count"), comment='운동장 탭 대시보드 중앙 영역 값(주로 참가중인 유저 수)(구 ground_box_users_count_text)'),
+    Column("dashboard_right_title", VARCHAR(48), nullable=False, server_default=text("금일 누적"), comment='운동장 탭 대시보드 우측 영역 제목(주로 금일 기록의 총합)(구 ground_box_users_count_title)'),
+    Column("dashboard_right_value", VARCHAR(48), nullable=False, server_default=text("today_all_distance"), comment='운동장 탭 대시보드 우측 영역 값(주로 금일 기록의 총합)(구 ground_box_users_count_text)'),
+    Column("banner_image", VARCHAR(255), comment='운동장 탭 배너 이미지 URL(구 ground_banner_image)'),
+    Column("banner_type", VARCHAR(48), server_default=text("url"), comment='운동장 탭 배너 연결 방식(url | 엔티티명(mission, shop 등))(구 ground_banner_type)'),
+    Column("banner_link", VARCHAR(255), comment='운동장 탭 배너 클릭 시 이동시킬 목적지(구 ground_banner_link)'),
+)
+
+
+mission_playground_records = Table(
+    "mission_playground_records",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("mission_playground_id", BIGINT(unsigned=True), ForeignKey('mission_playgrounds.id'), nullable=False, index=True),
+    Column("symbol_image", VARCHAR(255), comment='내 기록 탭 우측의 챌린지 대표 이미지(구 record_background_image)'),
+    Column("total_success_count", INTEGER, server_default=text("0"), nullable=False, comment='내 기록 탭 진행상태 시각화 이미지 개수(구 record_progress_image_count)'),
+    Column("daily_image_before_completed", VARCHAR(255), comment='내 기록 탭 진행상태 시각화 이미지: 당일 미션 성공 전까지 표시할 흑백 이미지(구 ground_progress_background_image)'),
+    Column("daily_image_after_completed", VARCHAR(255), comment='내 기록 탭 진행상태 시각화 이미지: 당일 미션 성공 시 표시할 컬러 이미지(구 ground_progress_image)'),
+    Column("progress_type", VARCHAR(48),  nullable=False, server_default=text("complete_days_count"), comment='내 기록 탭 대시보드 좌측 영역 제목(주로 나의 참가순서)(구 record_box_left_title)'),
+    Column("progress_title", VARCHAR(48), server_default=text("미션 성공일수"), comment='내 기록 탭 진행상태 제목(구 record_progress_title)'),
+    Column("progress_value", VARCHAR(48), nullable=False, server_default=text("total_complete_day"), comment='내 기록 탭 진행상태 값(구 record_progress_text)'),
+    Column("dashboard_left_title", VARCHAR(48), nullable=False, server_default=text("참가번호"), comment='내 기록 탭 진행상태 제목(구 record_progress_title)'),
+    Column("dashboard_left_value", VARCHAR(48), nullable=False, server_default=text("entry_no"), comment='내 기록 탭 대시보드 좌측 영역  값(주로 나의 참가순서)(구 record_box_left_text)'),
+    Column("dashboard_center_title", VARCHAR(48), nullable=False, server_default=text("미션 인증횟수"), comment='내 기록 탭 대시보드 중앙 영역 제목(주로 미션 인증횟수)(구 record_box_center_title)'),
+    Column("dashboard_center_value", VARCHAR(48), nullable=False, server_default=text("feeds_count"), comment='내 기록 탭 대시보드 중앙 영역 제목(주로 미션 인증횟수)(구 record_box_center_text)'),
+    Column("dashboard_right_title", VARCHAR(48), nullable=False, server_default=text("누적 인증"), comment='내 기록 탭 대시보드 우측 영역 제목(주로 나의 기록의 총합)(구 record_box_right_title)'),
+    Column("dashboard_right_value", VARCHAR(48), nullable=False, server_default=text("feeds_count"), comment='내 기록 탭 대시보드 우측 영역 값(주로 나의 기록의 총합)(구 record_box_right_text)'),
+    Column("dashboard_description", VARCHAR(64), comment='내 기록 탭 대시보드 아래 작은 설명(구 record_box_description)'),
 )
 
 
@@ -1508,10 +1626,13 @@ def mission_mappers():
     mapper_registry.map_imperatively(FeedMission, feed_missions)
     mapper_registry.map_imperatively(MissionCategory, mission_categories)
     mapper_registry.map_imperatively(MissionComment, mission_comments)
-    mapper_registry.map_imperatively(MissionGround, mission_grounds)
+    mapper_registry.map_imperatively(MissionCondition, mission_conditions)
+    # mapper_registry.map_imperatively(MissionGround, mission_grounds)
     # mapper_registry.map_imperatively(MissionGroundText, mission_ground_texts)
     mapper_registry.map_imperatively(MissionImage, mission_images)
+    mapper_registry.map_imperatively(MissionIntroduce, mission_introduces)
     mapper_registry.map_imperatively(MissionNotice, mission_notices)
+    mapper_registry.map_imperatively(MissionPlayground, mission_playgrounds)
     mapper_registry.map_imperatively(MissionProduct, mission_products)
     # mapper_registry.map_imperatively(MissionPush, mission_pushes)
     mapper_registry.map_imperatively(MissionRank, mission_ranks)
@@ -1525,10 +1646,13 @@ def mission_mappers():
             "feed_missions": relationship(FeedMission),
             "mission_categories": relationship(MissionCategory),
             "mission_comments": relationship(MissionComment),
-            "mission_grounds": relationship(MissionGround),
+            "mission_conditions": relationship(MissionCondition),
+            # "mission_grounds": relationship(MissionGround),
             # "mission_ground_texts": relationship(MissionGroundText),
             "mission_images": relationship(MissionImage),
+            "mission_introduces": relationship(MissionIntroduce),
             "mission_notices": relationship(MissionNotice),
+            "mission_playgrounds": relationship(MissionPlayground),
             "mission_products": relationship(MissionProduct),
             # "mission_pushes": relationship(MissionPush),
             "mission_ranks": relationship(MissionRank),
@@ -1560,6 +1684,18 @@ def mission_comment_mappers():
         properties={
             "missions": relationship(Mission),
             "users": relationship(User)
+        }
+    )
+    return mapper
+
+
+def mission_condition_mappers():
+    mapper_registry.map_imperatively(Mission, missions)
+    mapper = mapper_registry.map_imperatively(
+        MissionCondition,
+        mission_conditions,
+        properties={
+            "missions": relationship(Mission)
         }
     )
     return mapper
@@ -1600,6 +1736,60 @@ def mission_notice_mappers():
 def mission_notice_image_mappers():
     mapper_registry.map_imperatively(MissionNotice, mission_notices)
     mapper = mapper_registry.map_imperatively(MissionNoticeImage, mission_notice_images, properties={"mission_notices": relationship(MissionNotice)})
+    return mapper
+
+
+def mission_playground_mappers():
+    mapper_registry.map_imperatively(Mission, missions)
+    mapper_registry.map_imperatively(MissionPlaygroundCertificate, mission_playground_certificates)
+    mapper_registry.map_imperatively(MissionPlaygroundGround, mission_playground_grounds)
+    mapper_registry.map_imperatively(MissionPlaygroundRecord, mission_playground_records)
+    mapper = mapper_registry.map_imperatively(
+        MissionPlayground,
+        mission_playgrounds,
+        properties={
+            "missions": relationship(Mission),
+            "mission_playground_certificates": relationship(MissionPlaygroundCertificate),
+            "mission_playground_grounds": relationship(MissionPlaygroundGround),
+            "mission_playground_records": relationship(MissionPlaygroundRecord),
+        }
+    )
+    return mapper
+
+
+def mission_playground_certificate_mappers():
+    mapper_registry.map_imperatively(MissionPlayground, mission_playgrounds)
+    mapper = mapper_registry.map_imperatively(
+        MissionPlaygroundCertificate,
+        mission_playground_certificates,
+        properties={
+            "mission_playgrounds": relationship(MissionPlayground)
+        }
+    )
+    return mapper
+
+
+def mission_playground_ground_mappers():
+    mapper_registry.map_imperatively(MissionPlayground, mission_playgrounds)
+    mapper = mapper_registry.map_imperatively(
+        MissionPlaygroundGround,
+        mission_playground_grounds,
+        properties={
+            "mission_playgrounds": relationship(MissionPlayground)
+        }
+    )
+    return mapper
+
+
+def mission_playground_record_mappers():
+    mapper_registry.map_imperatively(MissionPlayground, mission_playgrounds)
+    mapper = mapper_registry.map_imperatively(
+        MissionPlaygroundRecord,
+        mission_playground_records,
+        properties={
+            "mission_playgrounds": relationship(MissionPlayground)
+        }
+    )
     return mapper
 
 

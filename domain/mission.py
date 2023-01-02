@@ -87,6 +87,26 @@ class MissionComment:
         self.deleted_at = deleted_at
 
 
+class MissionCondition:
+    def __init__(
+            self,
+            mission_id: int,
+            certification_criterion: str,
+            amount_determining_daily_success: float or None,
+            input_scale: str or None,
+            minimum_input: float or None,
+            maximum_input: int or None,
+            input_placeholder: str or None
+    ):
+        self.mission_id = mission_id
+        self.certification_criterion = certification_criterion
+        self.amount_determining_daily_success = amount_determining_daily_success
+        self.input_scale = input_scale
+        self.minimum_input = minimum_input
+        self.maximum_input = maximum_input
+        self.input_placeholder = input_placeholder
+
+
 class MissionGround:
     def __init__(self):
         pass
@@ -106,9 +126,24 @@ class MissionImage:
         self.image = image
 
 
-class MissionIntro:
-    def __init__(self):
-        pass
+class MissionIntroduce:
+    def __init__(
+            self,
+            mission_id: int,
+            logo_image: str or None,
+            intro_video: str or None,
+            code: str or None,
+            code_title: str or None,
+            code_placeholder: str or None,
+            code_image: str or None
+    ):
+        self.mission_id = mission_id
+        self.logo_image = logo_image
+        self.intro_video = intro_video
+        self.code = code
+        self.code_title = code_title
+        self.code_placeholder = code_placeholder
+        self.code_image = code_image
 
 
 class MissionNotice:
@@ -128,6 +163,30 @@ class MissionNoticeImage:
         self.order = order
         self.type = type
         self.image = image
+
+
+class MissionPlayground:
+    def __init__(self, mission_id: int, background_image: str or None, rank_title: str or None, rank_value: str or None, rank_scale: str or None):
+        self.mission_id = mission_id
+        self.background_image = background_image
+        self.rank_title = rank_title
+        self.rank_value = rank_value
+        self.rank_scale = rank_scale
+
+
+class MissionPlaygroundCertificate:
+    def __init__(self, mission_playground_id: int):
+        self.mission_playground_id = mission_playground_id
+
+
+class MissionPlaygroundGround:
+    def __init__(self, mission_playground_id: int):
+        self.mission_playground_id = mission_playground_id
+
+
+class MissionPlaygroundRecord:
+    def __init__(self, mission_playground_id: int):
+        self.mission_playground_id = mission_playground_id
 
 
 class MissionProduct:

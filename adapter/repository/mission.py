@@ -1,6 +1,6 @@
-from adapter.orm import areas, brands, feeds, feed_missions, follows, mission_refund_products, orders, order_products, outside_products, products
+from adapter.orm import areas, brands, feeds, feed_missions, follows, mission_conditions, mission_refund_products, orders, order_products, outside_products, products
 from domain.feed import FeedMission
-from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionImage, MissionProduct, MissionRefundProduct, MissionStat
+from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionPlayground, MissionPlaygroundCertificate, MissionCondition, MissionPlaygroundGround, MissionPlaygroundRecord, MissionImage, MissionIntroduce, MissionProduct, MissionRefundProduct, MissionStat
 from domain.order import Order, OrderProduct
 from domain.product import Product
 from domain.user import User
@@ -48,7 +48,7 @@ class AbstractMissionRepository(abc.ABC):
         pass
 
     @abc.abstractmethod
-    def get_playground(self):
+    def get_playground(self, mission_id: int, user_id: int):
         pass
 
     @abc.abstractmethod
@@ -915,13 +915,13 @@ class MissionRepository(AbstractMissionRepository):
             func.date_format(Mission.ended_at, '%Y/%m/%d %H:%i:%s').label('ended_at'),
             func.date_format(Mission.reserve_started_at, '%Y/%m/%d %H:%i:%s').label('reserve_started_at'),
             func.date_format(Mission.reserve_ended_at, '%Y/%m/%d %H:%i:%s').label('reserve_ended_at'),
-            MissionGround.id.label('playground_id'),
-            MissionGround.intro_video,
-            MissionGround.logo_image,
+            MissionIntroduce.id.label('introduce_id'),
+            MissionIntroduce.intro_video,
+            MissionIntroduce.logo_image,
             func.json_object(
-                "code", MissionGround.code,
-                "title", MissionGround.code_title,
-                "placeholder", MissionGround.code_placeholder,
+                "code", MissionIntroduce.code,
+                "title", MissionIntroduce.code_title,
+                "placeholder", MissionIntroduce.code_placeholder,
             ).label('enter_code'),
             func.json_arrayagg(
                 func.json_object(
@@ -1071,7 +1071,7 @@ class MissionRepository(AbstractMissionRepository):
                 MissionProduct.mission_id == Mission.id
             ).label('mission_products'),
         ).join(
-            MissionGround, MissionGround.mission_id == Mission.id, isouter=True
+            MissionIntroduce, MissionIntroduce.mission_id == Mission.id, isouter=True
         ).join(
             MissionImage, MissionImage.mission_id == Mission.id,
         ).join(
@@ -1088,8 +1088,163 @@ class MissionRepository(AbstractMissionRepository):
 
         return self.session.execute(sql).first()
 
-    def get_playground(self):
-        pass
+    def get_playground(self, mission_id: int, user_id: int):
+        sql = select(
+            MissionPlayground.id,
+            MissionPlayground.background_image,
+            MissionPlayground.rank_title,
+            MissionPlayground.rank_value,
+            MissionPlayground.rank_scale,
+
+            MissionPlaygroundGround.symbol_image.label('ground_symbol_image'),
+            MissionPlaygroundGround.progress_initial_image.label('ground_progress_initial_image'),
+            MissionPlaygroundGround.progress_progressed_image.label('ground_progress_progressed_image'),
+            MissionPlaygroundGround.progress_achieved_image.label('ground_progress_achieved_image'),
+            MissionPlaygroundGround.progress_type.label('ground_progress_type'),
+            MissionPlaygroundGround.progress_goal.label('ground_progress_goal'),
+            MissionPlaygroundGround.progress_title.label('ground_progress_title'),
+            MissionPlaygroundGround.progress_value.label('ground_progress_value'),
+            MissionPlaygroundGround.progress_scale.label('ground_progress_scale'),
+            MissionPlaygroundGround.dashboard_center_title.label('ground_dashboard_center_title'),
+            MissionPlaygroundGround.dashboard_center_value.label('ground_dashboard_center_value'),
+            MissionPlaygroundGround.dashboard_right_title.label('ground_dashboard_right_title'),
+            MissionPlaygroundGround.dashboard_right_value.label('ground_dashboard_right_value'),
+            MissionPlaygroundGround.banner_image,
+            MissionPlaygroundGround.banner_type,
+            MissionPlaygroundGround.banner_link,
+
+            MissionPlaygroundRecord.symbol_image.label('record_symbol_image'),
+            MissionPlaygroundRecord.total_success_count,
+            MissionPlaygroundRecord.daily_image_before_completed,
+            MissionPlaygroundRecord.daily_image_after_completed,
+            MissionPlaygroundRecord.progress_type.label('record_progress_type'),
+            MissionPlaygroundRecord.progress_title.label('record_progress_title'),
+            MissionPlaygroundRecord.progress_value.label('record_progress_value'),
+            MissionPlaygroundRecord.dashboard_left_title.label('record_dashboard_left_title'),
+            MissionPlaygroundRecord.dashboard_left_value.label('record_dashboard_left_value'),
+            MissionPlaygroundRecord.dashboard_center_title.label('record_dashboard_center_title'),
+            MissionPlaygroundRecord.dashboard_center_value.label('record_dashboard_center_value'),
+            MissionPlaygroundRecord.dashboard_right_title.label('record_dashboard_right_title'),
+            MissionPlaygroundRecord.dashboard_right_value.label('record_dashboard_right_value'),
+            MissionPlaygroundRecord.dashboard_description.label('record_dashboard_description'),
+
+            MissionPlaygroundCertificate.title.label('certificate_title'),
+            MissionPlaygroundCertificate.description.label('certificate_description'),
+            MissionPlaygroundCertificate.certificate_image,
+            MissionPlaygroundCertificate.event_images.label('certificate_event_images'),
+            MissionPlaygroundCertificate.content_left_title.label('certificate_content_left_title'),
+            MissionPlaygroundCertificate.content_left_value.label('certificate_content_left_value'),
+            MissionPlaygroundCertificate.content_center_title.label('certificate_content_center_title'),
+            MissionPlaygroundCertificate.content_center_value.label('certificate_content_center_value'),
+            MissionPlaygroundCertificate.content_right_title.label('certificate_content_right_title'),
+            MissionPlaygroundCertificate.content_right_value.label('certificate_content_right_value'),
+            MissionPlaygroundCertificate.criterion_for_issue.label('certificate_criterion_for_issue'),
+            MissionPlaygroundCertificate.minimum_value_for_issue.label('certificate_minimum_value_for_issue'),
+            MissionPlaygroundCertificate.guidance_for_issue.label('certificate_guidance_for_issue'),
+
+            mission_conditions.c.certification_criterion,
+            mission_conditions.c.amount_determining_daily_success,
+            mission_conditions.c.input_scale,
+            mission_conditions.c.minimum_input,
+            mission_conditions.c.maximum_input,
+            mission_conditions.c.input_placeholder,
+
+            Mission.mission_type,
+            case(
+                (
+                    and_(
+                        Mission.reserve_started_at == None,
+                        Mission.reserve_ended_at == None,
+                    ),
+                    case(
+                        (
+                            and_(
+                                Mission.started_at == None,
+                                Mission.ended_at == None,
+                            ),
+                            'ongoing'
+                        ),
+                        (Mission.started_at > func.now(), 'before_ongoing'),
+                        (
+                            and_(
+                                Mission.started_at <= func.now(),
+                                Mission.ended_at > func.now()
+                            ),
+                            'ongoing'
+                        ),
+                        else_='end'
+                    ),
+                ),
+                else_=case(
+                    (Mission.reserve_started_at > func.now(), 'before_reserve'),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.reserve_ended_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.reserve_started_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'reserve'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.reserve_ended_at <= func.now(),
+                            func.now() < Mission.started_at
+                        ),
+                        'before_ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.reserve_ended_at <= Mission.started_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    (
+                        and_(
+                            Mission.reserve_started_at < Mission.reserve_ended_at,
+                            Mission.started_at <= Mission.reserve_ended_at,
+                            Mission.started_at <= func.now(),
+                            func.now() < Mission.ended_at
+                        ),
+                        'ongoing'
+                    ),
+                    else_='end'
+                )
+            ).label('status'),
+        ).join(
+            Mission, Mission.id == MissionPlayground.mission_id, isouter=True
+        ).join(
+            MissionPlaygroundGround, MissionPlaygroundGround.mission_playground_id == MissionPlayground.id, isouter=True
+        ).join(
+            MissionPlaygroundCertificate, MissionPlaygroundCertificate.mission_playground_id == MissionPlayground.id, isouter=True
+        ).join(
+            MissionPlaygroundRecord, MissionPlaygroundRecord.mission_playground_id == MissionPlayground.id, isouter=True
+        ).join(
+            mission_conditions, mission_conditions.c.mission_id == Mission.id, isouter=True
+        ).where(
+            and_(
+                MissionPlayground.mission_id == mission_id,
+                Mission.deleted_at == None,
+                Mission.is_show == 1,
+            )
+        )
+
+        result = self.session.execute(sql).first()
+        return result
 
     def get_detail(self, mission_id: int, user_id: int):
         products_alias = aliased(products)

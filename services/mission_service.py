@@ -89,7 +89,7 @@ def get_mission_detail_by_id(mission_id: int, user_id: int, mission_repo: Abstra
 def get_mission_introduce(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
     introduce = mission_repo.get_introduce(mission_id)
 
-    if introduce.playground_id is None:
+    if introduce.introduce_id is None:
         error_message = f"소개 페이지가 존재하지 않는 미션입니다."
         result = failed_response(error_message)
         result['status_code'] = 400
@@ -122,36 +122,134 @@ def get_mission_introduce(mission_id: int, user_id: int, mission_repo: AbstractM
 
 
 def get_mission_playground(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
-    playground = mission_repo.get_playground(mission_id)
+    playground = mission_repo.get_playground(mission_id, user_id)
 
-    if playground.playground_id is None:
+    if playground.id is None:
         error_message = f"랜선 운동장이 존재하지 않는 미션입니다."
         result = failed_response(error_message)
         result['status_code'] = 400
         return result
     else:
         entry = dict(
-            id=playground.id,
-            title=playground.title,
-            description=playground.description,
-            thumbnail=playground.thumbnail_image,
-            type=playground.mission_type if playground.mission_type is not None else 'normal',
-            bookmarkLimit=playground.user_limit,
-            bookmarkAvailableWhileOngoing=True if playground.late_bookmarkable == 1 else False,
-            createdAt=playground.created_at,
-            startedAt=playground.started_at,
-            endedAt=playground.ended_at,
-            reserveStartedAt=playground.reserve_started_at,
-            reserveEndedAt=playground.reserve_ended_at,
-            introVideo=playground.intro_video,
-            logo=playground.logo_image,
-            enterCode=json.loads(playground.enter_code) if json.loads(playground.enter_code)['code'] is not None else None,
-            images=json.loads(playground.images) if json.loads(playground.images)[0]['id'] is not None else [],
-            producer=json.loads(playground.producer),
+            type=playground.mission_type,
             status=playground.status,
-            missionProducts=json.loads(playground.mission_products) if playground.mission_products is not None else [],  # introduce.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
-            refundProducts=json.loads(playground.refund_products) if json.loads(playground.refund_products)[0]['id'] is not None else [],
-            bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, playground.id) else False,
+            backgroundImage=playground.background_image,
+            ground=dict(
+                symbolImage=playground.ground_symbol_image,
+                progress=dict(
+                    image=dict(
+                        initial=playground.ground_progress_initial_image,
+                        progressed=playground.ground_progress_progressed_image,
+                        achieved=playground.ground_progress_achieved_image,
+                    ),
+                    type=playground.ground_progress_type,
+                    goal=playground.ground_progress_goal,
+                    title=playground.ground_progress_title,
+                    value=playground.ground_progress_value,
+                    scale=playground.ground_progress_scale,
+                ),
+                dashboard=dict(
+                    center=dict(
+                        title=playground.ground_dashboard_center_title,
+                        value=playground.ground_dashboard_center_value
+                    ),
+                    right=dict(
+                        title=playground.ground_dashboard_right_title,
+                        value=playground.ground_dashboard_right_value
+                    )
+                ),
+                banner=dict(
+                    bannerImage=playground.banner_image,
+                    type=playground.banner_type,
+                    link=playground.banner_link,
+                ),
+                dday=dict(
+                    title='',
+                    value='',
+                ),
+                cheeringPhrase='',
+            ),
+            myRecord=dict(
+                progress=dict(
+                    symbolImage=playground.record_symbol_image,
+                    image=dict(
+                        before=playground.daily_image_before_completed,
+                        completed=playground.daily_image_after_completed,
+                    ),
+                    totalSuccessCount=playground.total_success_count,
+                    type=playground.record_progress_type,
+                ),
+                dashboard=dict(
+                    left=dict(
+                        title=playground.record_dashboard_left_title,
+                        value=playground.record_dashboard_left_value
+                    ),
+                    center=dict(
+                        title=playground.record_dashboard_center_title,
+                        value=playground.record_dashboard_center_value
+                    ),
+                    right=dict(
+                        title=playground.record_dashboard_right_title,
+                        value=playground.record_dashboard_right_value
+                    ),
+                    description=playground.record_dashboard_description
+                ),
+                cheeringPhrase='',
+            ),
+            certificate=dict(
+                title=playground.certificate_title,
+                description=playground.certificate_description,
+                images=playground.certificate_event_images,
+                content=dict(
+                    left=dict(
+                        title=playground.certificate_content_left_title,
+                        value=playground.certificate_content_left_value
+                    ),
+                    center=dict(
+                        title=playground.certificate_content_center_title,
+                        value=playground.certificate_content_center_value
+                    ),
+                    right=dict(
+                        title=playground.certificate_content_right_title,
+                        value=playground.certificate_content_right_value
+                    )
+                ),
+                criterionForIssue=playground.certificate_criterion_for_issue,
+                minimumValueForIssue=playground.certificate_minimum_value_for_issue,
+                disabled=playground.certificate_guidance_for_issue,
+            ),
+            rank=dict(
+                rankTitle=playground.rank_title,
+                rankValue=playground.rank_value,
+                rankScale=playground.rank_scale,
+            ),
+            condition=dict(
+                certificateionCriterion=playground.certification_criterion,
+                amountDeterminingDailySuccess=None if playground.amount_determining_daily_success is None else round(float(playground.amount_determining_daily_success), 2),
+                inputScale=playground.input_scale,
+                inputPlaceholder=playground.input_placeholder,
+                minimumInput=None if playground.minimum_input is None else round(float(playground.minimum_input), 2),
+                maximumInput=playground.maximum_input,
+            )
+            # title=playground.title,
+            # description=playground.description,
+            # thumbnail=playground.thumbnail_image,
+            # type=playground.mission_type if playground.mission_type is not None else 'normal',
+            # bookmarkLimit=playground.user_limit,
+            # bookmarkAvailableWhileOngoing=True if playground.late_bookmarkable == 1 else False,
+            # createdAt=playground.created_at,
+            # startedAt=playground.started_at,
+            # endedAt=playground.ended_at,
+            # reserveStartedAt=playground.reserve_started_at,
+            # reserveEndedAt=playground.reserve_ended_at,
+            # logo=playground.logo_image,
+            # enterCode=json.loads(playground.enter_code) if json.loads(playground.enter_code)['code'] is not None else None,
+            # images=json.loads(playground.images) if json.loads(playground.images)[0]['id'] is not None else [],
+            # producer=json.loads(playground.producer),
+            # status=playground.status,
+            # missionProducts=json.loads(playground.mission_products) if playground.mission_products is not None else [],  # introduce.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
+            # refundProducts=json.loads(playground.refund_products) if json.loads(playground.refund_products)[0]['id'] is not None else [],
+            # bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, playground.id) else False,
         )
         return {'result': True, 'data': entry}
 
