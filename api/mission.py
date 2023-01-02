@@ -1,8 +1,9 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, mission_notice_mappers, mission_rank_mappers, user_favorite_category_mappers
+from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, mission_playground_mappers, mission_notice_mappers, mission_rank_mappers, user_favorite_category_mappers
 from adapter.repository.feed import FeedRepository
 from adapter.repository.mission import MissionRepository
+
 from adapter.repository.mission_category import MissionCategoryRepository
 from adapter.repository.mission_comment import MissionCommentRepository
 from adapter.repository.mission_notice import MissionNoticeRepository
@@ -232,7 +233,7 @@ def get_mission_playground(mission_id: int):
         return json.dumps(failed_response(error_message), ensure_ascii=False), 400
 
     if request.method == 'GET':
-        mission_mappers()
+        mission_playground_mappers()
         mission_repo: MissionRepository = MissionRepository(db_session)
         mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
         playground = mission_service.get_mission_playground(mission_id, user_id, mission_repo, mission_stat_repo)
