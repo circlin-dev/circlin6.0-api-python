@@ -94,15 +94,13 @@ class MissionRankRepository(AbstractMissionRankRepository):
             MissionRankUser.rank,
             MissionRankUser.feeds_count,
             MissionRankUser.summation,
-            # select(mission_playgrounds.c.rank_scale).where(mission_playgrounds.c.mission_id == mission_id).label("scale"),
             follower_count.label('followers'),
         ).join(
             users, MissionRankUser.user_id == users.c.id
         ).where(
             and_(
                 MissionRankUser.mission_rank_id == mission_rank_id,
-                # MissionRankUser.user_id == user_id,
-                users.c.id == user_id,
+                MissionRankUser.user_id == user_id,
                 users.c.deleted_at == None,
             )
         ).order_by(
