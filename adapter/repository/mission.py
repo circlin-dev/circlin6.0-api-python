@@ -1,5 +1,5 @@
-from adapter.orm import areas, brands, feeds, feed_missions, follows, mission_conditions, mission_refund_products, orders, order_products, outside_products, products
-from domain.feed import FeedMission
+from adapter.orm import areas, brands, feeds, feed_missions, follows, mission_conditions, mission_refund_products, mission_stats, orders, order_products, outside_products, products, users
+from domain.feed import Feed, FeedMission
 from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionPlayground, MissionPlaygroundCertificate, MissionCondition, MissionPlaygroundGround, MissionPlaygroundRecord, MissionImage, MissionIntroduce, MissionProduct, MissionRefundProduct, MissionStat
 from domain.order import Order, OrderProduct
 from domain.product import Product
@@ -53,6 +53,10 @@ class AbstractMissionRepository(abc.ABC):
 
     @abc.abstractmethod
     def get_detail(self, mission_id: int, user_id: int):
+        pass
+
+    @abc.abstractmethod
+    def translate_variables(self, variable: str, mission_id: int, user_id: int):
         pass
 
 
@@ -1142,14 +1146,15 @@ class MissionRepository(AbstractMissionRepository):
             MissionPlaygroundCertificate.minimum_value_for_issue.label('certificate_minimum_value_for_issue'),
             MissionPlaygroundCertificate.guidance_for_issue.label('certificate_guidance_for_issue'),
 
-            mission_conditions.c.certification_criterion,
-            mission_conditions.c.amount_determining_daily_success,
-            mission_conditions.c.input_scale,
-            mission_conditions.c.minimum_input,
-            mission_conditions.c.maximum_input,
-            mission_conditions.c.input_placeholder,
+            # mission_conditions.c.certification_criterion,
+            # mission_conditions.c.amount_determining_daily_success,
+            # mission_conditions.c.input_scale,
+            # mission_conditions.c.minimum_input,
+            # mission_conditions.c.maximum_input,
+            # mission_conditions.c.input_placeholder,
 
             Mission.mission_type,
+            func.abs(func.TIMESTAMPDIFF(text("DAY"), func.date_format(Mission.started_at, '%Y-%m-%D'), func.date_format(func.now(), '%Y-%m-%D'))).label("d_day"),
             case(
                 (
                     and_(
@@ -1233,13 +1238,13 @@ class MissionRepository(AbstractMissionRepository):
             MissionPlaygroundCertificate, MissionPlaygroundCertificate.mission_playground_id == MissionPlayground.id, isouter=True
         ).join(
             MissionPlaygroundRecord, MissionPlaygroundRecord.mission_playground_id == MissionPlayground.id, isouter=True
-        ).join(
-            mission_conditions, mission_conditions.c.mission_id == Mission.id, isouter=True
+        # ).join(
+        #     mission_conditions, mission_conditions.c.mission_id == Mission.id, isouter=True
         ).where(
             and_(
                 MissionPlayground.mission_id == mission_id,
                 Mission.deleted_at == None,
-                Mission.is_show == 1,
+                # Mission.is_show == 1,
             )
         )
 
@@ -1443,4 +1448,271 @@ class MissionRepository(AbstractMissionRepository):
         result = self.session.execute(sql).first()
         return result
 
+    def translate_variables(self, variable: str, mission_id: int, user_id: int):
+        """
 
+        :param variable: 치환하고자 하는 변수
+            - 'all_' 이 있는 variable은 미션에 참여한 유저 전체에 대한 기록을, 그렇지 않은 것은 user_id에 해당하는 유저에 대한 기록만을 집계.
+            - 2023.1.3 현재 새로 추가될 미션에는 예정이 없으나, 과거 운영한 바가 있어 이를 위해 구현하는 변수
+                - feed_places_count
+                - today_feed_places_count
+                - all_feed_places_count
+                - today_all_feed_places_count
+                - feed_places_count_3
+                - feed_places_count_6
+                - feed_places_count_9
+        :param mission_id: 미션 id
+        :param user_id: 유저 id
+        :return: str
+        """
+        # func.TIMESTAMPDIFF(text("DAY"), func.DATE(FeedCheck.created_at), func.now()) == 0,
+        # FeedCheck.created_at >= func.DATE(func.now()),
+        if variable == 'users_count':
+            sql = select(
+                func.IFNULL(func.count(mission_stats.c.id), 0)
+            ).join(
+                users, mission_stats.c.user_id == users.c.id, isouter=True
+            ).join(
+                Mission, mission_stats.c.mission_id == Mission.id
+            ).where(
+                mission_stats.c.mission_id == mission_id,
+                case(
+                    (Mission.ended_at == None, mission_stats.c.ended_at == None),  # 종료기한(Mission.ended_at)이 없는 미션은 단순히 중도포기 여부만 체크한다.
+                    else_=case(
+                        (Mission.ended_at <= func.now(), mission_stats.c.ended_at >= Mission.ended_at), # 종료 시점이 현재보다 과거라면 종료된 미션. Mission 종료 시점과 유저의 해당 미션 종료 시점(MissionStat)을 비교한다.
+                        else_=mission_stats.c.ended_at == None  # 종료되지 않은 미션은 단순히 중도포기 여부만 체크한다.
+                    )
+                ),
+                users.c.deleted_at == None
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'feeds_count':
+            sql = select(
+                func.IFNULL(func.count(distinct(feeds.c.id)), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'today_feeds_count':
+            sql = select(
+                func.IFNULL(func.count(distinct(feeds.c.id)), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(feeds.c.created_at), func.now()) == 0,
+                    feeds.c.created_at >= func.DATE(func.now()),
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'all_feeds_count':
+            sql = select(
+                func.IFNULL(func.count(distinct(feeds.c.id)), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'today_all_feeds_count':
+            sql = select(
+                func.IFNULL(func.count(distinct(feeds.c.id)), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(feeds.c.created_at), func.now()) == 0,
+                    feeds.c.created_at >= func.DATE(func.now()),
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'feed_places_count':  # feed_places : 장소 인증된 피드 수
+            result = None
+
+        elif variable == 'today_feed_places_count':
+            result = None
+
+        elif variable == 'all_feed_places_count':
+            result = None
+
+        elif variable == 'today_all_feed_places_count':
+            result = None
+
+        elif variable == 'feed_users_count':  # feed_users : 피드 올린 유저 수
+            sql = select(
+                func.IFNULL(func.count(distinct(feeds.c.user_id)), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable in ['today_cert_count', 'today_feed_users_count']:
+            sql = select(
+                func.IFNULL(func.count(distinct(feeds.c.user_id)), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(feeds.c.created_at), func.now()) == 0,
+                    feeds.c.created_at >= func.DATE(func.now()),
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable in ['total_distance', 'distance_summation']:
+            sql = select(
+                func.IFNULL(func.sum(feeds.c.distance), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable in ['all_distance', 'all_distance_summation']:
+            sql = select(
+                func.IFNULL(func.sum(feeds.c.distance), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable in ['today_total_distance', 'today_distance_summation']:
+            sql = select(
+                func.IFNULL(func.sum(feeds.c.distance), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(feeds.c.created_at), func.now()) == 0,
+                    feeds.c.created_at >= func.DATE(func.now()),
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable in ['today_all_distance', 'today_all_distance_summation']:
+            sql = select(
+                func.IFNULL(func.sum(distinct(feeds.c.distance)), 0)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(feeds.c.created_at), func.now()) == 0,
+                    feeds.c.created_at >= func.DATE(func.now()),
+                    feeds.c.deleted_at == None,
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable in ['total_complete_day', 'complete_days_count']:
+            sql = select(
+                func.sum(feeds.c.distance).label('total_distance'),
+                mission_conditions.c.amount_determining_daily_success
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).join(
+                Mission, feed_missions.c.mission_id == Mission.id
+            ).join(
+                mission_conditions, mission_conditions.c.mission_id == Mission.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    feeds.c.deleted_at == None,
+                )
+            ).having(
+                text('total_distance is NULL or total_distance >= amount_determining_daily_success')
+            ).group_by(
+                func.date_format(feeds.c.created_at, '%Y/%m/%d'), feeds.c.user_id
+            )
+            result = f"{str(len(self.session.execute(sql).all()))}일"
+        elif variable in ['all_complete_day', 'all_complete_days_count']:
+            sql = select(
+                func.sum(feeds.c.distance).label('total_distance'),
+                mission_conditions.c.amount_determining_daily_success
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).join(
+                Mission, feed_missions.c.mission_id == Mission.id
+            ).join(
+                mission_conditions, mission_conditions.c.mission_id == Mission.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.deleted_at == None,
+                )
+            ).having(
+                text('total_distance is NULL or total_distance >= amount_determining_daily_success')
+            ).group_by(
+                func.date_format(feeds.c.created_at, '%Y/%m/%d'), feeds.c.user_id
+            )
+            result = f"{str(len(self.session.execute(sql).all()))}일"
+        elif variable in ['feed_places_count_3', 'feed_places_count_6', 'feed_places_count_9']:
+            threshold: int = int(variable.split('_')[-1])
+            result = None
+
+        elif variable == 'mission_starts_at':
+            sql = select(func.date_format(Mission.started_at, '%Y/%m/%d %H:%i:%s')).where(Mission.id == mission_id)
+            result = self.session.execute(sql).scalar()
+        elif variable == 'mission_ends_at':
+            sql = select(func.date_format(Mission.ended_at, '%Y/%m/%d %H:%i:%s')).where(Mission.id == mission_id)
+            result = self.session.execute(sql).scalar()
+        elif variable in ['mission_dday_end', 'remaining_day']:
+            sql = select(
+                func.TIMESTAMPDIFF(text("DAY"), func.DATE(Mission.ended_at), func.date_format(func.now(), '%Y/%m/%d 00:00:00'))
+            ).where(
+                MissionStat.mission_id == mission_id,
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'entry_no':
+            sql = select(
+                mission_stats.c.entry_no
+            ).join(
+                Mission, mission_stats.c.mission_id == Mission.id
+            ).where(
+                and_(
+                    mission_stats.c.mission_id == mission_id,
+                    mission_stats.c.user_id == user_id,
+                    case(
+                        (Mission.ended_at == None, mission_stats.c.ended_at == None),  # 종료기한(Mission.ended_at)이 없는 미션은 단순히 중도포기 여부만 체크한다.
+                        else_=case(
+                            (Mission.ended_at <= func.now(), mission_stats.c.ended_at >= Mission.ended_at), # 종료 시점이 현재보다 과거라면 종료된 미션. Mission 종료 시점과 유저의 해당 미션 종료 시점(MissionStat)을 비교한다.
+                            else_=mission_stats.c.ended_at == None  # 종료되지 않은 미션은 단순히 중도포기 여부만 체크한다.
+                        )
+                    )
+                )
+            )
+            result = "NO. " if self.session.execute(sql).scalar() is None else f"NO. {str(self.session.execute(sql).scalar())}"
+        else:
+            result = None
+
+        return result
