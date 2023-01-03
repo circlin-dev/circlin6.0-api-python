@@ -89,7 +89,7 @@ def get_mission_detail_by_id(mission_id: int, user_id: int, mission_repo: Abstra
 def get_mission_introduce(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
     introduce = mission_repo.get_introduce(mission_id)
 
-    if introduce.introduce_id is None:
+    if introduce is None or introduce.introduce_id is None:
         error_message = f"소개 페이지가 존재하지 않는 미션입니다."
         result = failed_response(error_message)
         result['status_code'] = 400
@@ -124,7 +124,7 @@ def get_mission_introduce(mission_id: int, user_id: int, mission_repo: AbstractM
 def get_mission_playground(mission_id: int, user_id: int, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository) -> dict:
     playground = mission_repo.get_playground(mission_id, user_id)
 
-    if playground.id is None:
+    if playground is None or playground.id is None:
         error_message = f"랜선 운동장이 존재하지 않는 미션입니다."
         result = failed_response(error_message)
         result['status_code'] = 400
@@ -145,27 +145,32 @@ def get_mission_playground(mission_id: int, user_id: int, mission_repo: Abstract
                     type=playground.ground_progress_type,
                     goal=playground.ground_progress_goal,
                     title=playground.ground_progress_title,
-                    value=playground.ground_progress_value,
+                    value=round(mission_repo.translate_variables(playground.ground_progress_value, mission_id, user_id)) if playground.ground_progress_value is not None else 0,
                     scale=playground.ground_progress_scale,
                 ),
                 dashboard=dict(
                     center=dict(
                         title=playground.ground_dashboard_center_title,
-                        value=playground.ground_dashboard_center_value
+                        value=0 if mission_repo.translate_variables(playground.ground_dashboard_center_value, mission_id, user_id) is None else round(mission_repo.translate_variables(playground.ground_dashboard_center_value, mission_id, user_id))
                     ),
                     right=dict(
                         title=playground.ground_dashboard_right_title,
-                        value=playground.ground_dashboard_right_value
+                        value=0 if mission_repo.translate_variables(playground.ground_dashboard_right_value, mission_id, user_id) is None else round(mission_repo.translate_variables(playground.ground_dashboard_right_value, mission_id, user_id))
                     )
                 ),
                 banner=dict(
                     bannerImage=playground.banner_image,
                     type=playground.banner_type,
                     link=playground.banner_link,
-                ),
+                ) if playground.banner_image is not None else None,
                 dday=dict(
-                    title='',
-                    value='',
+                    title="종료" if playground.status == "end"
+                    else "함께하는 중" if playground.status == "ongoing"
+                    else "함께하기 전",
+                    value=None if playground.status == "end"
+                    else f"D + {playground.d_day}" if playground.status == "ongoing" and playground.d_day > 0
+                    else f"D-DAY" if playground.status == "ongoing" and playground.d_day == 0
+                    else f"D - {playground.d_day}",
                 ),
                 cheeringPhrase='',
             ),
@@ -176,21 +181,23 @@ def get_mission_playground(mission_id: int, user_id: int, mission_repo: Abstract
                         before=playground.daily_image_before_completed,
                         completed=playground.daily_image_after_completed,
                     ),
-                    totalSuccessCount=playground.total_success_count,
-                    type=playground.record_progress_type,
+                    numberToMapImage=playground.total_success_count,
+                    title=playground.record_progress_title,
+                    value=mission_repo.translate_variables(playground.record_progress_type, mission_id, user_id),
                 ),
                 dashboard=dict(
                     left=dict(
                         title=playground.record_dashboard_left_title,
-                        value=playground.record_dashboard_left_value
+                        value=mission_repo.translate_variables(playground.record_dashboard_left_value, mission_id, user_id),
                     ),
                     center=dict(
                         title=playground.record_dashboard_center_title,
-                        value=playground.record_dashboard_center_value
+                        value=mission_repo.translate_variables(playground.record_dashboard_center_value, mission_id, user_id)
                     ),
                     right=dict(
                         title=playground.record_dashboard_right_title,
-                        value=playground.record_dashboard_right_value
+                        value=mission_repo.translate_variables(playground.record_dashboard_right_value, mission_id, user_id)
+
                     ),
                     description=playground.record_dashboard_description
                 ),
@@ -198,43 +205,41 @@ def get_mission_playground(mission_id: int, user_id: int, mission_repo: Abstract
             ),
             certificate=dict(
                 title=playground.certificate_title,
-                description=playground.certificate_description,
+                description=playground.certificate_description if playground.certificate_description is not None else playground.certificate_guidance_for_issue,
                 images=playground.certificate_event_images,
                 content=dict(
                     left=dict(
                         title=playground.certificate_content_left_title,
-                        value=playground.certificate_content_left_value
+                        value=mission_repo.translate_variables(playground.certificate_content_left_value, mission_id, user_id),
                     ),
                     center=dict(
                         title=playground.certificate_content_center_title,
-                        value=playground.certificate_content_center_value
+                        value=mission_repo.translate_variables(playground.certificate_content_center_value, mission_id, user_id)
                     ),
                     right=dict(
                         title=playground.certificate_content_right_title,
-                        value=playground.certificate_content_right_value
+                        value=mission_repo.translate_variables(playground.certificate_content_right_value, mission_id, user_id)
                     )
                 ),
-                criterionForIssue=playground.certificate_criterion_for_issue,
-                minimumValueForIssue=playground.certificate_minimum_value_for_issue,
-                disabled=playground.certificate_guidance_for_issue,
+                availble=True if mission_repo.translate_variables(playground.certificate_criterion_for_issue, mission_id, user_id) >= playground.certificate_minimum_value_for_issue else False,
+                myCurrentSuccessCount=mission_repo.translate_variables(playground.certificate_criterion_for_issue, mission_id, user_id),
+                requiredSuccessCountForIssue=playground.certificate_minimum_value_for_issue,
+                sentenceWhenUnavailable=playground.certificate_guidance_for_issue,
             ),
-            rank=dict(
-                rankTitle=playground.rank_title,
-                rankValue=playground.rank_value,
-                rankScale=playground.rank_scale,
-            ),
-            condition=dict(
-                certificateionCriterion=playground.certification_criterion,
-                amountDeterminingDailySuccess=None if playground.amount_determining_daily_success is None else round(float(playground.amount_determining_daily_success), 2),
-                inputScale=playground.input_scale,
-                inputPlaceholder=playground.input_placeholder,
-                minimumInput=None if playground.minimum_input is None else round(float(playground.minimum_input), 2),
-                maximumInput=playground.maximum_input,
-            )
+            rankTitle=playground.rank_title,
+            # condition=dict(   => 피드 업로드 시 체크할 값
+            #     certificateionCriterion=playground.certification_criterion,
+            #     amountDeterminingDailySuccess=None if playground.amount_determining_daily_success is None else round(float(playground.amount_determining_daily_success), 2),
+            #     inputScale=playground.input_scale,
+            #     inputPlaceholder=playground.input_placeholder,
+            #     minimumInput=None if playground.minimum_input is None else round(float(playground.minimum_input), 2),
+            #     maximumInput=playground.maximum_input,
+            # )
         )
         return {'result': True, 'data': entry}
 
 
+# region mission notice
 def get_notices(mission_id: int, page_cursor: int, limit: int, mission_notice_repo: AbstractMissionNoticeRepository) -> list:
     notices = mission_notice_repo.get_list(mission_id, page_cursor, limit)
     entries = [dict(
@@ -251,8 +256,10 @@ def get_notices(mission_id: int, page_cursor: int, limit: int, mission_notice_re
 def get_notice_count_of_the_mission(mission_id: int, mission_notice_repo: AbstractMissionNoticeRepository) -> int:
     total_count = mission_notice_repo.count_number_of_notice(mission_id)
     return total_count
+# endregion
 
 
+# region mission ranking
 def get_rank_list(mission_id: int, user_id: int, page_cursor: int, limit: int, mission_rank_repo: AbstractMissionRankRepository):
     result: dict = {"my_rank": None, "rank": []}
     latest_mission_rank_id: int = mission_rank_repo.get_latest_rank_id(mission_id)
@@ -296,6 +303,7 @@ def get_rank_count_of_the_mission(mission_id: int, mission_rank_repo: AbstractMi
     latest_mission_rank_id: int = mission_rank_repo.get_latest_rank_id(mission_id)
     total_count = mission_rank_repo.count_number_of_rank(latest_mission_rank_id)
     return total_count
+# endregion
 
 
 # region mission participants
@@ -411,4 +419,10 @@ def get_feeds_by_mission(mission_id: int, page_cursor: int, limit: int, user_id:
 def get_feed_count_of_the_mission(mission_id: int, feed_repo: AbstractFeedRepository) -> int:
     count = feed_repo.count_number_of_feed_of_mission(mission_id)
     return count
+# endregion
+
+
+# region variables for mission
+def translate_variables(variable: str, mission_id: int, user_id: int, mission_repo: AbstractMissionRepository):
+    mission_repo.translate_variables(variable, mission_id, user_id)
 # endregion
