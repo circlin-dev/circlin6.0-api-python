@@ -231,25 +231,6 @@ def get_mission_playground(mission_id: int, user_id: int, mission_repo: Abstract
                 minimumInput=None if playground.minimum_input is None else round(float(playground.minimum_input), 2),
                 maximumInput=playground.maximum_input,
             )
-            # title=playground.title,
-            # description=playground.description,
-            # thumbnail=playground.thumbnail_image,
-            # type=playground.mission_type if playground.mission_type is not None else 'normal',
-            # bookmarkLimit=playground.user_limit,
-            # bookmarkAvailableWhileOngoing=True if playground.late_bookmarkable == 1 else False,
-            # createdAt=playground.created_at,
-            # startedAt=playground.started_at,
-            # endedAt=playground.ended_at,
-            # reserveStartedAt=playground.reserve_started_at,
-            # reserveEndedAt=playground.reserve_ended_at,
-            # logo=playground.logo_image,
-            # enterCode=json.loads(playground.enter_code) if json.loads(playground.enter_code)['code'] is not None else None,
-            # images=json.loads(playground.images) if json.loads(playground.images)[0]['id'] is not None else [],
-            # producer=json.loads(playground.producer),
-            # status=playground.status,
-            # missionProducts=json.loads(playground.mission_products) if playground.mission_products is not None else [],  # introduce.refund_products와 쿼리가 달라 결과값의 데이터 형태가 다르다.
-            # refundProducts=json.loads(playground.refund_products) if json.loads(playground.refund_products)[0]['id'] is not None else [],
-            # bookmarked=True if mission_stat_repo.get_one_excluding_ended(user_id, playground.id) else False,
         )
         return {'result': True, 'data': entry}
 
@@ -277,6 +258,7 @@ def get_rank_list(mission_id: int, user_id: int, page_cursor: int, limit: int, m
     latest_mission_rank_id: int = mission_rank_repo.get_latest_rank_id(mission_id)
     if latest_mission_rank_id is None:
         return result
+    rank_scale = mission_rank_repo.get_rank_scale(mission_id).rank_scale
 
     ranks = mission_rank_repo.get_list(latest_mission_rank_id, page_cursor, limit)
     entries: list = [dict(
@@ -284,11 +266,12 @@ def get_rank_list(mission_id: int, user_id: int, page_cursor: int, limit: int, m
             id=rank.user_id,
             nickname=rank.nickname,
             gender=rank.gender,
-            profile=rank.profile_image
+            profile=rank.profile_image,
+            followers=rank.followers
         ),
         rank=rank.rank,
-        feedsCount=rank.feeds_count,
-        summation=rank.summation,
+        feedsCount=f"{str(rank.feeds_count)}회",
+        record=f"{str(rank.summation)} {rank_scale}" if rank.summation > 0 else f"{str(rank.feeds_count)} 회",
         cursor=rank.cursor,
     ) for rank in ranks]
 
@@ -301,8 +284,8 @@ def get_rank_list(mission_id: int, user_id: int, page_cursor: int, limit: int, m
             profile=my_rank.profile_image
         ),
         rank=my_rank.rank,
-        feedsCount=my_rank.feeds_count,
-        summation=my_rank.summation
+        feedsCount=f"{str(my_rank.feeds_count)}회",
+        record=f"{str(my_rank.summation)} {rank_scale}" if my_rank.summation > 0 else f"{str(my_rank.feeds_count)} 회",
     ) if my_rank is not None else None
     result["rank"] = entries
     result["my_rank"] = my_rank
