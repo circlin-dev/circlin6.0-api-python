@@ -1,12 +1,12 @@
 from adapter.orm import areas, brands, feeds, feed_missions, follows, mission_conditions, mission_refund_products, mission_stats, orders, order_products, outside_products, products, users
 from domain.feed import Feed, FeedMission
-from domain.mission import Mission, MissionCategory, MissionComment, MissionGround, MissionPlayground, MissionPlaygroundCertificate, MissionCondition, MissionPlaygroundGround, MissionPlaygroundRecord, MissionImage, MissionIntroduce, MissionProduct, MissionRefundProduct, MissionStat
+from domain.mission import Mission, MissionCategory, MissionComment, MissionPlayground, MissionPlaygroundCertificate, MissionPlaygroundCheerPhrase, MissionPlaygroundGround, MissionPlaygroundRecord, MissionImage, MissionIntroduce, MissionProduct, MissionRefundProduct, MissionStat
 from domain.order import Order, OrderProduct
 from domain.product import Product
 from domain.user import User
 
 import abc
-from sqlalchemy import and_, case, desc, distinct, func, or_, select, text
+from sqlalchemy import and_, case, desc, distinct, exists, func, or_, select, text
 from sqlalchemy.orm import aliased
 
 
@@ -57,6 +57,10 @@ class AbstractMissionRepository(abc.ABC):
 
     @abc.abstractmethod
     def translate_variables(self, variable: str, mission_id: int, user_id: int):
+        pass
+
+    @abc.abstractmethod
+    def get_value_of_cheer_phrase_variable(self, variable: str, mission_id: int, user_id: int):
         pass
 
 
@@ -253,7 +257,7 @@ class MissionRepository(AbstractMissionRepository):
                 MissionProduct.mission_id == Mission.id
             ).label('mission_products'),
             Mission.user_limit,
-            func.IF(MissionGround.id == None, False, True).label('has_playground'),
+            func.IF(MissionPlayground.id == None, False, True).label('has_playground'),
             func.concat(func.lpad(Mission.id, 15, '0')).label('cursor'),
         ).join(
             User, User.id == Mission.user_id
@@ -264,7 +268,7 @@ class MissionRepository(AbstractMissionRepository):
         ).join(
             products_alias, products_alias.c.id == MissionRefundProduct.product_id, isouter=True
         ).join(
-            MissionGround, MissionGround.mission_id == Mission.id, isouter=True
+            MissionPlayground, MissionPlayground.mission_id == Mission.id, isouter=True
         ).where(
             condition
         ).group_by(
@@ -517,7 +521,7 @@ class MissionRepository(AbstractMissionRepository):
                 MissionProduct.mission_id == Mission.id
             ).label('mission_products'),
             Mission.user_limit,
-            func.IF(MissionGround.id == None, False, True).label('has_playground'),
+            func.IF(MissionPlayground.id == None, False, True).label('has_playground'),
             case(
                 (select(
                     func.count(feed_missions.c.id) > 0
@@ -543,7 +547,7 @@ class MissionRepository(AbstractMissionRepository):
         ).join(
             products_alias, products_alias.c.id == MissionRefundProduct.product_id, isouter=True
         ).join(
-            MissionGround, MissionGround.mission_id == Mission.id, isouter=True
+            MissionPlayground, MissionPlayground.mission_id == Mission.id, isouter=True
         ).where(
             condition
         ).group_by(
@@ -784,7 +788,7 @@ class MissionRepository(AbstractMissionRepository):
                 MissionProduct.mission_id == Mission.id
             ).label('mission_products'),
             Mission.user_limit,
-            func.IF(MissionGround.id == None, False, True).label('has_playground'),
+            func.IF(MissionPlayground.id == None, False, True).label('has_playground'),
             func.concat(func.lpad(Mission.id, 15, '0')).label('cursor'),
         ).join(
             User, User.id == Mission.user_id
@@ -795,7 +799,7 @@ class MissionRepository(AbstractMissionRepository):
         ).join(
             products_alias, products_alias.c.id == MissionRefundProduct.product_id, isouter=True
         ).join(
-            MissionGround, MissionGround.mission_id == Mission.id, isouter=True
+            MissionPlayground, MissionPlayground.mission_id == Mission.id, isouter=True
         ).where(
             condition
         ).group_by(
@@ -1145,16 +1149,41 @@ class MissionRepository(AbstractMissionRepository):
             MissionPlaygroundCertificate.criterion_for_issue.label('certificate_criterion_for_issue'),
             MissionPlaygroundCertificate.minimum_value_for_issue.label('certificate_minimum_value_for_issue'),
             MissionPlaygroundCertificate.guidance_for_issue.label('certificate_guidance_for_issue'),
-
+            func.json_arrayagg(
+                func.json_object(
+                # "ground", func.json_arrayagg(func.json_object(
+                #     "tab", MissionPlaygroundCheerPhrase.tab,
+                #     "order", MissionPlaygroundCheerPhrase.order,
+                #     "variable", MissionPlaygroundCheerPhrase.variable,
+                #     "value", MissionPlaygroundCheerPhrase.value,
+                #     "sentence", MissionPlaygroundCheerPhrase.sentence,
+                # )),
+                # "record", func.json_arrayagg(func.json_object(
+                    "tab", MissionPlaygroundCheerPhrase.tab,
+                    "order", MissionPlaygroundCheerPhrase.order,
+                    "condition", MissionPlaygroundCheerPhrase.condition,
+                    "value", MissionPlaygroundCheerPhrase.value,
+                    "sentence", MissionPlaygroundCheerPhrase.sentence,
+                # )),
+                )
+            ).label("cheer_phrases"),
             # mission_conditions.c.certification_criterion,
             # mission_conditions.c.amount_determining_daily_success,
             # mission_conditions.c.input_scale,
             # mission_conditions.c.minimum_input,
             # mission_conditions.c.maximum_input,
             # mission_conditions.c.input_placeholder,
-
             Mission.mission_type,
-            func.abs(func.TIMESTAMPDIFF(text("DAY"), func.date_format(Mission.started_at, '%Y-%m-%D'), func.date_format(func.now(), '%Y-%m-%D'))).label("d_day"),
+            func.IFNULL(
+                func.abs(
+                    func.TIMESTAMPDIFF(
+                        text("DAY"),
+                        func.date_format(Mission.started_at, '%Y-%m-%D'),
+                        func.date_format(func.now(), '%Y-%m-%D')
+                    )
+                ),
+                0
+            ).label("d_day"),
             case(
                 (
                     and_(
@@ -1237,15 +1266,18 @@ class MissionRepository(AbstractMissionRepository):
         ).join(
             MissionPlaygroundCertificate, MissionPlaygroundCertificate.mission_playground_id == MissionPlayground.id, isouter=True
         ).join(
+            MissionPlaygroundCheerPhrase, MissionPlaygroundCheerPhrase.mission_id == Mission.id, isouter=True
+        ).join(
             MissionPlaygroundRecord, MissionPlaygroundRecord.mission_playground_id == MissionPlayground.id, isouter=True
-        # ).join(
-        #     mission_conditions, mission_conditions.c.mission_id == Mission.id, isouter=True
         ).where(
             and_(
-                MissionPlayground.mission_id == mission_id,
+                Mission.id == mission_id,
+                # MissionPlayground.mission_id == mission_id,
                 Mission.deleted_at == None,
                 # Mission.is_show == 1,
             )
+        # ).group_by(
+        #     MissionPlaygroundCheerPhrase.tab
         )
 
         result = self.session.execute(sql).first()
@@ -1714,5 +1746,88 @@ class MissionRepository(AbstractMissionRepository):
             result = "NO. " if self.session.execute(sql).scalar() is None else f"NO. {str(self.session.execute(sql).scalar())}"
         else:
             result = None
+
+        return result
+
+    def get_value_of_cheer_phrase_variable(self, variable: str, mission_id: int, user_id: int):
+        if variable == 'cert':
+            sql = select(
+                func.count(feeds.c.id)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feeds.c.user_id == user_id,
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.deleted_at == None
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'today_cert':
+            sql = select(
+                func.count(feeds.c.id)
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).where(
+                and_(
+                    feeds.c.user_id == user_id,
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.deleted_at == None,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(feeds.c.created_at), func.now()) == 0,
+                    feeds.c.created_at >= func.DATE(func.now()),
+                )
+            )
+            result = self.session.execute(sql).scalar()
+        elif variable == 'complete':  # 미션 전체 성공 여부
+            sql = select(
+                func.sum(feeds.c.distance).label('total_distance'),
+                mission_conditions.c.amount_determining_daily_success
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).join(
+                Mission, feed_missions.c.mission_id == Mission.id
+            ).join(
+                mission_conditions, mission_conditions.c.mission_id == Mission.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    feeds.c.deleted_at == None,
+                )
+            ).having(
+                text('total_distance >= amount_determining_daily_success')
+            ).group_by(
+                func.date_format(feeds.c.created_at, '%Y/%m/%d'), mission_conditions.c.amount_determining_daily_success
+            )
+            result = 1 if len(self.session.execute(sql).all()) > 0 else 0
+        elif variable == 'today_complete':  # 금일 미션 성공 여부
+            sql = select(
+                func.sum(feeds.c.distance).label('total_distance'),
+                mission_conditions.c.amount_determining_daily_success
+            ).join(
+                feed_missions, feed_missions.c.feed_id == feeds.c.id
+            ).join(
+                Mission, feed_missions.c.mission_id == Mission.id
+            ).join(
+                mission_conditions, mission_conditions.c.mission_id == Mission.id
+            ).where(
+                and_(
+                    feed_missions.c.mission_id == mission_id,
+                    feeds.c.user_id == user_id,
+                    feeds.c.deleted_at == None,
+                    func.TIMESTAMPDIFF(text("DAY"), func.DATE(feeds.c.created_at), func.now()) == 0,
+                    feeds.c.created_at >= func.DATE(func.now()),
+                )
+            ).having(
+                text('total_distance >= amount_determining_daily_success')
+            ).group_by(
+                func.date_format(feeds.c.created_at, '%Y/%m/%d'), mission_conditions.c.amount_determining_daily_success
+            )
+            result = 1 if len(self.session.execute(sql).all()) > 0 else 0
+        elif variable == 'end':
+            sql = select(exists(Mission.id).where(and_(Mission.id == mission_id, Mission.ended_at < func.now())))
+            result = 1 if self.session.execute(sql).scalar() is True else 0
+        else:  # variable == 'default':  # 미션 시작 전 기본 문구
+            result = 1
 
         return result

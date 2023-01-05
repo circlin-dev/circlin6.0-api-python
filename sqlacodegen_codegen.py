@@ -1,5 +1,5 @@
 # coding: utf-8
-from sqlalchemy import Column, Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, TIMESTAMP, Table, Text, Time, text
+from sqlalchemy import Column, DECIMAL, Date, DateTime, Float, ForeignKey, Index, Integer, JSON, String, TIMESTAMP, Table, Text, Time, text
 from sqlalchemy.dialects.mysql import BIGINT, CHAR, INTEGER, LONGTEXT, TEXT, TINYINT, VARCHAR
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
@@ -39,24 +39,12 @@ class ChatRoom(Base):
     deleted_at = Column(TIMESTAMP)
 
 
-class Area(Base):
-    __tablename__ = 'areas'
-    __table_args__ = {'schema': 'circlin'}
-
-    id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
-    code = Column(VARCHAR(255), nullable=False, index=True)
-    name = Column(VARCHAR(255), nullable=False)
-    name_en = Column(VARCHAR(255))
-
-
 class CommonCode(Base):
     __tablename__ = 'common_codes'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     ctg_lg = Column(VARCHAR(255))
     ctg_md = Column(VARCHAR(255))
     ctg_sm = Column(VARCHAR(255), nullable=False)
@@ -83,8 +71,8 @@ class DeleteUser(Base):
     __tablename__ = 'delete_users'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(BIGINT, nullable=False, index=True, comment='기존에는 user 삭제해서 fk 못검')
     reason = Column(TEXT, comment='탈퇴사유')
 
@@ -199,8 +187,8 @@ class MissionCategory(Base):
     __table_args__ = {'comment': '카테고리'}
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     mission_category_id = Column(ForeignKey('mission_categories.id'), index=True)
     title = Column(VARCHAR(255), nullable=False)
     emoji = Column(VARCHAR(255), comment='타이틀 앞의 이모지')
@@ -264,8 +252,8 @@ class Notice(Base):
     __tablename__ = 'notices'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     title = Column(VARCHAR(255), nullable=False)
     content = Column(TEXT, nullable=False)
     link_text = Column(TEXT)
@@ -278,8 +266,8 @@ class OutsideProduct(Base):
     __tablename__ = 'outside_products'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     product_id = Column(BIGINT, comment='상품 고유 ID')
     brand = Column(VARCHAR(255))
     title = Column(VARCHAR(255), nullable=False)
@@ -308,8 +296,8 @@ class ProductCategory(Base):
     __tablename__ = 'product_categories'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     title = Column(VARCHAR(255), nullable=False)
     deleted_at = Column(TIMESTAMP)
 
@@ -381,66 +369,12 @@ class Version(Base):
     is_force = Column(TINYINT(1), nullable=False, comment='강제업데이트 여부')
 
 
-class User(Base):
-    __tablename__ = 'users'
-    __table_args__ = {'schema': 'circlin', 'comment': '고객'}
-
-    id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
-    login_method = Column(String(32, 'utf8mb4_unicode_ci'), server_default=text("'email'"), comment='회원가입 or 로그인 수단(default: email(이메일) | kakao(카카오톡) | naver(네이버) | facebook(페이스북) | apple(애플)')
-    sns_email = Column(String(255, 'utf8mb4_unicode_ci'))
-    email = Column(VARCHAR(255), nullable=False)
-    email_verified_at = Column(TIMESTAMP, comment='이메일 인증 일시')
-    password = Column(VARCHAR(255), nullable=False)
-    nickname = Column(VARCHAR(255))
-    family_name = Column(VARCHAR(255))
-    given_name = Column(VARCHAR(255))
-    name = Column(VARCHAR(255))
-    gender = Column(VARCHAR(255))
-    phone = Column(VARCHAR(255))
-    phone_verified_at = Column(TIMESTAMP, comment='휴대폰 인증 일시')
-    point = Column(Integer, nullable=False, server_default=text("'0'"))
-    profile_image = Column(VARCHAR(255), comment='프로필 사진')
-    greeting = Column(VARCHAR(255), comment='인사말')
-    background_image = Column(VARCHAR(255), comment='배경 커버 이미지')
-    area_code = Column(ForeignKey('circlin.areas.code'), index=True)
-    area_updated_at = Column(TIMESTAMP, comment='지역 변경 일자')
-    deleted_at = Column(TIMESTAMP)
-    remember_token = Column(VARCHAR(100))
-    device_type = Column(VARCHAR(255), comment='접속한 기기 종류(android/iphone)')
-    socket_id = Column(VARCHAR(255), comment='채팅방 (nodejs) socket id')
-    device_token = Column(VARCHAR(255), comment='푸시 전송 토큰')
-    access_token = Column(VARCHAR(255))
-    refresh_token = Column(VARCHAR(255))
-    refresh_token_expire_in = Column(VARCHAR(255))
-    last_login_at = Column(TIMESTAMP, comment='마지막 로그인 시점')
-    last_login_ip = Column(VARCHAR(255), comment='마지막 로그인 IP')
-    current_version = Column(VARCHAR(255), comment='마지막 접속 시점 버전')
-    agree1 = Column(TINYINT(1), nullable=False, server_default=text("'0'"), comment='서비스 이용약관 동의')
-    agree2 = Column(TINYINT(1), nullable=False, server_default=text("'0'"), comment='개인정보 수집 및 이용약관 동의')
-    agree3 = Column(TINYINT(1), nullable=False, server_default=text("'0'"), comment='위치정보 이용약관 동의')
-    agree4 = Column(TINYINT(1), nullable=False, server_default=text("'0'"), comment='이메일 마케팅 동의')
-    agree5 = Column(TINYINT(1), nullable=False, server_default=text("'0'"), comment='SMS 마케팅 동의')
-    agree_push = Column(TINYINT(1), nullable=False, server_default=text("'1'"), comment='푸시알림 동의')
-    agree_push_mission = Column(TINYINT(1), nullable=False, server_default=text("'1'"), comment='미션알림 동의')
-    agree_ad = Column(TINYINT(1), nullable=False, server_default=text("'1'"), comment='광고수신 동의')
-    banner_hid_at = Column(TIMESTAMP, comment='배너 보지않기 시점')
-    invite_code = Column(VARCHAR(255), comment='초대코드')
-    recommend_user_id = Column(BIGINT)
-    recommend_updated_at = Column(TIMESTAMP)
-    lat = Column(Float(10, True), nullable=False, server_default=text("'37.4969117'"), comment='위도')
-    lng = Column(Float(10, True), nullable=False, server_default=text("'127.0328342'"), comment='경도')
-
-    area = relationship('Area')
-
-
 class NoticeImage(Base):
     __tablename__ = 'notice_images'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     notice_id = Column(ForeignKey('notices.id'), nullable=False, index=True)
     order = Column(INTEGER, server_default=text("'0'"))
     type = Column(VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)')
@@ -462,13 +396,13 @@ class User(Base):
     __table_args__ = {'comment': '고객'}
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     login_method = Column(String(32, 'utf8mb4_unicode_ci'), server_default=text("'email'"), comment='회원가입 or 로그인 수단(default: email(이메일) | kakao(카카오톡) | naver(네이버) | facebook(페이스북) | apple(애플)')
     sns_email = Column(String(255, 'utf8mb4_unicode_ci'))
     email = Column(VARCHAR(255), nullable=False)
     email_verified_at = Column(TIMESTAMP, comment='이메일 인증 일시')
-    password = Column(VARCHAR(255), nullable=False)
+    password = Column(String(255, 'utf8mb4_unicode_ci'))
     nickname = Column(VARCHAR(255))
     family_name = Column(VARCHAR(255))
     given_name = Column(VARCHAR(255))
@@ -560,8 +494,8 @@ class Brand(Base):
     __tablename__ = 'brands'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(ForeignKey('users.id'), index=True, comment='브랜드 소유자')
     name_ko = Column(VARCHAR(255), nullable=False, unique=True, server_default=text("''"), comment='브랜드명')
     name_en = Column(VARCHAR(255), comment='브랜드명')
@@ -590,8 +524,8 @@ class Feed(Base):
     __tablename__ = 'feeds'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     content = Column(TEXT, nullable=False)
     is_hidden = Column(TINYINT, nullable=False, server_default=text("'0'"), comment='비밀글 여부')
@@ -602,17 +536,17 @@ class Feed(Base):
     laptime_origin = Column(Integer, comment='인식된 달린 시간')
 
     user = relationship('User')
+    foods = relationship('Food', secondary='feed_foods')
 
 
 class Follow(Base):
     __tablename__ = 'follows'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     target_id = Column(ForeignKey('users.id'), nullable=False, index=True)
-    feed_notify = Column(TINYINT(1), nullable=False, server_default=text("'0'"))
 
     target = relationship('User', primaryjoin='Follow.target_id == User.id')
     user = relationship('User', primaryjoin='Follow.user_id == User.id')
@@ -674,8 +608,8 @@ class Mission(Base):
     __table_args__ = {'comment': '미션'}
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True, comment='미션 제작자')
     mission_category_id = Column(ForeignKey('mission_categories.id'), nullable=False, index=True, comment='카테고리')
     title = Column(VARCHAR(255), index=True, comment='이름')
@@ -715,8 +649,8 @@ class NoticeComment(Base):
     __tablename__ = 'notice_comments'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     notice_id = Column(ForeignKey('notices.id'), nullable=False, index=True)
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     group = Column(Integer, nullable=False, server_default=text("'0'"))
@@ -749,8 +683,8 @@ class PushHistory(Base):
     __tablename__ = 'push_histories'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     target_id = Column(ForeignKey('users.id'), nullable=False, index=True, comment='푸시 받은 사람')
     device_token = Column(VARCHAR(255))
     title = Column(VARCHAR(255))
@@ -793,8 +727,8 @@ class UserFavoriteCategory(Base):
     __table_args__ = {'comment': '고객 관심 카테고리'}
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     mission_category_id = Column(ForeignKey('mission_categories.id'), nullable=False, index=True)
 
@@ -806,8 +740,8 @@ class UserStat(Base):
     __tablename__ = 'user_stats'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     birthday = Column(DateTime, comment='생년월일')
     height = Column(Float(8, True))
@@ -850,21 +784,6 @@ class BoardComment(Base):
     user = relationship('User')
 
 
-class BoardFile(Base):
-    __tablename__ = 'board_files'
-
-    id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
-    updated_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
-    board_id = Column(ForeignKey('boards.id'), nullable=False, index=True)
-    order = Column(TINYINT, server_default=text("'0'"))
-    type = Column(String(255, 'utf8mb4_unicode_ci'), nullable=False, comment='이미지인지 비디오인지 (image / video)')
-    file_id = Column(ForeignKey('files.id'), nullable=False, index=True, comment='원본 이미지')
-
-    board = relationship('Board')
-    file = relationship('File')
-
-
 class BoardImage(Base):
     __tablename__ = 'board_images'
 
@@ -873,19 +792,16 @@ class BoardImage(Base):
     updated_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     board_id = Column(ForeignKey('boards.id'), nullable=False, index=True)
     order = Column(TINYINT, server_default=text("'0'"))
-
     path = Column(String(255, 'utf8mb4_unicode_ci'))
     file_name = Column(String(255, 'utf8mb4_unicode_ci'))
     mime_type = Column(String(255, 'utf8mb4_unicode_ci'))
-
-    size = Column(Integer)
-    width = Column(Integer)
-    height = Column(Integer)
-    original_file_id = Column(BIGINT(unsigned=True), ForeignKey('board_images.id'), index=True)
+    size = Column(INTEGER)
+    width = Column(INTEGER)
+    height = Column(INTEGER)
+    original_file_id = Column(ForeignKey('board_images.id'), index=True)
 
     board = relationship('Board')
-    board_images = relationship('BoardImage')
-    # file = relationship('File')
+    original_file = relationship('BoardImage', remote_side=[id])
 
 
 class BoardLike(Base):
@@ -909,7 +825,7 @@ class ChatMessage(Base):
     updated_at = Column(TIMESTAMP)
     chat_room_id = Column(ForeignKey('chat_rooms.id'), nullable=False, index=True)
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
-    type = Column(VARCHAR(255), comment='채팅 종류 (chat|chat_image|feed|feed_emojimission|mission_invite)')
+    type = Column(String(255, 'utf8mb4_unicode_ci'), comment='채팅 종류 (chat|chat_image|feed|feed_emoji|mission|mission_invite)')
     message = Column(TEXT, comment='메시지')
     image_type = Column(VARCHAR(255), comment='image/video')
     image = Column(VARCHAR(255), comment='이미지 url')
@@ -926,8 +842,8 @@ class FeedComment(Base):
     __tablename__ = 'feed_comments'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     feed_id = Column(ForeignKey('feeds.id'), nullable=False, index=True)
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     group = Column(Integer, nullable=False, server_default=text("'0'"))
@@ -937,6 +853,13 @@ class FeedComment(Base):
 
     feed = relationship('Feed')
     user = relationship('User')
+
+
+t_feed_foods = Table(
+    'feed_foods', metadata,
+    Column('feed_id', ForeignKey('feeds.id'), nullable=False, index=True),
+    Column('food_id', ForeignKey('foods.id'), nullable=False, index=True)
+)
 
 
 class FeedImage(Base):
@@ -949,7 +872,6 @@ class FeedImage(Base):
     order = Column(TINYINT)
     type = Column(VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)')
     image = Column(VARCHAR(255), nullable=False, comment='원본 이미지')
-    thumbnail_image = Column(VARCHAR(255), comment='미리 작게 보여줄 이미지')
 
     feed = relationship('Feed')
 
@@ -958,8 +880,8 @@ class FeedLike(Base):
     __tablename__ = 'feed_likes'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     feed_id = Column(ForeignKey('feeds.id'), nullable=False, index=True)
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     point = Column(Integer, nullable=False, server_default=text("'0'"), comment='대상에게 포인트 지급 여부')
@@ -980,6 +902,15 @@ class FeedPlace(Base):
 
     feed = relationship('Feed')
     place = relationship('Place')
+
+
+t_food_files = Table(
+    'food_files', metadata,
+    Column('food_id', ForeignKey('foods.id'), nullable=False, index=True),
+    Column('file_id', ForeignKey('files.id'), nullable=False, index=True, comment='food_id 1개 당 5개의 이미지가 등록되어야 함(type 컬럼 참조).'),
+    Column('type', String(50, 'utf8mb4_unicode_ci'), nullable=False, comment='6 Types:\\n- 유저가 업로드 하는 경우는 5가지 사진을 수급(package(포장) | nutrition(영양정보 표기란) | ingredient(원재료 표기란) | content(내용물) | barcode(바코드))\\n- 제품체험 미션용인 이미지의 경우 mission'),
+    comment='식단 이미지 테이블_20220510(최건우)'
+)
 
 
 t_food_flavors = Table(
@@ -1004,13 +935,23 @@ class FoodFoodCategory(Base):
     food = relationship('Food')
 
 
-t_food_images = Table(
-    'food_images', metadata,
-    Column('food_id', ForeignKey('foods.id'), nullable=False, index=True),
-    Column('file_id', ForeignKey('files.id'), nullable=False, index=True, comment='food_id 1개 당 5개의 이미지가 등록되어야 함(type 컬럼 참조).'),
-    Column('type', String(50, 'utf8mb4_unicode_ci'), nullable=False, comment='6 Types:\\n- 유저가 업로드 하는 경우는 5가지 사진을 수급(package(포장) | nutrition(영양정보 표기란) | ingredient(원재료 표기란) | content(내용물) | barcode(바코드))\\n- 제품체험 미션용인 이미지의 경우 mission'),
-    comment='식단 이미지 테이블_20220510(최건우)'
-)
+class FoodImage(Base):
+    __tablename__ = 'food_images'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    food_id = Column(ForeignKey('foods.id'), nullable=False, index=True)
+    type = Column(String(32, 'utf8mb4_unicode_ci'), comment='front(포장 앞면)|back(포장 뒷면)|content(내용물)')
+    path = Column(String(255, 'utf8mb4_unicode_ci'))
+    file_name = Column(String(255, 'utf8mb4_unicode_ci'))
+    mime_type = Column(String(255, 'utf8mb4_unicode_ci'))
+    size = Column(INTEGER)
+    width = Column(INTEGER)
+    height = Column(INTEGER)
+    original_file_id = Column(BIGINT)
+
+    food = relationship('Food')
 
 
 t_food_ingredients = Table(
@@ -1019,6 +960,24 @@ t_food_ingredients = Table(
     Column('ingredient_id', ForeignKey('ingredients.id', ondelete='CASCADE'), index=True),
     comment='식단 - 재료 연결 테이블 테스트(자식 테이블의 2개 컬럼이 같은 food id를 참조)_20220517(최건우)'
 )
+
+
+class FoodRatingImage(Base):
+    __tablename__ = 'food_rating_images'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, nullable=False, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    food_rating_id = Column(ForeignKey('foods.id'), nullable=False, index=True)
+    path = Column(String(255, 'utf8mb4_unicode_ci'))
+    file_name = Column(String(255, 'utf8mb4_unicode_ci'))
+    mime_type = Column(String(255, 'utf8mb4_unicode_ci'))
+    size = Column(INTEGER)
+    width = Column(INTEGER)
+    height = Column(INTEGER)
+    original_file_id = Column(BIGINT)
+
+    food_rating = relationship('Food')
 
 
 class FoodRating(Base):
@@ -1071,8 +1030,8 @@ class MissionComment(Base):
     __table_args__ = {'comment': '미션 댓글'}
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     mission_id = Column(ForeignKey('missions.id'), nullable=False, index=True)
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     group = Column(INTEGER, nullable=False, server_default=text("'0'"))
@@ -1082,6 +1041,23 @@ class MissionComment(Base):
 
     mission = relationship('Mission')
     user = relationship('User')
+
+
+class MissionCondition(Base):
+    __tablename__ = 'mission_conditions'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    mission_id = Column(ForeignKey('missions.id'), nullable=False, unique=True)
+    certification_criterion = Column(String(255, 'utf8mb4_unicode_ci'), nullable=False, server_default=text("'feeds_count'"), comment='미션 인증 기준(goal(시작시 선택한 목표값과의 비교) | min(1회 입력 시 최소값과의 비교) | feeds_count(피드 개수 충족 여부)(구 goal_distance_type)')
+    amount_determining_daily_success = Column(DECIMAL(5, 2), comment='거리(km), 리터(L) 미션의 1일 성공 판단 기준값(구 goal_distances)')
+    input_scale = Column(String(8, 'utf8mb4_unicode_ci'), comment='거리(km), 리터(L) 미션의 입력값 단위 (구 goal_distance_text)')
+    input_placeholder = Column(String(255, 'utf8mb4_unicode_ci'), comment='입력란 placeholder(구 distance_placeholder)')
+    minimum_input = Column(Float(7), comment='인증 시 최소 입력값(구 distance_min)')
+    maximum_input = Column(Integer, comment='인증 시 최대 거리(구 distance_max)')
+
+    mission = relationship('Mission')
 
 
 class MissionContent(Base):
@@ -1201,7 +1177,23 @@ class MissionImage(Base):
     order = Column(TINYINT)
     type = Column(VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)')
     image = Column(VARCHAR(255), nullable=False)
-    thumbnail_image = Column(VARCHAR(255))
+
+    mission = relationship('Mission')
+
+
+class MissionIntroduce(Base):
+    __tablename__ = 'mission_introduces'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    mission_id = Column(ForeignKey('missions.id'), nullable=False, unique=True)
+    logo_image = Column(String(255, 'utf8mb4_unicode_ci'), comment='상단 고정 로고')
+    intro_video = Column(String(255, 'utf8mb4_unicode_ci'), comment='소개 페이지 상단 동영상')
+    code = Column(String(255, 'utf8mb4_unicode_ci'), comment='입장코드 (있으면 비교, 없으면 패스)')
+    code_title = Column(String(255, 'utf8mb4_unicode_ci'), comment='입장코드 라벨')
+    code_placeholder = Column(String(255, 'utf8mb4_unicode_ci'), comment='입장코드 입력란 placeholder')
+    code_image = Column(String(255, 'utf8mb4_unicode_ci'), comment='입장코드 룸 상단 이미지')
 
     mission = relationship('Mission')
 
@@ -1231,6 +1223,37 @@ class MissionPlace(Base):
 
     mission = relationship('Mission')
     place = relationship('Place')
+
+
+class MissionPlaygroundCheerPhrase(Base):
+    __tablename__ = 'mission_playground_cheer_phrases'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    mission_id = Column(ForeignKey('missions.id'), nullable=False, index=True)
+    tab = Column(String(255, 'utf8mb4_unicode_ci'), nullable=False, comment='문구가 위치해야 할 탭 이름: 운동장 탭(ground) | 내 기록 탭(record)')
+    order = Column(TINYINT, nullable=False, comment='조건 체크 순서 (오름차순으로 실행)')
+    condition = Column(String(255, 'utf8mb4_unicode_ci'), nullable=False, comment='조건')
+    value = Column(Integer, nullable=False, server_default=text("'0'"), comment='값')
+    sentence = Column(String(255, 'utf8mb4_unicode_ci'), nullable=False, comment='variable의 값이 value와 일치할 때 출력될 내용')
+
+    mission = relationship('Mission')
+
+
+class MissionPlayground(Base):
+    __tablename__ = 'mission_playgrounds'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    mission_id = Column(ForeignKey('missions.id'), nullable=False, unique=True)
+    background_image = Column(String(255), comment='랜선운동장 전체에 적용되는 배경이미지')
+    rank_title = Column(String(64), comment='랭킹 탭 제목')
+    rank_value = Column(String(32), comment='랭킹 산정 기준')
+    rank_scale = Column(String(4), comment='랭킹 단위')
+
+    mission = relationship('Mission')
 
 
 class MissionPush(Base):
@@ -1280,8 +1303,8 @@ class MissionStat(Base):
     __table_args__ = {'comment': '미션 진행현황, 목표, 결과'}
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     user_id = Column(ForeignKey('users.id'), nullable=False, index=True)
     mission_id = Column(ForeignKey('missions.id'), nullable=False, index=True)
     ended_at = Column(TIMESTAMP, comment='미션 콤보 마지막 기록 일시')
@@ -1289,7 +1312,7 @@ class MissionStat(Base):
     code = Column(VARCHAR(255), comment='이벤트 미션 참가할 때 입력한 코드')
     entry_no = Column(INTEGER, comment='미션 참여 순번')
     goal_distance = Column(Float(8, True), comment='이벤트 미션 목표 거리')
-    certification_image = Column(VARCHAR(255), comment='인증서에 업로드한 이미지 URL')
+    certification_image = Column(String(255, 'utf8mb4_unicode_ci'), comment='인증서에 업로드한 이미지 URL')
 
     mission = relationship('Mission')
     user = relationship('User')
@@ -1346,8 +1369,8 @@ class Product(Base):
     __tablename__ = 'products'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     code = Column(VARCHAR(255), nullable=False, unique=True)
     name_ko = Column(VARCHAR(255), nullable=False)
     name_en = Column(VARCHAR(255))
@@ -1430,8 +1453,8 @@ class FeedMission(Base):
     __tablename__ = 'feed_missions'
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     feed_id = Column(ForeignKey('feeds.id'), nullable=False, index=True)
     mission_stat_id = Column(ForeignKey('mission_stats.id'), index=True)
     mission_id = Column(ForeignKey('missions.id'), nullable=False, index=True)
@@ -1512,6 +1535,82 @@ class MissionNoticeImage(Base):
     mission_notice = relationship('MissionNotice')
 
 
+class MissionPlaygroundCertificate(Base):
+    __tablename__ = 'mission_playground_certificates'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    mission_playground_id = Column(ForeignKey('mission_playgrounds.id'), nullable=False, unique=True)
+    title = Column(String(48), nullable=False, server_default=text("'모바일 인증서'"), comment='인증서 탭 인증서 상단 제목 텍스트(구 cert_subtitle)')
+    description = Column(String(255), comment='인증서 탭 상단 본문 텍스트(구 cert_description)')
+    certificate_image = Column(String(255), comment='인증서 탭 인증서 배경 이미지(구 cert_background_image)')
+    event_images = Column(JSON, comment='인증서 탭 하단 이미지')
+    content_left_title = Column(String(48), nullable=False, server_default=text("'참가번호'"), comment='인증서 좌측 영역 제목(주로 나의 참가순서)(구 cert_details)')
+    content_left_value = Column(String(48), nullable=False, server_default=text("'entry_no'"), comment='인증서 좌측 영역  값(주로 나의 참가순서)(구 cert_details)')
+    content_center_title = Column(String(48), nullable=False, server_default=text("'미션 인증횟수'"), comment='인증서 중앙 영역 제목(주로 미션 인증횟수)(구 cert_details)')
+    content_center_value = Column(String(48), nullable=False, server_default=text("'feeds_count'"), comment='인증서 중앙 영역 제목(주로 미션 인증횟수)(구 cert_details)')
+    content_right_title = Column(String(48), nullable=False, server_default=text("'누적 인증(회)'"), comment='인증서 대시보드 우측 영역 제목(주로 나의 기록의 총합)(구 cert_details)')
+    content_right_value = Column(String(48), nullable=False, server_default=text("'feeds_count'"), comment='인증서 대시보드 우측 영역 값(주로 나의 기록의 총합)(구 cert_details)')
+    criterion_for_issue = Column(String(48), nullable=False, server_default=text("'feeds_count'"), comment='인증서 발급 기준 항목(feeds_count | total_complete_day)(구 cert_enabled_feeds_count)')
+    minimum_value_for_issue = Column(TINYINT, nullable=False, server_default=text("'1'"), comment='인증서 발급 기준의 값(구 cert_enabled_feeds_count)')
+    guidance_for_issue = Column(String(255), comment='인증서 탭 비활성화 상태 멘트')
+
+    mission_playground = relationship('MissionPlayground')
+
+
+class MissionPlaygroundGround(Base):
+    __tablename__ = 'mission_playground_grounds'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    mission_playground_id = Column(ForeignKey('mission_playgrounds.id'), nullable=False, unique=True)
+    symbol_image = Column(String(255), comment='운동장 탭 우측의 챌린지 대표 이미지(구 ground_background_image)')
+    progress_initial_image = Column(String(255), comment='운동장 탭 진행상태 시각화 이미지: 흑백(구 ground_progress_background_image)')
+    progress_progressed_image = Column(String(255), comment='운동장 탭 진행상태 시각화 이미지: 컬러(구 ground_progress_image)')
+    progress_achieved_image = Column(String(255), comment='운동장 탭 진행상태 시각화 이미지: 목표치 달성 표시할 이미지(구 ground_progress_complete_image)')
+    progress_type = Column(String(48), nullable=False, server_default=text("'feed'"), comment='운동장 탭 미션별 목표 종류(all_distance | all_complete_day | feeds 등)(구 ground_progress_type)')
+    progress_goal = Column(Integer, nullable=False, server_default=text("'0'"), comment='운동장 탭 미션별 목표치(구 ground_progress_max)')
+    progress_title = Column(String(48), server_default=text("'총 참가자 누적'"), comment='운동장 탭 목표치 제목(구 ground_progress_title)')
+    progress_value = Column(String(48), nullable=False, server_default=text("'feeds_count'"), comment='운동장 탭 진행상황 텍스트(구 ground_progress_text)')
+    progress_scale = Column(String(10), nullable=False, server_default=text("'개'"), comment='운동장 탭 목표치 단위(개, L, km 등)(구 ground_progress_text)')
+    dashboard_center_title = Column(String(48), nullable=False, server_default=text("'현재 참여중인 사람'"), comment='운동장 탭 대시보드 중앙 영역 제목(주로 참가중인 유저 수)(구 ground_box_users_count_title)')
+    dashboard_center_value = Column(String(48), nullable=False, server_default=text("'users_count'"), comment='운동장 탭 대시보드 중앙 영역 값(주로 참가중인 유저 수)(구 ground_box_users_count_text)')
+    dashboard_right_title = Column(String(48), nullable=False, server_default=text("'금일 누적'"), comment='운동장 탭 대시보드 우측 영역 제목(주로 금일 기록의 총합)(구 ground_box_users_count_title)')
+    dashboard_right_value = Column(String(48), nullable=False, server_default=text("'today_all_distance'"), comment='운동장 탭 대시보드 우측 영역 값(주로 금일 기록의 총합)(구 ground_box_users_count_text)')
+    banner_image = Column(String(255), comment='운동장 탭 배너 이미지 URL(구 ground_banner_image)')
+    banner_type = Column(String(48), server_default=text("'url'"), comment='운동장 탭 배너 연결 방식(url | 엔티티명(mission, shop 등))(구 ground_banner_type)')
+    banner_link = Column(String(255), comment='운동장 탭 배너 클릭 시 이동시킬 목적지(구 ground_banner_link)')
+
+    mission_playground = relationship('MissionPlayground')
+
+
+class MissionPlaygroundRecord(Base):
+    __tablename__ = 'mission_playground_records'
+
+    id = Column(BIGINT, primary_key=True)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
+    mission_playground_id = Column(ForeignKey('mission_playgrounds.id'), nullable=False, unique=True)
+    symbol_image = Column(String(255), comment='내 기록 탭 우측의 챌린지 대표 이미지(구 record_background_image)')
+    total_success_count = Column(Integer, nullable=False, server_default=text("'0'"), comment='내 기록 탭 진행상태 시각화 이미지 개수(구 record_progress_image_count)')
+    daily_image_before_completed = Column(String(255), comment='내 기록 탭 진행상태 시각화 이미지: 당일 미션 성공 전까지 표시할 흑백 이미지(구 ground_progress_background_image)')
+    daily_image_after_completed = Column(String(255), comment='내 기록 탭 진행상태 시각화 이미지: 당일 미션 성공 시 표시할 컬러 이미지(구 ground_progress_image)')
+    progress_type = Column(String(48), nullable=False, server_default=text("'complete_days_count'"), comment='내 기록 탭 진행상태 계수 기준(구 record_progress_type)')
+    progress_title = Column(String(48), server_default=text("'미션 성공일수'"), comment='내 기록 탭 진행상태 제목(구 record_progress_title)')
+    progress_value = Column(String(48), nullable=False, server_default=text("'total_complete_day'"), comment='내 기록 탭 진행상태 값(구 record_progress_text)')
+    dashboard_left_title = Column(String(48), nullable=False, server_default=text("'참가번호'"), comment='내 기록 탭 대시보드 좌측 영역 제목(주로 나의 참가순서)(구 record_box_left_title)')
+    dashboard_left_value = Column(String(48), nullable=False, server_default=text("'entry_no'"), comment='내 기록 탭 대시보드 좌측 영역  값(주로 나의 참가순서)(구 record_box_left_text)')
+    dashboard_center_title = Column(String(48), nullable=False, server_default=text("'미션 인증횟수'"), comment='내 기록 탭 대시보드 중앙 영역 제목(주로 미션 인증횟수)(구 record_box_center_title)')
+    dashboard_center_value = Column(String(48), nullable=False, server_default=text("'feeds_count'"), comment='내 기록 탭 대시보드 중앙 영역 제목(주로 미션 인증횟수)(구 record_box_center_text)')
+    dashboard_right_title = Column(String(48), nullable=False, server_default=text("'누적 인증'"), comment='내 기록 탭 대시보드 우측 영역 제목(주로 나의 기록의 총합)(구 record_box_right_title)')
+    dashboard_right_value = Column(String(48), nullable=False, server_default=text("'feeds_count'"), comment='내 기록 탭 대시보드 우측 영역 값(주로 나의 기록의 총합)(구 record_box_right_text)')
+    dashboard_description = Column(String(64), comment='내 기록 탭 대시보드 아래 작은 설명(구 record_box_description)')
+
+    mission_playground = relationship('MissionPlayground')
+
+
 class MissionProduct(Base):
     __tablename__ = 'mission_products'
     __table_args__ = {'comment': '미션 준비물\\nMission_id\\nproduct_id\\n제품의 인증 또는 리뷰 작성을 위해 필요한, 제품 세부옵션 단위(ex. 맛)의 테이블'}
@@ -1565,8 +1664,8 @@ class Notification(Base):
     __table_args__ = {'comment': '알림'}
 
     id = Column(BIGINT, primary_key=True)
-    created_at = Column(TIMESTAMP)
-    updated_at = Column(TIMESTAMP)
+    created_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP"))
+    updated_at = Column(TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP"))
     target_id = Column(ForeignKey('users.id'), nullable=False, index=True, comment='알림 받는 사람')
     type = Column(VARCHAR(255), nullable=False, comment='알림 구분 (출력 내용은 common_codes)')
     user_id = Column(ForeignKey('users.id'), index=True, comment='알림 발생시킨 사람')
@@ -1646,7 +1745,6 @@ class ProductImage(Base):
     order = Column(TINYINT)
     type = Column(VARCHAR(255), nullable=False, comment='이미지인지 비디오인지 (image / video)')
     image = Column(VARCHAR(255))
-    thumbnail_image = Column(VARCHAR(255))
 
     product = relationship('Product')
 
