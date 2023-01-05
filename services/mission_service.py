@@ -10,7 +10,7 @@ from helper.constant import INITIAL_ASCENDING_PAGE_CURSOR, INITIAL_PAGE_LIMIT
 from helper.function import failed_response
 
 import json
-
+import re
 
 def get_missions_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, sort: str, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository):
     missions = mission_repo.get_list_by_category(user_id, category_id, page_cursor, limit, sort)
@@ -172,7 +172,8 @@ def get_mission_playground(mission_id: int, user_id: int, mission_repo: Abstract
                     else f"D-DAY" if playground.status == "ongoing" and playground.d_day == 0
                     else f"D - {playground.d_day}",
                 ),
-                cheeringPhrase='',
+                cheerPhrases=None if json.loads(playground.cheer_phrases)[0]['tab'] is None
+                else current_cheer_phrase([phrase for phrase in sorted(json.loads(playground.cheer_phrases), key=lambda x: x['order']) if phrase['tab'] == 'ground'], playground.status, mission_id, user_id, mission_repo)
             ),
             myRecord=dict(
                 progress=dict(
@@ -201,7 +202,8 @@ def get_mission_playground(mission_id: int, user_id: int, mission_repo: Abstract
                     ),
                     description=playground.record_dashboard_description
                 ),
-                cheeringPhrase='',
+                cheerPhrases=None if json.loads(playground.cheer_phrases)[0]['tab'] is None
+                else current_cheer_phrase([phrase for phrase in sorted(json.loads(playground.cheer_phrases), key=lambda x: x['order']) if phrase['tab'] == 'record'], playground.status, mission_id, user_id, mission_repo)
             ),
             certificate=dict(
                 title=playground.certificate_title,
@@ -424,5 +426,90 @@ def get_feed_count_of_the_mission(mission_id: int, feed_repo: AbstractFeedReposi
 
 # region variables for mission
 def translate_variables(variable: str, mission_id: int, user_id: int, mission_repo: AbstractMissionRepository):
-    mission_repo.translate_variables(variable, mission_id, user_id)
+    return mission_repo.translate_variables(variable, mission_id, user_id)
+
+
+def extract_variables_from_sentence(sentence: str) -> list:
+    pattern = re.compile('{%[a-z|A-Z|0-9|(-_~`!@#$%^&*()+=\\|/)]+}')
+    variables_from_sentence = pattern.findall(sentence)
+    return variables_from_sentence
+
+
+def current_cheer_phrase(sentences: list, mission_status: str, mission_id: int, user_id: int, mission_repo: AbstractMissionRepository) -> str:
+    """
+    [
+        {
+            "tab": "ground",
+            "order": 0,
+            "value": 0,
+            "sentence": "챌린지 참여자들이 열심히 움직이고 있어요!\n함께 도전해볼까요?",
+            "condition": "cert"
+        },
+        {
+            "tab": "ground",
+            "order": 1,
+            "value": 1,
+            "sentence": "오늘 {%today_cert_count}명의 참여자가 도전했어요! \n오늘도 함께 움직여볼까요?",
+            "condition": "cert"
+        },
+    ]
+    :param sentences:
+        - variable 별로 수행되어야 하는 연산은 다음과 같다.
+            - default: 신청기간(챌린지 시작시점 이전)까지 보여줄 화면 멘트
+            - cert: 인증 횟수
+                - cert == 0: 지금까지 한 번도 인증을 완료한 날이 없음(미션 신청은 했으나, 미시작자)
+                - cert == 1: 지금까지 인증 완료한 횟수 1회(최초 1회 인증 완료자)
+            - today_cert: 금일 인증 완료 여부
+            - complete:
+            - today_complete: 당일의 미션 완료 여부
+            - end: 챌린지 종료
+    :param mission_status:
+    :param mission_id:
+    :param user_id:
+    :param mission_repo:
+    :return:
+    """
+    cheer_phrase = ""
+    if mission_status == 'ongoing':
+        sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] in ["cert", "today_cert", "complete", "today_complete"]]
+    elif mission_status == 'end':
+        sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] in ["default", "end"]]
+    else:  # mission_status in ["before_reserve", "reserve", "before_ongoing"]
+        sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] == "default"]
+
+    for sentence in sentences_filtered_by_status:
+        condition: str = sentence['condition']
+        if sentence['value'] == get_value_of_cheer_phrase_variable(condition, mission_id, user_id, mission_repo):
+            cheer_phrase = sentence['sentence']
+        # sentence['current_value'] = get_value_of_cheer_phrase_variable(condition, mission_id, user_id, mission_repo)
+
+        # if sentence['variable'] == 'cert':
+        # elif sentence['variable'] == 'today_cert':
+        #     result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
+        # elif sentence['variable'] == 'complete':  # 미션 전체 성공 여부
+        #     result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
+        # elif sentence['variable'] == 'today_complete':  # 금일 미션 성공 여부
+        #     result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
+        # if sentence['variable'] == 'default':  # 미션 시작 전 기본 문구
+            # result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
+        # elif sentence['variable'] == 'end':
+        #     pass
+        # else:
+        #     pass
+            variables_in_a_sentence: list = extract_variables_from_sentence(cheer_phrase)
+            # translated_variables: dict = {
+            #     variable: translate_variables(variable, mission_id, user_id, mission_repo)
+            #     for variable in variables_in_a_sentence
+            # }
+            for variable in variables_in_a_sentence:
+                value = translate_variables(variable, mission_id, user_id, mission_repo)
+                cheer_phrase = cheer_phrase.replace(variable, value)
+                # cheer_phrase = cheer_phrase.replace(variable, translated_variables[variable])
+        else:
+            pass
+    return cheer_phrase
+
+
+def get_value_of_cheer_phrase_variable(variable: str, mission_id: int, user_id: int, mission_repo: AbstractMissionRepository):
+    return mission_repo.get_value_of_cheer_phrase_variable(variable, mission_id, user_id)
 # endregion

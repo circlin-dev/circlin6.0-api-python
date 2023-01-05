@@ -107,16 +107,6 @@ class MissionCondition:
         self.input_placeholder = input_placeholder
 
 
-class MissionGround:
-    def __init__(self):
-        pass
-
-
-class MissionGroundText:
-    def __init__(self):
-        pass
-
-
 class MissionImage:
     def __init__(self, id: int, mission_id: int, order: int, type: str, image: str):
         self.id = id
@@ -177,6 +167,11 @@ class MissionPlayground:
 class MissionPlaygroundCertificate:
     def __init__(self, mission_playground_id: int):
         self.mission_playground_id = mission_playground_id
+
+
+class MissionPlaygroundCheerPhrase:
+    def __init__(self, mission_playground_id: int):
+        self.mission_playground_ud = mission_playground_id
 
 
 class MissionPlaygroundGround:

@@ -5,7 +5,7 @@ from domain.chat import ChatMessage, ChatUser, ChatRoom
 from domain.common_code import CommonCode
 from domain.feed import Feed, FeedCheck, FeedComment, FeedFood, FeedImage, FeedMission, FeedProduct
 from domain.food import Food, FoodBrand, FoodCategory, FoodFlavor, FoodFoodCategory, FoodImage, FoodIngredient, FoodRating, FoodRatingImage, FoodRatingReview, FoodReview, Ingredient
-from domain.mission import Mission, MissionCategory, MissionCondition, MissionComment, MissionImage, MissionIntroduce, MissionNotice, MissionNoticeImage, MissionPlayground, MissionProduct, MissionPlaygroundCertificate, MissionPlaygroundGround, MissionPlaygroundRecord, MissionRefundProduct, MissionRank, MissionRankUser, MissionStat
+from domain.mission import Mission, MissionCategory, MissionCondition, MissionComment, MissionImage, MissionIntroduce, MissionNotice, MissionNoticeImage, MissionPlayground, MissionPlaygroundGround, MissionPlaygroundCertificate, MissionPlaygroundCheerPhrase, MissionPlaygroundRecord, MissionProduct, MissionRefundProduct, MissionRank, MissionRankUser, MissionStat
 from domain.notice import Notice, NoticeComment, NoticeImage
 from domain.notification import Notification
 from domain.order import Order, OrderProduct
@@ -574,95 +574,95 @@ mission_conditions = Table(
 )
 
 
-mission_grounds = Table(
-    "mission_grounds",
-    metadata,
-    Column("id", BIGINT(unsigned=True), primary_key=True),
-    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
-    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, unique=True),
-    Column("intro_video", VARCHAR(255), comment='소개 페이지 상단 동영상'),
-    Column("logo_image", VARCHAR(255), comment='상단 고정 로고'),
-    Column("code_type", VARCHAR(255), comment='코드 타입'),
-    Column("code_title", VARCHAR(255), comment='입장코드 라벨'),
-    Column("code", VARCHAR(255), comment='입장코드 (있으면 비교, 없으면 입력 받기만)'),
-    Column("code_placeholder", VARCHAR(255), comment='입장코드 입력란 placeholder'),
-    Column("code_image", VARCHAR(255), comment='입장코드 룸 상단 이미지'),
-    Column("goal_distance_title", VARCHAR(255), comment='참가하기 전 목표 거리 타이틀'),
-    Column("goal_distance_type", VARCHAR(255), nullable=False, server_default=text("'goal'"), comment='성공 조건 (goal/min)'),
-    Column("goal_distances", JSON, comment='참가하기 전 설정할 목표 거리 (km)'),
-    Column("goal_distance_text", VARCHAR(255), comment='참가하기 전 설정할 목표 거리 접미사'),
-    Column("distance_min", Float(7), comment='인증 시 최소 거리'),
-    Column("distance_max", Integer, comment='인증 시 최대 거리'),
-    Column("distance_placeholder", VARCHAR(255), comment='입력란 placeholder'),
-    Column("background_image", VARCHAR(255), comment='운동장 전체 fixed 배경 이미지'),
-    Column("ground_title", VARCHAR(255), nullable=False, server_default=text("'운동장'"), comment='운동장 탭 타이틀'),
-    Column("record_title", VARCHAR(255), nullable=False, server_default=text("'내기록'"), comment='내기록 탭 타이틀'),
-    Column("cert_title", VARCHAR(255), nullable=False, server_default=text("'인증서'"), comment='인증서 탭 타이틀'),
-    Column("feeds_title", VARCHAR(255), server_default=text("'모아보기'"), comment='피드 탭 타이틀 (null 일 경우 노출 X)'),
-    Column("rank_title", VARCHAR(255), nullable=False, server_default=text("'랭킹'"), comment='랭킹 탭 타이틀'),
-    Column("ground_is_calendar", TINYINT, nullable=False, server_default=text("'0'"), comment='운동장 탭 캘린더 형태 여부'),
-    Column("ground_background_image", VARCHAR(255), comment='운동장 탭 배경이미지'),
-    Column("ground_progress_type", VARCHAR(255), nullable=False, server_default=text("'feed'"), comment='운동장 탭 진행상황 타입 (feed/distance)'),
-    Column("ground_progress_max", Integer, nullable=False, server_default=text("'0'"), comment='운동장 탭 진행상황 최대치'),
-    Column("ground_progress_background_image", VARCHAR(255), comment='운동장 탭 진행상황 배경이미지'),
-    Column("ground_progress_image", VARCHAR(255), comment='운동장 탭 진행상황 차오르는 이미지'),
-    Column("ground_progress_complete_image", VARCHAR(255), comment='운동장 탭 진행상황 완료됐을 때 이미지'),
-    Column("ground_progress_title", VARCHAR(255), server_default=text("'총 참가자 누적'"), comment='운동장 탭 진행상황 타이틀'),
-    Column("ground_progress_text", VARCHAR(255), nullable=False, server_default=text("'{%%feeds_count}'"), comment='운동장 탭 진행상황 텍스트'),
-    Column("ground_box_users_count_text", VARCHAR(255), nullable=False, server_default=text("'{%%users_count}명'"), comment='운동장 탭 참가중인 유저 수 텍스트'),
-    Column("ground_box_users_count_title", VARCHAR(255), nullable=False, server_default=text("'참가자'"), comment='운동장 탭 참가중인 유저 수 타이틀'),
-    Column("ground_box_summary_text", VARCHAR(255), nullable=False, server_default=text("'{%%today_all_distance} L'"), comment='운동장 탭 피드 수 텍스트'),
-    Column("ground_box_summary_title", VARCHAR(255), nullable=False, server_default=text("'금일 누적'"), comment='운동장 탭 피드 수 타이틀'),
-    Column("ground_banner_image", VARCHAR(255), comment='운동장 탭 배너 이미지 URL'),
-    Column("ground_banner_type", VARCHAR(255), comment='운동장 탭 배너 타입 (url)'),
-    Column("ground_banner_link", VARCHAR(255), comment='운동장 탭 배너 링크 URL'),
-    Column("ground_users_type", VARCHAR(255), nullable=False, server_default=text("'recent_bookmark'"), comment='운동장 탭 유저 목록 타입'),
-    Column("ground_users_title", VARCHAR(255), nullable=False, server_default=text("'실시간 참여자'"), comment='운동장 탭 유저 목록 타이틀'),
-    Column("ground_users_text", VARCHAR(255), nullable=False, server_default=text("'아직 참여자가 없습니다! 어서 참여해보세요.'"), comment='운동장 탭 유저 목록 비었을 때 텍스트'),
-    Column("record_progress_is_show", TINYINT(1), nullable=False, server_default=text("'1'"), comment='내기록 탭 진행상황 노출 여부'),
-    Column("record_background_image", VARCHAR(255), comment='내기록 탭 배경이미지'),
-    Column("record_progress_image_count", TINYINT, nullable=False, server_default=text("'9'"), comment='내기록 탭 진행상황 뱃지 개수'),
-    Column("record_progress_images", JSON, comment='내기록 탭 진행상황 이미지'),
-    Column("record_progress_type", VARCHAR(255), nullable=False, server_default=text("'feeds_count'"), comment='내기록 탭 진행상황 타입'),
-    Column("record_progress_title", VARCHAR(255), comment='내기록 탭 진행상황 타이틀'),
-    Column("record_progress_text", VARCHAR(255), server_default=text("'{%%remaining_day}'"), comment='내기록 탭 진행상황 텍스트'),
-    Column("record_progress_description", VARCHAR(255), comment='내기록 탭 진행상황 텍스트 옆 설명'),
-    Column("record_box_is_show", TINYINT(1), nullable=False, server_default=text("'1'"), comment='내기록 탭 박스 노출 여부'),
-    Column("record_box_left_title", VARCHAR(255), server_default=text("'NO. {%%entry_no}'"), comment='내기록 탭 박스 왼쪽 타이틀'),
-    Column("record_box_left_text", VARCHAR(255), server_default=text("'참가번호'"), comment='내기록 탭 박스 왼쪽 텍스트'),
-    Column("record_box_center_title", VARCHAR(255), server_default=text("'{%%feeds_count}회'"), comment='내기록 탭 박스 가운데 타이틀'),
-    Column("record_box_center_text", VARCHAR(255), server_default=text("'미션 인증횟수'"), comment='내기록 탭 박스 가운데 텍스트'),
-    Column("record_box_right_title", VARCHAR(255), server_default=text("'{%%feeds_count}회'"), comment='내기록 탭 박스 오른쪽 타이틀'),
-    Column("record_box_right_text", VARCHAR(255), server_default=text("'누적 인증'"), comment='내기록 탭 박스 오른쪽 텍스트'),
-    Column("record_box_description", VARCHAR(255), comment='내기록 탭 박스 하단 설명'),
-    Column("cert_subtitle", VARCHAR(255), nullable=False, server_default=text("'모바일 인증서'"), comment='인증서 탭 인증서 타이틀'),
-    Column("cert_description", VARCHAR(255), comment='인증서 탭 내용'),
-    Column("cert_background_image", JSON, comment='인증서 탭 인증서 배경 이미지'),
-    Column("cert_custom_cert", JSON),
-    Column("cert_details", JSON, comment='인증서 탭 인증서 상세내용'),
-    Column("cert_images", JSON, comment='인증서 탭 하단 이미지'),
-    Column("cert_disabled_text", VARCHAR(255), comment='인증서 탭 비활성화 상태 멘트'),
-    Column("cert_enabled_feeds_count", TINYINT, nullable=False, server_default=text("'1'"), comment='인증서 탭 인증서 활성화될 피드 수'),
-    Column("rank_subtitle", VARCHAR(255), comment='랭킹 탭 부제목'),
-    Column("rank_value_text", VARCHAR(255), comment='랭킹 탭 피드 수 포맷'),
-    Column("feeds_filter_title", VARCHAR(255), nullable=False, server_default=text("'필터 보기'"), comment='전체 피드 탭 필터 타이틀'),
-)
-
-
-mission_ground_texts = Table(
-    "mission_ground_texts",
-    metadata,
-    Column("id", BIGINT(unsigned=True), primary_key=True),
-    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
-    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
-    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
-    Column("tab", VARCHAR(255), nullable=False, comment='ground/record'),
-    Column("order", TINYINT, nullable=False, comment='체크 순서 (높을수록 우선 출력)'),
-    Column("type", VARCHAR(255), nullable=False, comment='조건'),
-    Column("value", Integer, nullable=False, server_default=text("'0'"), comment='값'),
-    Column("message", VARCHAR(255), nullable=False, comment='출력될 내용'),
-)
+# mission_grounds = Table(
+#     "mission_grounds",
+#     metadata,
+#     Column("id", BIGINT(unsigned=True), primary_key=True),
+#     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+#     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+#     Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, unique=True),
+#     Column("intro_video", VARCHAR(255), comment='소개 페이지 상단 동영상'),
+#     Column("logo_image", VARCHAR(255), comment='상단 고정 로고'),
+#     Column("code_type", VARCHAR(255), comment='코드 타입'),
+#     Column("code_title", VARCHAR(255), comment='입장코드 라벨'),
+#     Column("code", VARCHAR(255), comment='입장코드 (있으면 비교, 없으면 입력 받기만)'),
+#     Column("code_placeholder", VARCHAR(255), comment='입장코드 입력란 placeholder'),
+#     Column("code_image", VARCHAR(255), comment='입장코드 룸 상단 이미지'),
+#     Column("goal_distance_title", VARCHAR(255), comment='참가하기 전 목표 거리 타이틀'),
+#     Column("goal_distance_type", VARCHAR(255), nullable=False, server_default=text("'goal'"), comment='성공 조건 (goal/min)'),
+#     Column("goal_distances", JSON, comment='참가하기 전 설정할 목표 거리 (km)'),
+#     Column("goal_distance_text", VARCHAR(255), comment='참가하기 전 설정할 목표 거리 접미사'),
+#     Column("distance_min", Float(7), comment='인증 시 최소 거리'),
+#     Column("distance_max", Integer, comment='인증 시 최대 거리'),
+#     Column("distance_placeholder", VARCHAR(255), comment='입력란 placeholder'),
+#     Column("background_image", VARCHAR(255), comment='운동장 전체 fixed 배경 이미지'),
+#     Column("ground_title", VARCHAR(255), nullable=False, server_default=text("'운동장'"), comment='운동장 탭 타이틀'),
+#     Column("record_title", VARCHAR(255), nullable=False, server_default=text("'내기록'"), comment='내기록 탭 타이틀'),
+#     Column("cert_title", VARCHAR(255), nullable=False, server_default=text("'인증서'"), comment='인증서 탭 타이틀'),
+#     Column("feeds_title", VARCHAR(255), server_default=text("'모아보기'"), comment='피드 탭 타이틀 (null 일 경우 노출 X)'),
+#     Column("rank_title", VARCHAR(255), nullable=False, server_default=text("'랭킹'"), comment='랭킹 탭 타이틀'),
+#     Column("ground_is_calendar", TINYINT, nullable=False, server_default=text("'0'"), comment='운동장 탭 캘린더 형태 여부'),
+#     Column("ground_background_image", VARCHAR(255), comment='운동장 탭 배경이미지'),
+#     Column("ground_progress_type", VARCHAR(255), nullable=False, server_default=text("'feed'"), comment='운동장 탭 진행상황 타입 (feed/distance)'),
+#     Column("ground_progress_max", Integer, nullable=False, server_default=text("'0'"), comment='운동장 탭 진행상황 최대치'),
+#     Column("ground_progress_background_image", VARCHAR(255), comment='운동장 탭 진행상황 배경이미지'),
+#     Column("ground_progress_image", VARCHAR(255), comment='운동장 탭 진행상황 차오르는 이미지'),
+#     Column("ground_progress_complete_image", VARCHAR(255), comment='운동장 탭 진행상황 완료됐을 때 이미지'),
+#     Column("ground_progress_title", VARCHAR(255), server_default=text("'총 참가자 누적'"), comment='운동장 탭 진행상황 타이틀'),
+#     Column("ground_progress_text", VARCHAR(255), nullable=False, server_default=text("'{%%feeds_count}'"), comment='운동장 탭 진행상황 텍스트'),
+#     Column("ground_box_users_count_text", VARCHAR(255), nullable=False, server_default=text("'{%%users_count}명'"), comment='운동장 탭 참가중인 유저 수 텍스트'),
+#     Column("ground_box_users_count_title", VARCHAR(255), nullable=False, server_default=text("'참가자'"), comment='운동장 탭 참가중인 유저 수 타이틀'),
+#     Column("ground_box_summary_text", VARCHAR(255), nullable=False, server_default=text("'{%%today_all_distance} L'"), comment='운동장 탭 피드 수 텍스트'),
+#     Column("ground_box_summary_title", VARCHAR(255), nullable=False, server_default=text("'금일 누적'"), comment='운동장 탭 피드 수 타이틀'),
+#     Column("ground_banner_image", VARCHAR(255), comment='운동장 탭 배너 이미지 URL'),
+#     Column("ground_banner_type", VARCHAR(255), comment='운동장 탭 배너 타입 (url)'),
+#     Column("ground_banner_link", VARCHAR(255), comment='운동장 탭 배너 링크 URL'),
+#     Column("ground_users_type", VARCHAR(255), nullable=False, server_default=text("'recent_bookmark'"), comment='운동장 탭 유저 목록 타입'),
+#     Column("ground_users_title", VARCHAR(255), nullable=False, server_default=text("'실시간 참여자'"), comment='운동장 탭 유저 목록 타이틀'),
+#     Column("ground_users_text", VARCHAR(255), nullable=False, server_default=text("'아직 참여자가 없습니다! 어서 참여해보세요.'"), comment='운동장 탭 유저 목록 비었을 때 텍스트'),
+#     Column("record_progress_is_show", TINYINT(1), nullable=False, server_default=text("'1'"), comment='내기록 탭 진행상황 노출 여부'),
+#     Column("record_background_image", VARCHAR(255), comment='내기록 탭 배경이미지'),
+#     Column("record_progress_image_count", TINYINT, nullable=False, server_default=text("'9'"), comment='내기록 탭 진행상황 뱃지 개수'),
+#     Column("record_progress_images", JSON, comment='내기록 탭 진행상황 이미지'),
+#     Column("record_progress_type", VARCHAR(255), nullable=False, server_default=text("'feeds_count'"), comment='내기록 탭 진행상황 타입'),
+#     Column("record_progress_title", VARCHAR(255), comment='내기록 탭 진행상황 타이틀'),
+#     Column("record_progress_text", VARCHAR(255), server_default=text("'{%%remaining_day}'"), comment='내기록 탭 진행상황 텍스트'),
+#     Column("record_progress_description", VARCHAR(255), comment='내기록 탭 진행상황 텍스트 옆 설명'),
+#     Column("record_box_is_show", TINYINT(1), nullable=False, server_default=text("'1'"), comment='내기록 탭 박스 노출 여부'),
+#     Column("record_box_left_title", VARCHAR(255), server_default=text("'NO. {%%entry_no}'"), comment='내기록 탭 박스 왼쪽 타이틀'),
+#     Column("record_box_left_text", VARCHAR(255), server_default=text("'참가번호'"), comment='내기록 탭 박스 왼쪽 텍스트'),
+#     Column("record_box_center_title", VARCHAR(255), server_default=text("'{%%feeds_count}회'"), comment='내기록 탭 박스 가운데 타이틀'),
+#     Column("record_box_center_text", VARCHAR(255), server_default=text("'미션 인증횟수'"), comment='내기록 탭 박스 가운데 텍스트'),
+#     Column("record_box_right_title", VARCHAR(255), server_default=text("'{%%feeds_count}회'"), comment='내기록 탭 박스 오른쪽 타이틀'),
+#     Column("record_box_right_text", VARCHAR(255), server_default=text("'누적 인증'"), comment='내기록 탭 박스 오른쪽 텍스트'),
+#     Column("record_box_description", VARCHAR(255), comment='내기록 탭 박스 하단 설명'),
+#     Column("cert_subtitle", VARCHAR(255), nullable=False, server_default=text("'모바일 인증서'"), comment='인증서 탭 인증서 타이틀'),
+#     Column("cert_description", VARCHAR(255), comment='인증서 탭 내용'),
+#     Column("cert_background_image", JSON, comment='인증서 탭 인증서 배경 이미지'),
+#     Column("cert_custom_cert", JSON),
+#     Column("cert_details", JSON, comment='인증서 탭 인증서 상세내용'),
+#     Column("cert_images", JSON, comment='인증서 탭 하단 이미지'),
+#     Column("cert_disabled_text", VARCHAR(255), comment='인증서 탭 비활성화 상태 멘트'),
+#     Column("cert_enabled_feeds_count", TINYINT, nullable=False, server_default=text("'1'"), comment='인증서 탭 인증서 활성화될 피드 수'),
+#     Column("rank_subtitle", VARCHAR(255), comment='랭킹 탭 부제목'),
+#     Column("rank_value_text", VARCHAR(255), comment='랭킹 탭 피드 수 포맷'),
+#     Column("feeds_filter_title", VARCHAR(255), nullable=False, server_default=text("'필터 보기'"), comment='전체 피드 탭 필터 타이틀'),
+# )
+#
+#
+# mission_ground_texts = Table(
+#     "mission_ground_texts",
+#     metadata,
+#     Column("id", BIGINT(unsigned=True), primary_key=True),
+#     Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+#     Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+#     Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
+#     Column("tab", VARCHAR(255), nullable=False, comment='ground/record'),
+#     Column("order", TINYINT, nullable=False, comment='체크 순서 (높을수록 우선 출력)'),
+#     Column("type", VARCHAR(255), nullable=False, comment='조건'),
+#     Column("value", Integer, nullable=False, server_default=text("'0'"), comment='값'),
+#     Column("message", VARCHAR(255), nullable=False, comment='출력될 내용'),
+# )
 
 
 mission_images = Table(
@@ -731,6 +731,21 @@ mission_playgrounds = Table(
     Column("rank_title", VARCHAR(64), comment='랭킹 탭 제목'),
     Column("rank_value", VARCHAR(32), comment='랭킹 산정 기준'),
     Column("rank_scale", VARCHAR(4), comment='랭킹 단위'),
+)
+
+
+mission_playground_cheer_phrases = Table(
+    "mission_playground_cheer_phrases",
+    metadata,
+    Column("id", BIGINT(unsigned=True), primary_key=True),
+    Column("created_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP")),
+    Column("updated_at", TIMESTAMP, server_default=text("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")),
+    Column("mission_id", BIGINT(unsigned=True), ForeignKey('missions.id'), nullable=False, index=True),
+    Column("tab", VARCHAR(255), nullable=False, comment='문구가 위치해야 할 탭 이름: 운동장 탭(ground) | 내 기록 탭(record)'),
+    Column("order", TINYINT, nullable=False, comment='조건 체크 순서 (오름차순으로 실행)'),
+    Column("condition", VARCHAR(255), nullable=False, comment='조건명'),
+    Column("value", Integer, nullable=False, server_default=text("'0'"), comment='값'),
+    Column("sentence", VARCHAR(255), nullable=False, comment='variable의 값이 value와 일치할 때 출력될 내용'),
 )
 
 
@@ -1738,6 +1753,7 @@ def mission_notice_image_mappers():
 def mission_playground_mappers():
     mapper_registry.map_imperatively(Mission, missions)
     mapper_registry.map_imperatively(MissionPlaygroundCertificate, mission_playground_certificates)
+    mapper_registry.map_imperatively(MissionPlaygroundCheerPhrase, mission_playground_cheer_phrases)
     mapper_registry.map_imperatively(MissionPlaygroundGround, mission_playground_grounds)
     mapper_registry.map_imperatively(MissionPlaygroundRecord, mission_playground_records)
     mapper = mapper_registry.map_imperatively(
@@ -1758,6 +1774,18 @@ def mission_playground_certificate_mappers():
     mapper = mapper_registry.map_imperatively(
         MissionPlaygroundCertificate,
         mission_playground_certificates,
+        properties={
+            "mission_playgrounds": relationship(MissionPlayground)
+        }
+    )
+    return mapper
+
+
+def mission_playground_cheer_phrase_mappers():
+    mapper_registry.map_imperatively(MissionPlayground, mission_playgrounds)
+    mapper = mapper_registry.map_imperatively(
+        MissionPlaygroundCheerPhrase,
+        mission_playground_cheer_phrases,
         properties={
             "mission_playgrounds": relationship(MissionPlayground)
         }
