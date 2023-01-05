@@ -1,7 +1,7 @@
 from api import api
 from helper.cache import cache
 from helper.function import failed_response, slack_error_notification
-from flask import Flask, request
+from flask import Flask, request, send_from_directory
 from flask_cors import CORS
 from flask_mail import Mail
 import json
@@ -82,6 +82,11 @@ app.logger.setLevel(gunicorn_logger.level)
 @app.route('/')
 def hello_world():
     return "Hello, CIRCLIN6.0~!!"
+
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, 'static'), 'favicon.png', mimetype='image/vnd.microsoft.icon')
 
 
 if __name__ == '__main__':
