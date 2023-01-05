@@ -12,6 +12,7 @@ from helper.function import failed_response
 import json
 import re
 
+
 def get_missions_by_category(user_id: int, category_id: int or None, page_cursor: int, limit: int, sort: str, mission_repo: AbstractMissionRepository, mission_stat_repo: AbstractMissionStatRepository):
     missions = mission_repo.get_list_by_category(user_id, category_id, page_cursor, limit, sort)
     entries = [dict(
@@ -327,6 +328,15 @@ def count_number_of_mission_participant(mission_id: int, mission_repo: AbstractM
     total_count: int = mission_repo.count_number_of_participants(mission_id)
     return total_count
 # endregion
+
+
+# region register and quit
+def quit_mission(mission_id: int, user_id: int, mission_stat_repo: AbstractMissionStatRepository):
+    mission_stat_repo.delete(mission_id, user_id)
+    return {"result": True}
+
+# endregion
+
 
 
 # region category
