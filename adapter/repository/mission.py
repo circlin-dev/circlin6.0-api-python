@@ -1718,13 +1718,14 @@ class MissionRepository(AbstractMissionRepository):
         elif variable == 'mission_ends_at':
             sql = select(func.date_format(Mission.ended_at, '%Y/%m/%d %H:%i:%s')).where(Mission.id == mission_id)
             result = self.session.execute(sql).scalar()
-        elif variable in ['mission_dday_end', 'remaining_day']:
+        elif variable == 'mission_dday_end' or variable == 'remaining_day':
             sql = select(
-                func.TIMESTAMPDIFF(text("DAY"), func.DATE(Mission.ended_at), func.date_format(func.now(), '%Y/%m/%d 00:00:00'))
+                func.abs(func.TIMESTAMPDIFF(text("DAY"), func.DATE(Mission.ended_at), func.date_format(func.now(), '%Y-%m-%d')))
             ).where(
-                MissionStat.mission_id == mission_id,
+                Mission.id == mission_id,
             )
             result = self.session.execute(sql).scalar()
+            print('result: ', result)
         elif variable == 'entry_no':
             sql = select(
                 mission_stats.c.entry_no
