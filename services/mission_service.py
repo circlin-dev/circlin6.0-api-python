@@ -432,6 +432,7 @@ def translate_variables(variable: str, mission_id: int, user_id: int, mission_re
 def extract_variables_from_sentence(sentence: str) -> list:
     pattern = re.compile('{%[a-z|A-Z|0-9|(-_~`!@#$%^&*()+=\\|/)]+}')
     variables_from_sentence = pattern.findall(sentence)
+    variables_from_sentence = [variable.replace('{%', "").replace('}', "") for variable in variables_from_sentence]
     return variables_from_sentence
 
 
@@ -473,38 +474,20 @@ def current_cheer_phrase(sentences: list, mission_status: str, mission_id: int, 
     if mission_status == 'ongoing':
         sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] in ["cert", "today_cert", "complete", "today_complete"]]
     elif mission_status == 'end':
-        sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] in ["default", "end"]]
+        sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] == "end"]
     else:  # mission_status in ["before_reserve", "reserve", "before_ongoing"]
-        sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] == "default"]
+        sentences_filtered_by_status: list = [sentence for sentence in sentences if sentence['condition'] in ["default", "before"]]
 
     for sentence in sentences_filtered_by_status:
         condition: str = sentence['condition']
         if sentence['value'] == get_value_of_cheer_phrase_variable(condition, mission_id, user_id, mission_repo):
             cheer_phrase = sentence['sentence']
-        # sentence['current_value'] = get_value_of_cheer_phrase_variable(condition, mission_id, user_id, mission_repo)
-
-        # if sentence['variable'] == 'cert':
-        # elif sentence['variable'] == 'today_cert':
-        #     result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
-        # elif sentence['variable'] == 'complete':  # 미션 전체 성공 여부
-        #     result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
-        # elif sentence['variable'] == 'today_complete':  # 금일 미션 성공 여부
-        #     result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
-        # if sentence['variable'] == 'default':  # 미션 시작 전 기본 문구
-            # result[variable] = get_value_of_cheer_phrase_variable(variable, mission_id, user_id, mission_repo)
-        # elif sentence['variable'] == 'end':
-        #     pass
-        # else:
-        #     pass
             variables_in_a_sentence: list = extract_variables_from_sentence(cheer_phrase)
-            # translated_variables: dict = {
-            #     variable: translate_variables(variable, mission_id, user_id, mission_repo)
-            #     for variable in variables_in_a_sentence
-            # }
+
             for variable in variables_in_a_sentence:
                 value = translate_variables(variable, mission_id, user_id, mission_repo)
-                cheer_phrase = cheer_phrase.replace(variable, value)
-                # cheer_phrase = cheer_phrase.replace(variable, translated_variables[variable])
+                cheer_phrase = cheer_phrase.replace(variable, str(value)) if value is not None else None
+                cheer_phrase = cheer_phrase.replace("{%", "").replace("}", "")
         else:
             pass
     return cheer_phrase
