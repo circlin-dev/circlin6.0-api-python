@@ -1,6 +1,6 @@
 from . import api
 from adapter.database import db_session
-from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, mission_playground_mappers, mission_notice_mappers, mission_rank_mappers, user_favorite_category_mappers
+from adapter.orm import feed_mappers, mission_mappers, mission_category_mappers, mission_comment_mappers, mission_playground_mappers, mission_notice_mappers, mission_rank_mappers, mission_stat_mappers, user_favorite_category_mappers
 from adapter.repository.feed import FeedRepository
 from adapter.repository.mission import MissionRepository
 
@@ -329,6 +329,39 @@ def mission_rank(mission_id: int):
         }
         db_session.close()
         return json.dumps(result, ensure_ascii=False), 200
+    else:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[405]} ({request.method})'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 405
+
+
+@api.route('/mission/<int:mission_id>/register', methods=['POST', 'DELETE'])
+def mission_register(mission_id: int):
+    user_id: [int, None] = authenticate(request, db_session)
+    if user_id is None:
+        db_session.close()
+        return json.dumps(failed_response(ERROR_RESPONSE[401]), ensure_ascii=False), 401
+
+    if mission_id is None:
+        db_session.close()
+        error_message = f'{ERROR_RESPONSE[400]} (mission_id).'
+        return json.dumps(failed_response(error_message), ensure_ascii=False), 400
+
+    if request.method == 'POST':
+        pass
+    elif request.method == 'DELETE':
+        mission_stat_mappers()
+        mission_stat_repo: MissionStatRepository = MissionStatRepository(db_session)
+        quit_mission = mission_service.quit_mission(mission_id, user_id, mission_stat_repo)
+        clear_mappers()
+        if quit_mission['result']:
+            db_session.commit()
+            db_session.close()
+            return json.dumps(quit_mission, ensure_ascii=False), 200
+        else:
+            return json.dumps({key: value for key, value in quit_mission.items() if key != 'status_code'}, ensure_ascii=False), quit_mission['status_code']
+
+
     else:
         db_session.close()
         error_message = f'{ERROR_RESPONSE[405]} ({request.method})'

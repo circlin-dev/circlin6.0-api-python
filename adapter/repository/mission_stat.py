@@ -2,12 +2,16 @@ from adapter.orm import missions, mission_stats, users
 from domain.mission import MissionStat
 
 import abc
-from sqlalchemy import case, exists, func, select
+from sqlalchemy import and_, case, exists, func, select, update
 
 
 class AbstractMissionStatRepository(abc.ABC):
     @abc.abstractmethod
     def get_one_excluding_ended(self, user_id: int, mission_id: int) -> int:
+        pass
+
+    @abc.abstractmethod
+    def delete(self, mission_id: int, user_id: int):
         pass
 
 
@@ -38,3 +42,15 @@ class MissionStatRepository(AbstractMissionStatRepository):
 
         result = self.session.execute(sql).scalar()  # True or None
         return True if result is True else False
+
+    def delete(self, mission_id: int, user_id: int):
+        sql = update(
+            MissionStat
+        ).where(
+            and_(
+                MissionStat.mission_id == mission_id,
+                MissionStat.user_id == user_id,
+                MissionStat.ended_at == None,
+            )
+        ).values(ended_at=func.now())
+        return self.session.execute(sql)
